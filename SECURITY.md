@@ -44,7 +44,7 @@ Unsafe paths, absolute paths, NUL bytes, and symbolic-link based escapes are rej
 
 ## Storage threat model
 
-The server currently performs encryption and decryption operations. Therefore, V3 is not a zero-knowledge or server-blind storage system.
+The server currently performs encryption and decryption operations. Therefore, V4 is not a zero-knowledge or server-blind storage system.
 
 Plaintext may exist transiently on the server during source extraction and restoration. Temporary locations are permission-restricted and subject to cleanup policies, but filesystem deletion on modern storage hardware should not be described as cryptographic secure erasure.
 

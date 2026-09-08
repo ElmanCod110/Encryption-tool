@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace SecurePackage\Project;
 
 use RuntimeException;
-use SecurePackage\Security\ProjectNameRegistry;
+use SecurePackage\Security\ProjectNameRegistryInterface;
 use SecurePackage\Security\Validator;
 use SecurePackage\Storage\FileStore;
 
@@ -13,7 +13,7 @@ final class PackageService
     public function __construct(
         private readonly PackageBuilder $builder,
         private readonly FileStore $store,
-        private readonly ?ProjectNameRegistry $registry = null
+        private readonly ?ProjectNameRegistryInterface $registry = null
     ) {}
 
     public function build(string $sourceDir, string $projectName, string $password, string $pattern): array

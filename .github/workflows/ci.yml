@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.2', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: sodium,zip
+          coverage: none
+      - name: Syntax check
+        run: find app bin public tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Self check
+        run: php bin/self-check.php
+      - name: Core tests
+        shell: bash
+        run: |
+          set -e
+          for test in tests/*.php; do php "$test"; done

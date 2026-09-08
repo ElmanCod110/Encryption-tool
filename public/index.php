@@ -13,67 +13,89 @@ $csrf = WebSecurity::csrfToken();
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Secure Package V3</title>
-<style>
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#182230;background:#edf3fa}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 10% 0%,#fff 0,#eef4fb 42%,#e4ecf6 100%)}main{max-width:1180px;margin:0 auto;padding:42px 22px 70px}.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:22px}.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:800;color:#527090}.hero h1{margin:5px 0 8px;font-size:42px;line-height:1}.hero p{margin:0;color:#647386;max-width:720px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.card{background:rgba(255,255,255,.72);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.86);box-shadow:0 22px 70px rgba(27,55,89,.11);border-radius:26px;padding:24px}.card h2{margin:0 0 8px}.muted{color:#68788a;font-size:14px}.field{margin-top:15px}.field label{display:block;font-weight:750;font-size:14px;margin:0 0 7px}.row{display:grid;grid-template-columns:1fr auto;gap:10px}.row input{min-width:0}input,button{width:100%;padding:13px 14px;border-radius:14px;border:1px solid #cbd7e5;font:inherit;background:rgba(255,255,255,.88)}input:focus{outline:3px solid rgba(43,112,215,.15);border-color:#6b9ade}button{margin-top:16px;border:0;color:#fff;background:#216bd4;font-weight:800;cursor:pointer;box-shadow:0 9px 22px rgba(33,107,212,.2)}button.secondary{background:#edf3fa;color:#24405f;box-shadow:none;border:1px solid #d5e0ec}.status{margin-top:20px}.statusbar{display:flex;gap:10px;align-items:center}.pill{display:inline-flex;align-items:center;padding:7px 11px;border-radius:999px;background:#e9f3ff;color:#1762c5;font-weight:800;font-size:13px}.ok{background:#eaf8f0;color:#137540}.danger{background:#fff0ef;color:#a03931}pre{white-space:pre-wrap;word-break:break-word;background:#0d1622;color:#dbe8f8;border-radius:16px;padding:16px;min-height:170px;max-height:340px;overflow:auto}.hidden{display:none}.notice{margin-top:18px;padding:14px 16px;border-radius:16px;background:#f7fafc;border:1px solid #e1e9f1;color:#586a7d;font-size:13px}.meter{margin-top:9px;height:8px;border-radius:999px;background:#e9eef4;overflow:hidden}.meter span{display:block;height:100%;width:0;background:#6a92c9;transition:width .2s}.links{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}.links a{color:#1762c5;font-weight:700;text-decoration:none}.tiny{font-size:12px;color:#8390a0}@media(max-width:820px){.grid{grid-template-columns:1fr}.hero{display:block}.hero h1{font-size:34px}.row{grid-template-columns:1fr}}
-</style>
+<meta name="csrf-token" content="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+<title>Secure Package</title>
+<link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
+<div class="ambient ambient-a"></div>
+<div class="ambient ambient-b"></div>
+<div class="app-shell">
+<header class="topbar glass">
+  <a class="brand" href="./">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 3 26 7v7c0 7-4.2 11.6-10 15-5.8-3.4-10-8-10-15V7l10-4Z"/><path d="m11.5 16 3 3 6-7"/></svg></span>
+    <span><b>Secure Package</b><small>Open-source encrypted package platform</small></span>
+  </a>
+  <div class="top-actions">
+    <span class="version-pill">V4</span>
+    <button class="ghost-button" id="authButton">Sign in</button>
+  </div>
+</header>
+
 <main>
 <section class="hero">
-<div>
-<div class="eyebrow">Open-source encrypted package system</div>
-<h1>Secure Package <span class="tiny">V3</span></h1>
-<p>Authenticated encryption, encrypted manifests, randomized package layout, recursive archive handling, staged restoration, and credential-derived keys.</p>
-</div>
+  <div class="hero-copy">
+    <span class="eyebrow"><span class="status-dot"></span> Privacy-first package workflow</span>
+    <h1>Protect complete projects, not just files.</h1>
+    <p>Build opaque encrypted packages from ZIP archives, keep filenames and directory relationships private, and restore only after authenticated credentials succeed.</p>
+    <div class="hero-badges">
+      <span>Argon2id</span><span>XChaCha20-Poly1305</span><span>Encrypted manifest</span><span>Resumable upload</span>
+    </div>
+  </div>
+  <div class="hero-orbit glass" aria-hidden="true">
+    <div class="orbit-ring ring-1"></div><div class="orbit-ring ring-2"></div>
+    <div class="core-shield"><svg viewBox="0 0 48 48"><path d="M24 4 39 10v10c0 10.2-6.1 17-15 23-8.9-6-15-12.8-15-23V10L24 4Z"/><path d="m17 24 5 5 10-12"/></svg></div>
+  </div>
 </section>
-<div class="grid">
-<section class="card">
-<h2>Create package</h2>
-<p class="muted">Upload a ZIP archive. Protected or nested archives are processed one stage at a time.</p>
-<div class="field"><label for="archive">Source ZIP archive</label><input id="archive" type="file" accept=".zip,application/zip"></div>
-<button id="uploadBtn">Upload and inspect</button>
-<div id="createArea" class="hidden">
-<div class="notice" id="archiveNotice">No protected archive is pending.</div>
-<div class="field"><label for="archivePassword">Archive password</label><input id="archivePassword" type="password" autocomplete="off"></div>
-<button id="stepBtn" class="secondary">Process pending archive</button>
-<div class="field"><label for="projectName">Unique project name</label><input id="projectName" type="text" maxlength="100" autocomplete="off"></div>
-<div class="field"><label for="password">Encryption password</label><input id="password" type="password" autocomplete="new-password"><div class="meter"><span id="passwordMeter"></span></div></div>
-<div class="field"><label for="pattern">Encryption pattern</label><input id="pattern" type="password" autocomplete="new-password"><div class="meter"><span id="patternMeter"></span></div></div>
-<button id="buildBtn">Build encrypted package</button>
-</div>
+
+<section class="workspace-grid">
+  <article class="panel glass span-2">
+    <div class="panel-heading"><div><span class="step-index">01</span><h2>Create an encrypted package</h2><p>Upload a ZIP and process protected archives stage by stage.</p></div><span class="mini-state" id="createState">Ready</span></div>
+    <div class="dropzone" id="dropzone">
+      <input id="archive" type="file" accept=".zip,application/zip" hidden>
+      <div class="upload-icon"><svg viewBox="0 0 32 32"><path d="M16 22V6"/><path d="m10 12 6-6 6 6"/><path d="M7 18v7h18v-7"/></svg></div>
+      <h3>Drop a ZIP archive here</h3>
+      <p>or <button class="inline-link" id="browseBtn" type="button">browse from your computer</button></p>
+      <small>Resumable uploads • protected ZIPs supported • staged extraction</small>
+      <div class="upload-progress hidden" id="uploadProgress"><div class="progress-line"><span id="uploadProgressBar"></span></div><div class="progress-meta"><span id="uploadProgressText">0%</span><span id="uploadProgressSize">0 / 0</span></div></div>
+    </div>
+    <div class="flow-grid hidden" id="createFlow">
+      <div class="field-card"><span>Archive status</span><strong id="archiveNotice">No archive pending</strong><button class="small-button" id="stepBtn" type="button">Enter archive password</button><input class="text-input hidden" id="archivePassword" type="password" autocomplete="off" placeholder="Archive password"></div>
+      <div class="field-card"><span>Unique package name</span><strong>Reserved permanently</strong><input class="text-input" id="projectName" maxlength="100" placeholder="e.g. Research Vault 01"></div>
+      <div class="field-card"><span>Encryption password</span><strong>Argon2id derived</strong><div class="secret-row"><input class="text-input" id="password" type="password" autocomplete="new-password" placeholder="Strong password"><button class="icon-button" id="showPassword" type="button" aria-label="Show password">◉</button></div><div class="strength"><span id="passwordStrength"></span></div></div>
+      <div class="field-card"><span>Encryption pattern</span><strong>High-entropy key input</strong><div class="secret-row"><input class="text-input" id="pattern" type="password" autocomplete="new-password" placeholder="High-entropy pattern"><button class="icon-button" id="showPattern" type="button" aria-label="Show pattern">◉</button></div><div class="strength"><span id="patternStrength"></span></div></div>
+    </div>
+    <div class="panel-footer hidden" id="buildFooter"><div><span class="security-note">Credentials are never written to the package.</span></div><button class="primary-button" id="buildBtn" type="button"><span>Build encrypted package</span><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button></div>
+  </article>
+
+  <article class="panel glass">
+    <div class="panel-heading"><div><span class="step-index">02</span><h2>Open a package</h2><p>Decrypt a package using its identifier and both secrets.</p></div></div>
+    <div class="stack-fields">
+      <label>Package ID<input class="text-input" id="packageId" maxlength="48" placeholder="48-character package ID"></label>
+      <label>Password<input class="text-input" id="decryptPassword" type="password" autocomplete="off" placeholder="Package password"></label>
+      <label>Pattern<input class="text-input" id="decryptPattern" type="password" autocomplete="off" placeholder="Package pattern"></label>
+    </div>
+    <button class="primary-button full" id="decryptBtn" type="button">Open package <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
+    <div class="callout"><span class="callout-icon">i</span><p>Credential failures are deliberately generic. The service does not reveal which secret failed.</p></div>
+  </article>
+
+  <article class="panel glass">
+    <div class="panel-heading"><div><span class="step-index">03</span><h2>Your packages</h2><p>Management is tied to your current identity.</p></div><button class="refresh-button" id="refreshPackages" type="button">Refresh</button></div>
+    <div id="packageList" class="package-list empty"><div class="empty-icon"><svg viewBox="0 0 32 32"><path d="M5 9h8l2 3h12v13H5z"/><path d="M5 9V7h9l2 2"/></svg></div><strong>No packages loaded</strong><span>Sign in or create a package to see managed items.</span></div>
+  </article>
 </section>
-<section class="card">
-<h2>Open package</h2>
-<p class="muted">Only the package identifier, password, and pattern are used to derive the decryption key.</p>
-<div class="field"><label for="packageId">Package ID</label><input id="packageId" type="text" inputmode="hexadecimal" maxlength="48" placeholder="48-character package ID"></div>
-<div class="field"><label for="decryptPassword">Password</label><input id="decryptPassword" type="password" autocomplete="off"></div>
-<div class="field"><label for="decryptPattern">Pattern</label><input id="decryptPattern" type="password" autocomplete="off"></div>
-<button id="decryptBtn">Open package</button>
-<div class="notice">Credential failures are intentionally reported generically. The server does not reveal whether the password or pattern was the failing input.</div>
-</section>
-</div>
-<section class="card status">
-<div class="statusbar"><span class="pill" id="statusPill">Ready</span><span class="tiny">Package operations are staged and temporary data is cleaned by TTL.</span></div>
-<pre id="log">Waiting for an operation.</pre>
-<div class="links" id="links"></div>
+
+<section class="bottom-grid">
+  <div class="status-panel glass"><div class="status-title"><span class="live-dot"></span><strong id="statusPill">System ready</strong></div><pre id="log">Upload a ZIP to begin.</pre></div>
+  <div class="architecture-panel glass"><div class="architecture-title"><strong>Security pipeline</strong><span>V4</span></div><div class="pipeline"><span>ZIP</span><i></i><span>Staging</span><i></i><span>Argon2id</span><i></i><span>AEAD</span><i></i><span>.spkg</span></div><p>Source paths are normalized before encryption. Package manifests and file blobs are authenticated independently.</p></div>
 </section>
 </main>
-<script>
-const csrf=<?php echo json_encode($csrf, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT); ?>;
-let jobId=null,pendingId=null;
-const $=id=>document.getElementById(id);
-const log=v=>$('log').textContent=typeof v==='string'?v:JSON.stringify(v,null,2);
-const status=v=>$('statusPill').textContent=v;
-const link=(label,url)=>{const a=document.createElement('a');a.href=url;a.textContent=label;a.target='_blank';a.rel='noopener';$('links').appendChild(a)};
-function meter(input,m){const v=input.value.length;$(m).style.width=Math.min(100,v*6)+'%';}
-$('password').addEventListener('input',()=>meter($('password'),'passwordMeter'));
-$('pattern').addEventListener('input',()=>meter($('pattern'),'patternMeter'));
-async function json(url,options={}){const r=await fetch(url,{...options,headers:{...(options.headers||{}),'X-CSRF-Token':csrf}});let d={};try{d=await r.json()}catch{}if(!r.ok||d.ok===false)throw new Error(d.error||'Request failed');return d;}
-$('uploadBtn').onclick=async()=>{try{const f=$('archive').files[0];if(!f)throw new Error('Select a ZIP archive.');$('links').replaceChildren();const fd=new FormData();fd.append('archive',f);const d=await json('api.php?action=upload',{method:'POST',body:fd});jobId=d.job_id;pendingId=d.state.pending[0]?.id||null;$('createArea').classList.remove('hidden');status(d.state.status);$('archiveNotice').textContent=pendingId?'A protected archive is waiting for a password.':'No protected archive is pending.';log(d.state)}catch(e){status('Error');log(e.message)}};
-$('stepBtn').onclick=async()=>{try{if(!jobId||!pendingId)throw new Error('No pending archive.');const d=await json('api.php?action=archive-step',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:jobId,archive_id:pendingId,password:$('archivePassword').value})});pendingId=d.state.pending[0]?.id||null;$('archivePassword').value='';$('archiveNotice').textContent=pendingId?'Another protected archive is waiting for a password.':'All archives are processed.';status(d.state.status);log(d.state)}catch(e){status('Archive step failed');log(e.message)}};
-$('buildBtn').onclick=async()=>{try{if(!jobId)throw new Error('Upload and process an archive first.');const d=await json('api.php?action=build',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:jobId,project_name:$('projectName').value,password:$('password').value,pattern:$('pattern').value})});status('Package created');log(d);$('password').value='';$('pattern').value='';if(d.download)link('Download encrypted package',d.download); }catch(e){status('Build failed');log(e.message)}};
-$('decryptBtn').onclick=async()=>{try{const d=await json('api.php?action=decrypt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({package_id:$('packageId').value,password:$('decryptPassword').value,pattern:$('decryptPattern').value})});status('Package opened');log(d);if(d.restore_download)link('Download restored files',d.restore_download);$('decryptPassword').value='';$('decryptPattern').value='';}catch(e){status('Unable to open package');log(e.message)}};
-</script>
+
+<footer><span>Secure Package · Author: ElmanCod110</span><span>Open source · Security should not depend on source-code secrecy.</span></footer>
+</div>
+
+<div class="modal hidden" id="authModal"><div class="modal-card glass"><button class="modal-close" id="closeAuth" type="button">×</button><div class="modal-logo"><svg viewBox="0 0 40 40"><path d="M20 4 33 9v9c0 8.8-5.3 14.7-13 19-7.7-4.3-13-10.2-13-19V9L20 4Z"/><path d="m14 20 4 4 8-9"/></svg></div><h2 id="authTitle">Sign in</h2><p id="authSubtitle">Manage packages and revoke access from one identity.</p><div class="auth-tabs"><button class="active" id="loginTab">Sign in</button><button id="registerTab">Create account</button></div><label>Username<input class="text-input" id="authUsername" autocomplete="username"></label><label>Password<input class="text-input" id="authPassword" type="password" autocomplete="current-password"></label><button class="primary-button full" id="authSubmit">Sign in</button><button class="text-button" id="logoutButton" type="button">Sign out current session</button></div></div>
+
+<script src="assets/app.js" defer></script>
 </body>
 </html>
