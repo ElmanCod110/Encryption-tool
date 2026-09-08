@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Project;
+namespace SecurePackage\Project;
 
 use RuntimeException;
-use TCH\Security\ProjectNameRegistry;
-use TCH\Security\Validator;
-use TCH\Storage\FileStore;
+use SecurePackage\Security\ProjectNameRegistry;
+use SecurePackage\Security\Validator;
+use SecurePackage\Storage\FileStore;
 
 final class PackageService
 {
@@ -29,7 +29,7 @@ final class PackageService
         $packageId = PackageId::generate();
         $packageDir = $this->store->createPackageDirectory($packageId);
         try {
-            $stats = $this->builder->build($sourceDir, $packageDir, $password, $pattern);
+            $stats = $this->builder->build($sourceDir, $packageDir, $password, $pattern, $packageId);
             return ['package_id' => $packageId, 'package_dir' => $packageDir, 'stats' => $stats];
         } catch (\Throwable $e) {
             $this->removeDirectory($packageDir);

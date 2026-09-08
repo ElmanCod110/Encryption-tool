@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Project;
+namespace SecurePackage\Project;
 
 use RuntimeException;
 use ZipArchive;
@@ -14,8 +14,10 @@ final class PackageArchive
         if (!is_dir($packageDir)) {
             throw new RuntimeException('Package directory does not exist.');
         }
+        $tmpOutput = $outputFile . '.partial.' . bin2hex(random_bytes(12));
         $zip = new ZipArchive();
-        if ($zip->open($outputFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        if ($zip->open($tmpOutput, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            @unlink($tmpOutput);
             throw new RuntimeException('Unable to create package archive.');
         }
         try {
@@ -34,12 +36,17 @@ final class PackageArchive
                 if (!$zip->addFile($path, $relative)) {
                     throw new RuntimeException('Unable to add package file to archive.');
                 }
+                $zip->setCompressionName($relative, ZipArchive::CM_STORE);
             }
             if (!$zip->close()) {
                 throw new RuntimeException('Unable to finalize package archive.');
             }
+            if (!rename($tmpOutput, $outputFile)) {
+                throw new RuntimeException('Unable to finalize package archive.');
+            }
         } catch (\Throwable $e) {
-            $zip->close();
+            @$zip->close();
+            @unlink($tmpOutput);
             @unlink($outputFile);
             throw $e;
         }
@@ -55,10 +62,13 @@ final class PackageArchive
         $zip = new ZipArchive();
         if ($zip->open($archiveFile) !== true) throw new RuntimeException('Unable to open package archive.');
         try {
-            if ($zip->numFiles > 1024) throw new RuntimeException('Package archive is invalid.');
+            if ($zip->numFiles > 2048) throw new RuntimeException('Package archive is invalid.');
+            $totalUncompressed = 0;
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $stat = $zip->statIndex($i, ZipArchive::FL_UNCHANGED);
                 if ($stat === false) throw new RuntimeException('Package archive is invalid.');
+                $totalUncompressed += (int) ($stat['size'] ?? 0);
+                if ($totalUncompressed > 8 * 1024 * 1024 * 1024) throw new RuntimeException('Package archive is invalid.');
                 $name = str_replace('\\', '/', (string) ($stat['name'] ?? ''));
                 if ($name === '' || str_starts_with($name, '/') || preg_match('/^[A-Za-z]:\//', $name) === 1 || str_contains($name, "\0") || preg_match('#(?:^|/)\.\.(?:/|$)#', $name)) {
                     throw new RuntimeException('Package archive contains an unsafe path.');

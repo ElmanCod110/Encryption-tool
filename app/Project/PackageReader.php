@@ -1,16 +1,18 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Project;
+namespace SecurePackage\Project;
 
 use RuntimeException;
-use TCH\Crypto\CryptoEngine;
-use TCH\Crypto\KeyDerivation;
+use SecurePackage\Crypto\CryptoEngine;
+use SecurePackage\Crypto\KeyDerivation;
+use SecurePackage\Security\Validator;
 
 final class PackageReader
 {
     public function restore(string $packageDir, string $destinationDir, string $password, string $pattern): array
     {
+        $header = (new PackageVerifier())->assertPackageDirectory($packageDir);
         $headerPath = $packageDir . DIRECTORY_SEPARATOR . 'header.json';
         $manifestPath = $packageDir . DIRECTORY_SEPARATOR . 'manifest.enc';
         if (!is_file($headerPath) || !is_file($manifestPath)) {
@@ -18,7 +20,7 @@ final class PackageReader
         }
 
         $header = json_decode((string) file_get_contents($headerPath), true, 64, JSON_THROW_ON_ERROR);
-        if (($header['format'] ?? null) !== 'TCH-PKG-V2' || (int) ($header['version'] ?? 0) !== 2) {
+        if (($header['format'] ?? null) !== 'SECURE-PKG-V3' || (int) ($header['version'] ?? 0) !== 3 || !preg_match('/^[a-f0-9]{48}$/', (string) ($header['package_id'] ?? ''))) {
             throw new RuntimeException('Unable to open package.');
         }
         $salt = base64_decode((string) ($header['salt'] ?? ''), true);
@@ -26,7 +28,9 @@ final class PackageReader
             throw new RuntimeException('Unable to open package.');
         }
 
-        $master = KeyDerivation::deriveMasterKey($password, $pattern, $salt);
+        Validator::validatePassword($password);
+        Validator::validatePattern($pattern);
+        $master = KeyDerivation::deriveMasterKey($password, $pattern, $salt, (int) ($header['kdf']['ops'] ?? SODIUM_CRYPTO_PWHASH_OPSLIMIT_MODERATE), (int) ($header['kdf']['mem'] ?? SODIUM_CRYPTO_PWHASH_MEMLIMIT_MODERATE));
         $manifestKey = KeyDerivation::deriveSubkey($master, 'manifest', $salt);
         $filenameKey = KeyDerivation::deriveSubkey($master, 'filename', $salt);
         $fileKeyRoot = KeyDerivation::deriveSubkey($master, 'files', $salt);
@@ -35,13 +39,14 @@ final class PackageReader
         $paths = [];
         $seenIds = [];
         $seenPaths = [];
+        $referencedBlobs = [];
         try {
-            $manifestJson = CryptoEngine::decryptString((string) file_get_contents($manifestPath), $manifestKey, 'manifest|2');
+            $manifestJson = CryptoEngine::decryptString((string) file_get_contents($manifestPath), $manifestKey, 'manifest|3');
             $manifest = json_decode($manifestJson, true, 64, JSON_THROW_ON_ERROR);
-            if (($manifest['version'] ?? null) !== 2 || !isset($manifest['nodes']) || !is_array($manifest['nodes'])) {
+            if (($manifest['version'] ?? null) !== 3 || ($manifest['format'] ?? null) !== 'SECURE-PKG-V3' || ($manifest['schema'] ?? null) !== 1 || !isset($manifest['nodes']) || !is_array($manifest['nodes'])) {
                 throw new RuntimeException('Unable to open package.');
             }
-            if (count($manifest['nodes']) > 100000) {
+            if (count($manifest['nodes']) > 100000 || (int) ($manifest['node_count'] ?? -1) !== count($manifest['nodes'])) {
                 throw new RuntimeException('Package manifest exceeds limits.');
             }
 
@@ -93,17 +98,26 @@ final class PackageReader
                 if (!preg_match('/^[a-f0-9]{48}\.bin$/', $blob)) {
                     throw new RuntimeException('Unable to open package.');
                 }
+                $referencedBlobs[$blob] = true;
                 $blobPath = $packageDir . DIRECTORY_SEPARATOR . 'blobs' . DIRECTORY_SEPARATOR . $blob;
                 if (!is_file($blobPath)) {
                     throw new RuntimeException('Unable to open package.');
                 }
                 $fileKey = KeyDerivation::deriveFileKey($fileKeyRoot, $id);
-                CryptoEngine::decryptFile($blobPath, $target, $fileKey, 'file|' . $id . '|v2', (int) ($node['size'] ?? -1));
-                $paths[$id] = $target;
+                CryptoEngine::decryptFile($blobPath, $target, $fileKey, 'file|' . $id . '|v3', (int) ($node['size'] ?? -1));
                 sodium_memzero($fileKey);
+                $paths[$id] = $target;
             }
 
-            return ['nodes' => count($manifest['nodes'])];
+            $blobEntries = array_values(array_filter(scandir($packageDir . DIRECTORY_SEPARATOR . 'blobs') ?: [], static fn(string $entry): bool => $entry !== '.' && $entry !== '..'));
+            sort($blobEntries);
+            $referenced = array_keys($referencedBlobs);
+            sort($referenced);
+            if ($blobEntries !== $referenced) {
+                throw new RuntimeException('Unable to open package.');
+            }
+
+            return ['nodes' => count($manifest['nodes']), 'files' => count($referencedBlobs)];
         } catch (\Throwable $e) {
             if ($created) {
                 $this->removeDirectory($destinationDir);
@@ -125,7 +139,17 @@ final class PackageReader
         if (preg_match('/^[. ]+$/u', $name) === 1) {
             throw new RuntimeException('Unable to open package.');
         }
-        if (preg_match('/[\x00-\x1F\x7F]/u', $name) === 1) {
+        if (preg_match('/[\x00-\x1F\x7F:\/]/u', $name) === 1) {
+            throw new RuntimeException('Unable to open package.');
+        }
+        if (str_ends_with($name, ' ') || str_ends_with($name, '.')) {
+            throw new RuntimeException('Unable to open package.');
+        }
+        $device = strtoupper($name);
+        if (preg_match('/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i', $device) === 1) {
+            throw new RuntimeException('Unable to open package.');
+        }
+        if (preg_match('/^[.]+$/u', $name) === 1) {
             throw new RuntimeException('Unable to open package.');
         }
     }

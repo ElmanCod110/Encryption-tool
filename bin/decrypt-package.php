@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use TCH\Project\PackageArchive;
-use TCH\Project\PackageReader;
-use TCH\Security\Validator;
+use SecurePackage\Project\PackageArchive;
+use SecurePackage\Project\PackageReader;
+use SecurePackage\Security\Validator;
 
 if ($argc !== 4) {
-    fwrite(STDERR, "Usage: php decrypt-package.php <package-dir-or-tchpkg> <output-dir> <password>\n");
+    fwrite(STDERR, "Usage: php decrypt-package.php <package-dir-or-spkg> <output-dir> <password>\n");
     exit(1);
 }
 
 [, $package, $output, $password] = $argv;
-$pattern = getenv('TCH_PATTERN') ?: '';
+$pattern = getenv('SPK_PATTERN') ?: '';
 $temp = null;
 try {
     Validator::validatePassword($password);
     Validator::validatePattern($pattern);
-    if (is_file($package) && preg_match('/\.tchpkg$/i', $package)) {
-        $temp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tch-package-' . bin2hex(random_bytes(12));
+    if (is_file($package) && preg_match('/\.spkg$/i', $package)) {
+        $temp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'secure-package-' . bin2hex(random_bytes(12));
         (new PackageArchive())->extract($package, $temp);
         $package = $temp;
     }

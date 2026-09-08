@@ -3,13 +3,15 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use TCH\Api\JsonResponse;
-use TCH\Api\PackageController;
-use TCH\Archive\ArchivePolicy;
-use TCH\Archive\ArchiveWorkflow;
-use TCH\Security\RateLimiter;
-use TCH\Security\WebSecurity;
-use TCH\Storage\JobStore;
+use SecurePackage\Security\WebSecurity;
+WebSecurity::applyHeaders();
+
+use SecurePackage\Api\JsonResponse;
+use SecurePackage\Api\PackageController;
+use SecurePackage\Archive\ArchivePolicy;
+use SecurePackage\Archive\ArchiveWorkflow;
+use SecurePackage\Security\RateLimiter;
+use SecurePackage\Storage\JobStore;
 
 $config = require dirname(__DIR__) . '/config/config.php';
 WebSecurity::startSession();

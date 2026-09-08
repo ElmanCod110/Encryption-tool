@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use TCH\Crypto\KeyDerivation;
-use TCH\Security\Validator;
+use SecurePackage\Crypto\KeyDerivation;
+use SecurePackage\Security\Validator;
 
 $salt = random_bytes(32);
 $a = KeyDerivation::deriveMasterKey('Strong!Password2026', 'gggggggggggA!', $salt);

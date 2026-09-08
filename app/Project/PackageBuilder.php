@@ -1,20 +1,22 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Project;
+namespace SecurePackage\Project;
 
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
-use TCH\Crypto\CryptoEngine;
-use TCH\Crypto\KeyDerivation;
+use SecurePackage\Crypto\CryptoEngine;
+use SecurePackage\Crypto\KeyDerivation;
 
 final class PackageBuilder
 {
-    public function build(string $sourceDir, string $packageDir, string $password, string $pattern): array
+    public function build(string $sourceDir, string $packageDir, string $password, string $pattern, ?string $packageId = null): array
     {
         $sourceDir = $this->canonicalDirectory($sourceDir);
+        $packageId ??= PackageId::generate();
+        PackageId::assert($packageId);
         $this->preparePackageDirectory($packageDir);
 
         $salt = random_bytes(KeyDerivation::SALT_BYTES);
@@ -67,16 +69,18 @@ final class PackageBuilder
                 $blobId = bin2hex(random_bytes(24)) . '.bin';
                 $fileKey = KeyDerivation::deriveFileKey($fileKeyRoot, $id);
                 $destination = $packageDir . DIRECTORY_SEPARATOR . 'blobs' . DIRECTORY_SEPARATOR . $blobId;
-                CryptoEngine::encryptFile($entry->getPathname(), $destination, $fileKey, 'file|' . $id . '|v2', (int) $entry->getSize());
+                CryptoEngine::encryptFile($entry->getPathname(), $destination, $fileKey, 'file|' . $id . '|v3', (int) $entry->getSize());
                 $manifest->addFile($id, $parentId, $encryptedName, $blobId, (int) $entry->getSize());
+                sodium_memzero($fileKey);
             }
 
-            $manifestPayload = CryptoEngine::encryptString($manifest->toJson(), $manifestKey, 'manifest|2');
+            $manifestPayload = CryptoEngine::encryptString($manifest->toJson(), $manifestKey, 'manifest|3');
             $this->writeAtomic($packageDir . DIRECTORY_SEPARATOR . 'manifest.enc', $manifestPayload);
 
             $header = [
-                'format' => 'TCH-PKG-V2',
-                'version' => 2,
+                'format' => 'SECURE-PKG-V3',
+                'version' => 3,
+                'package_id' => $packageId,
                 'kdf' => [
                     'name' => 'argon2id',
                     'salt_bytes' => KeyDerivation::SALT_BYTES,
@@ -95,7 +99,8 @@ final class PackageBuilder
             );
 
             return [
-                'format' => 'TCH-PKG-V2',
+                'format' => 'SECURE-PKG-V3',
+                'package_id' => $packageId,
                 'nodes' => $manifest->count(),
                 'salt' => base64_encode($salt),
             ];
@@ -136,9 +141,17 @@ final class PackageBuilder
     private function preparePackageDirectory(string $packageDir): void
     {
         if (file_exists($packageDir)) {
-            throw new RuntimeException('Package directory already exists.');
+            if (!is_dir($packageDir)) {
+                throw new RuntimeException('Package destination is invalid.');
+            }
+            $entries = scandir($packageDir);
+            if ($entries === false || count(array_diff($entries, ['.', '..'])) !== 0) {
+                throw new RuntimeException('Package directory must be empty.');
+            }
+        } elseif (!mkdir($packageDir, 0700, true)) {
+            throw new RuntimeException('Unable to initialize package directory.');
         }
-        if (!mkdir($packageDir, 0700, true) || !mkdir($packageDir . DIRECTORY_SEPARATOR . 'blobs', 0700, true)) {
+        if (!mkdir($packageDir . DIRECTORY_SEPARATOR . 'blobs', 0700, true)) {
             throw new RuntimeException('Unable to initialize package directory.');
         }
     }

@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use TCH\Crypto\CryptoEngine;
-use TCH\Crypto\KeyDerivation;
-use TCH\Project\PackageBuilder;
-use TCH\Project\PackageReader;
+use SecurePackage\Crypto\CryptoEngine;
+use SecurePackage\Crypto\KeyDerivation;
+use SecurePackage\Project\PackageBuilder;
+use SecurePackage\Project\PackageReader;
 
-$root = sys_get_temp_dir() . '/tch-tamper-test-' . bin2hex(random_bytes(6));
+$root = sys_get_temp_dir() . '/securepkg-tamper-test-' . bin2hex(random_bytes(6));
 $source = $root . '/source';
 $package = $root . '/package';
 mkdir($source, 0700, true);

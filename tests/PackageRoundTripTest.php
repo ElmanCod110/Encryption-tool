@@ -3,17 +3,17 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use TCH\Project\PackageBuilder;
-use TCH\Project\PackageReader;
+use SecurePackage\Project\PackageBuilder;
+use SecurePackage\Project\PackageReader;
 
-$root = sys_get_temp_dir() . '/tch-pkg-test-' . bin2hex(random_bytes(6));
+$root = sys_get_temp_dir() . '/securepkg-pkg-test-' . bin2hex(random_bytes(6));
 $source = $root . '/source';
 $package = $root . '/package';
 $restored = $root . '/restored';
 mkdir($source . '/FOLD1/deep', 0700, true);
 mkdir($source . '/FOLD2', 0700, true);
-file_put_contents($source . '/FOLD1/text.txt', "Unicode: پروژه TCH\n" . random_bytes(777));
-file_put_contents($source . '/FOLD1/index.php', "<?php echo 'TCH';\n" . random_bytes(2048));
+file_put_contents($source . '/FOLD1/text.txt', "Unicode: پروژه SecurePackage\n" . random_bytes(777));
+file_put_contents($source . '/FOLD1/index.php', "<?php echo 'SecurePackage';\n" . random_bytes(2048));
 file_put_contents($source . '/FOLD1/deep/empty.bin', '');
 file_put_contents($source . '/FOLD2/file.sql', random_bytes(3 * 1024 * 1024 + 17));
 

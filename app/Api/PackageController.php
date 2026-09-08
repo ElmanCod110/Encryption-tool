@@ -1,22 +1,24 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Api;
+namespace SecurePackage\Api;
 
 use RuntimeException;
-use TCH\Archive\ArchivePolicy;
-use TCH\Archive\ArchiveWorkflow;
-use TCH\Crypto\KeyDerivation;
-use TCH\Project\PackageReader;
-use TCH\Project\PackageArchive;
-use TCH\Project\PackageService;
-use TCH\Security\ProjectNameRegistry;
-use TCH\Security\FileProjectNameRegistry;
-use TCH\Security\RateLimiter;
-use TCH\Security\Validator;
-use TCH\Security\WebSecurity;
-use TCH\Storage\FileStore;
-use TCH\Storage\JobStore;
+use SecurePackage\Archive\ArchivePolicy;
+use SecurePackage\Archive\ArchiveWorkflow;
+use SecurePackage\Crypto\KeyDerivation;
+use SecurePackage\Project\PackageReader;
+use SecurePackage\Project\PackageArchive;
+use SecurePackage\Project\PackageService;
+use SecurePackage\Security\ProjectNameRegistry;
+use SecurePackage\Security\FileProjectNameRegistry;
+use SecurePackage\Security\RateLimiter;
+use SecurePackage\Security\RestoreTokenStore;
+use SecurePackage\Project\RestoreArchive;
+use SecurePackage\Security\Validator;
+use SecurePackage\Security\WebSecurity;
+use SecurePackage\Storage\FileStore;
+use SecurePackage\Storage\JobStore;
 
 final class PackageController
 {
@@ -106,7 +108,7 @@ final class PackageController
 
             $service = $this->makePackageService();
             $result = $service->build($this->archives->sourceDirectory($jobId), $name, $password, $pattern);
-            $portableFile = $result['package_dir'] . '.tchpkg';
+            $portableFile = $result['package_dir'] . '.spkg';
             (new PackageArchive())->create($result['package_dir'], $portableFile);
             $this->writePackageRecord($result['package_id'], $name, $portableFile);
             sodium_memzero($password);
@@ -115,7 +117,7 @@ final class PackageController
         } catch (\Throwable $e) {
             sodium_memzero($password);
             sodium_memzero($pattern);
-            JsonResponse::send(['ok' => false, 'error' => $e->getMessage()], 422);
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
         }
     }
 
@@ -126,7 +128,7 @@ final class PackageController
         $packageId = (string) ($input['package_id'] ?? '');
         $password = (string) ($input['password'] ?? '');
         $pattern = (string) ($input['pattern'] ?? '');
-        if (!preg_match('/^[a-f0-9]{36}$/', $packageId)) {
+        if (!preg_match('/^[a-f0-9]{48}$/', $packageId)) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 404);
         }
         $rateKey = 'package:' . $packageId . ':' . hash('sha256', WebSecurity::ownerToken());
@@ -141,10 +143,12 @@ final class PackageController
             $packageDir = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
             $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
             $result = (new PackageReader())->restore($packageDir, $outputDir, $password, $pattern);
+            $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
+            $restoreToken = $tokenStore->issue($outputDir);
             $this->rateLimiter->success($rateKey);
             sodium_memzero($password);
             sodium_memzero($pattern);
-            JsonResponse::send(['ok' => true, 'restore_token' => basename($outputDir), 'stats' => $result]);
+            JsonResponse::send(['ok' => true, 'restore_token' => $restoreToken, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
         } catch (\Throwable) {
             $this->rateLimiter->failure($rateKey);
             sodium_memzero($password);
@@ -159,7 +163,7 @@ final class PackageController
         $root = $this->config['storage']['packages'];
         $record = [
             'package_id' => $packageId,
-            'name_hash' => hash('sha256', $name),
+            'name_hash' => hash_hmac('sha256', trim($name), (string) (getenv('SPK_NAME_PEPPER') ?: 'record-key')),
             'file' => basename($portableFile),
         ];
         file_put_contents($root . DIRECTORY_SEPARATOR . $packageId . DIRECTORY_SEPARATOR . 'record.json', json_encode($record, JSON_THROW_ON_ERROR), LOCK_EX);
@@ -169,23 +173,23 @@ final class PackageController
     private function makePackageService(): PackageService
     {
         $registry = null;
-        $dsn = getenv('TCH_DB_DSN') ?: '';
+        $dsn = getenv('SPK_DB_DSN') ?: '';
         if ($dsn !== '') {
-            $pdo = new \PDO($dsn, getenv('TCH_DB_USER') ?: null, getenv('TCH_DB_PASS') ?: null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
-            $pepper = getenv('TCH_NAME_PEPPER') ?: '';
+            $pdo = new \PDO($dsn, getenv('SPK_DB_USER') ?: null, getenv('SPK_DB_PASS') ?: null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+            $pepper = getenv('SPK_NAME_PEPPER') ?: '';
             if ($pepper === '') {
-                throw new RuntimeException('TCH_NAME_PEPPER is required when database name reservations are enabled.');
+                throw new RuntimeException('SPK_NAME_PEPPER is required when database name reservations are enabled.');
             }
             $registry = new ProjectNameRegistry($pdo, $pepper);
         }
         if ($registry === null) {
-            $pepper = getenv('TCH_NAME_PEPPER') ?: '';
+            $pepper = getenv('SPK_NAME_PEPPER') ?: '';
             if ($pepper === '') {
-                throw new RuntimeException('TCH_NAME_PEPPER must be configured.');
+                throw new RuntimeException('SPK_NAME_PEPPER must be configured.');
             }
             $registry = new FileProjectNameRegistry($this->config['storage']['root'] . DIRECTORY_SEPARATOR . 'reserved-names.db', $pepper);
         }
         $store = new FileStore($this->config['storage']['packages']);
-        return new PackageService(new \TCH\Project\PackageBuilder(), $store, $registry);
+        return new PackageService(new \SecurePackage\Project\PackageBuilder(), $store, $registry);
     }
 }

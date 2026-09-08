@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use TCH\Crypto\CryptoEngine;
-use TCH\Crypto\KeyDerivation;
+use SecurePackage\Crypto\CryptoEngine;
+use SecurePackage\Crypto\KeyDerivation;
 
-$root = sys_get_temp_dir() . '/tch-test-' . bin2hex(random_bytes(6));
+$root = sys_get_temp_dir() . '/securepkg-test-' . bin2hex(random_bytes(6));
 mkdir($root, 0700, true);
 $source = $root . '/source.bin';
 $encrypted = $root . '/encrypted.bin';

@@ -1,5 +1,7 @@
-/storage/packages/*
-/storage/temp/*
-!storage/packages/.gitkeep
-!storage/temp/.gitkeep
 .env
+storage/*
+!storage/.gitkeep
+*.spkg
+*.partial.*
+.phpunit.result.cache
+vendor/

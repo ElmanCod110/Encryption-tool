@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Security;
+namespace SecurePackage\Security;
 
 use RuntimeException;
 

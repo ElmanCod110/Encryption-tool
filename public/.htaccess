@@ -1,15 +1,7 @@
 Options -Indexes
-
-<IfModule mod_authz_core.c>
-    <DirectoryMatch ".*/(app|config|storage|tests|bin)(/|$)">
-        Require all denied
-    </DirectoryMatch>
-</IfModule>
-
-<FilesMatch "^(composer\.json|composer\.lock|\.env.*|.*\.log|.*\.sql|.*\.md)$">
+<FilesMatch "\.(bak|conf|dist|env|ini|log|sql|md|phar|partial)$">
     Require all denied
 </FilesMatch>
-
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "no-referrer"

@@ -1,53 +1,225 @@
-# TCH Secure Package V2
+# Secure Package V3
 
-TCH Secure Package V2 is a public-source PHP package encryption system designed around standard cryptography, authenticated encryption, key separation, encrypted manifests, randomized identifiers, safe archive processing, and strict failure handling.
+Secure Package is an open-source PHP system for turning complete directory trees into portable encrypted packages.
 
-## Security model
+**Author:** ElmanCod110  
+**Current format:** `SECURE-PKG-V3`  
+**Package extension:** `.spkg`
 
-The source code is intentionally public. No security property depends on hiding the algorithm.
+## What it does
 
-The effective secret is derived from both the encryption password and the encryption pattern through independent Argon2id operations followed by a dedicated key-combination step. A one-character pattern change produces a completely unrelated master key.
+Secure Package accepts a source directory or ZIP-driven workflow and produces a package whose file contents, filenames, and logical directory relationships are protected by authenticated encryption.
 
-The system uses XChaCha20-Poly1305 for authenticated metadata and SecretStream XChaCha20-Poly1305 for large files. Each file receives a dedicated subkey. Names and the manifest use separate subkeys.
+The V3 workflow adds stronger package validation, bounded KDF parameters, one-time restore tokens, staged archive handling, atomic package creation, safer web headers, improved rate limiting, and additional security regression tests.
+
+## Architecture
+
+```text
+Source ZIP
+    |
+    v
+Archive Scanner
+    |
+    +--> Protected archive? --> Password step
+    |
+    v
+Safe staged extraction
+    |
+    v
+Project validation
+    |
+    +--> Password ----> Argon2id --+
+    |                               |
+    +--> Pattern ----> Argon2id ----+--> Master key
+                                    |
+                 +------------------+------------------+
+                 |                  |                  |
+                 v                  v                  v
+          Manifest key       Filename key        File root key
+                 |                  |                  |
+                 v                  v                  v
+          Encrypted map      Encrypted names      Per-file keys
+                 |                                     |
+                 +----------------------+--------------+
+                                        v
+                                  Encrypted blobs
+                                        |
+                                        v
+                                  Encrypted manifest
+                                        |
+                                        v
+                                   Portable .spkg
+```
+
+## Cryptographic design
+
+The project deliberately uses public, standard cryptographic primitives. The security model does not depend on hiding the implementation.
+
+### Key derivation
+
+Password and pattern are independently processed with Argon2id using package-specific salts. The derived material is combined and expanded into purpose-specific subkeys.
+
+A one-character pattern change results in a different cryptographic key stream rather than a small modification of the previous key.
+
+### Authenticated encryption
+
+- XChaCha20-Poly1305 for encrypted metadata and compact records.
+- XChaCha20-Poly1305 SecretStream for large file content.
+- Independent file keys derived from the per-package file key root.
+- Fresh cryptographic randomness for package and file encryption operations.
+- Authentication failures never produce trusted plaintext.
+
+### Key separation
+
+Separate key material is derived for:
+
+- Manifest encryption
+- Filename encryption
+- File encryption
+
+This prevents one primitive's role from becoming another primitive's key source.
 
 ## Package privacy
 
-A `.tchpkg` archive contains only the encrypted package header, encrypted manifest, and randomly named encrypted blobs. Original paths, filenames, file contents, and directory relationships are not stored in plaintext.
+A portable `.spkg` package does not store original directory names or paths in plaintext.
 
-File contents are padded to fixed 1 MiB boundaries before streaming encryption. This reduces exact plaintext file-size leakage, although package size and padded size remain observable.
+The package contains an opaque structure built from:
 
-## Archive workflow
+```text
+header.json
+manifest.enc
+blobs/<random-id>.bin
+```
 
-ZIP uploads are inspected and processed through a job-based workflow. Password-protected archives remain pending until the user supplies a password. Nested ZIP files are queued independently and can require their own passwords.
+The manifest is encrypted and authenticated, while blob names are random identifiers.
 
-Archive extraction defends against path traversal, absolute paths, symbolic links, excessive depth, excessive entry count, excessive total output size, and excessive per-file size.
+The project name used by the management layer is not embedded into the portable package.
 
-Extraction is staged so a failed archive password or corrupted archive does not leave a partially committed result.
+## File size handling
 
-## Web application
+Large files are processed as streams instead of being loaded into memory as a whole.
 
-The `public/` directory contains a minimal English web interface and JSON API:
+Plaintext data is padded to configurable block boundaries before streaming encryption to reduce exact file-size leakage. Padding reduces leakage but does not hide the total package size.
 
-- `index.php` provides upload, archive password handling, package creation, and package opening controls.
-- `api.php` exposes CSRF-protected actions.
-- `download.php` serves the portable encrypted `.tchpkg` file.
+## Archive security
 
-Use `public/` as the web server document root. Do not expose `app/`, `config/`, or `storage/` directly.
+The archive workflow is bounded and staged.
 
-## Runtime requirements
+It protects against common archive abuse such as:
 
-- PHP 8.2+.
-- Sodium extension.
-- Zip extension for ZIP processing and `.tchpkg` creation.
-- PDO MySQL is optional. When it is not configured, project-name reservations use the file registry.
+- Path traversal
+- Absolute paths
+- NUL bytes and unsafe entry names
+- Symbolic-link based escapes
+- Excessive entry count
+- Excessive decompressed output
+- Oversized individual files
+- Excessive nested archive depth
+- Excessive nested archive count
+- Partial extraction left behind after failure
+
+Nested password-protected archives are processed independently.
+
+## Web security
+
+The web layer includes:
+
+- Strict session cookies
+- CSRF tokens for state-changing requests
+- SameSite protection
+- Strict session mode
+- Security response headers
+- Content Security Policy
+- Generic package-open failures
+- File-backed rate limiting with locking
+- One-time, expiring restore tokens
+- No-store caching for sensitive responses
+
+## Restore flow
+
+A successful server-side decryption creates a short-lived private restore directory and issues a random restore token.
+
+The token is one-time and expires automatically. Downloading the restored result creates a ZIP and streams it to the client.
+
+> V3 still performs decryption on the server. It is not a zero-knowledge or server-blind design.
+
+## Project-name reservation
+
+Project names are normalized for Unicode and case handling before being hashed with a server-side pepper.
+
+Names can be reserved through either:
+
+- A file-backed registry for simple deployments
+- A MySQL-backed registry for multi-process deployments
+
+A reserved name is intended to remain unavailable even if its associated package is later removed.
+
+## Requirements
+
+- PHP 8.2 or newer
+- `sodium` extension
+- `zip` extension for ZIP input and `.spkg` creation
+- PDO MySQL is optional
+- UTF-8 capable filesystem and database settings are recommended
+
+## Installation
+
+Clone or copy the repository and expose only `public/` through the web server.
+
+For XAMPP, a local layout can be:
+
+```text
+C:\xampp\htdocs\secure-package-v3\
+    app\
+    bin\
+    config\
+    public\
+    storage\
+    tests\
+```
+
+Then open:
+
+```text
+http://localhost/secure-package-v3/public/
+```
+
+Do not expose `app/`, `config/`, or `storage/` directly to the browser.
 
 ## Configuration
 
-Copy `.env.example` into the deployment environment and configure a strong `TCH_NAME_PEPPER`.
+Copy `.env.example` to `.env` and set a strong registry pepper.
 
-When a database DSN is configured, execute `config/database.sql` and provide the database credentials.
+Generate one with:
 
-## CLI examples
+```bash
+php bin/generate-secret.php 32
+```
+
+Example:
+
+```env
+SPK_NAME_PEPPER=replace-with-generated-random-secret
+SPK_DB_DSN=mysql:host=127.0.0.1;dbname=secure_package;charset=utf8mb4
+SPK_DB_USER=secure_package
+SPK_DB_PASS=replace-with-a-strong-database-password
+```
+
+The `.env` file must never be committed.
+
+## CLI usage
+
+Encrypt a directory:
+
+```bash
+SPK_PATTERN='gG7!xY2_Ab9#Qp' php bin/encrypt-directory.php ./source ./output 'Strong!Password2026'
+```
+
+Decrypt a package directory or `.spkg` file:
+
+```bash
+SPK_PATTERN='gG7!xY2_Ab9#Qp' php bin/decrypt-package.php ./output/<package-id> ./restored 'Strong!Password2026'
+```
 
 Generate a secret:
 
@@ -55,37 +227,78 @@ Generate a secret:
 php bin/generate-secret.php 32
 ```
 
-Encrypt a directory. The pattern is read from `TCH_PATTERN`:
-
-```bash
-TCH_PATTERN='gG7!xY2_Ab9#Qp' php bin/encrypt-directory.php ./source ./output 'Strong!Password2026'
-```
-
-Decrypt either a package directory or a `.tchpkg` file:
-
-```bash
-TCH_PATTERN='gG7!xY2_Ab9#Qp' php bin/decrypt-package.php ./output/<package-id> ./restored 'Strong!Password2026'
-```
-
-Run stale storage cleanup from cron or Task Scheduler:
+Clean stale temporary data:
 
 ```bash
 php bin/cleanup.php
 ```
 
+## Web API
+
+The initial web API supports:
+
+```text
+POST api.php?action=upload
+POST api.php?action=archive-step
+POST api.php?action=build
+POST api.php?action=decrypt
+GET  api.php?action=csrf
+```
+
+All state-changing actions require the current session CSRF token.
+
 ## Tests
+
+Run the full lightweight regression set:
 
 ```bash
 php tests/CryptoRoundTripTest.php
 php tests/FileRoundTripTest.php
-php tests/SecurityInvariantTest.php
-php tests/PackageRoundTripTest.php
-php tests/TamperDetectionTest.php
+php tests/KdfParameterTest.php
 php tests/NameRegistryTest.php
+php tests/PackageIdTest.php
+php tests/PackageRoundTripTest.php
+php tests/RestoreTokenTest.php
+php tests/SecurityInvariantTest.php
+php tests/TamperDetectionTest.php
 ```
 
-## Important limitation
+The tests cover:
 
-Authenticated encryption intentionally does not produce useful plaintext for an incorrect key. V2 therefore does not attempt to detect a "wrong pattern" separately from other package-open failures. The web layer returns the same generic failure for invalid package credentials or corrupted encrypted content.
+- String and file round trips
+- Large streaming files
+- Pattern avalanche behavior
+- KDF parameter restrictions
+- Package round trips
+- Wrong-pattern rejection
+- Ciphertext and manifest tamper detection
+- Project-name uniqueness
+- Package identifier validation
+- One-time restore tokens
+- Core security invariants
 
-A password and project name do not reveal or recover the pattern. Making a secret pattern recoverable from public package metadata would weaken the security model.
+The local build environment used for this release has `sodium` enabled. The PHP `zip` extension may need to be enabled separately before running ZIP-specific integration tests or the web upload workflow.
+
+## Threat model
+
+See `THREAT_MODEL.md` for the detailed assumptions and limitations.
+
+The system assumes an attacker may know the source code and package format. It does not attempt to make the algorithm secret.
+
+## Format
+
+See `FORMAT.md` for the current `SECURE-PKG-V3` package structure and compatibility rules.
+
+## Security
+
+See `SECURITY.md` for security expectations, operational guidance, and disclosure instructions.
+
+## Author
+
+ElmanCod110
+
+## License
+
+MIT License.
+
+See `LICENSE` for the full text.

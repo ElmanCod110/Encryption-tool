@@ -1,33 +1,77 @@
 # Threat Model
 
-## Protected
+## Intended attacker
 
-- Plaintext file contents at rest in the package.
-- Original filenames and directory paths inside the package.
-- Package structure and manifest relationships.
-- Package integrity and authenticated file content.
-- Project-name uniqueness without storing the original name in the reservation registry.
+The primary attacker is assumed to be able to obtain a copy of the public source code and an encrypted package.
 
-## Assumptions
+The attacker may know:
 
-- The encryption password and pattern have sufficient entropy.
-- The server runtime and Sodium implementation are trusted.
-- PHP, the operating system, and hardware are not already compromised.
+- The package format
+- The algorithms used
+- The implementation details
+- The public API behavior
+- A complete encrypted package
 
-## Public source
+Security must continue to hold without source-code secrecy.
 
-An attacker may read the full source code. This is expected. No security mechanism depends on code secrecy.
+## Secrets
 
-## Online attacks
+The primary user secrets are:
 
-The web API applies per-package and per-archive failure rate limits. Deployments should additionally use upstream request throttling, authentication, logging, and network controls.
+1. Encryption password
+2. Encryption pattern
 
-## Metadata leakage
+Both contribute to key derivation.
 
-Package size and padded blob size remain observable. File padding reduces exact size leakage but does not provide complete traffic-flow secrecy.
+A project-name registry also uses a server-side pepper for management-layer uniqueness checks, but that pepper is not part of portable package decryption.
 
-A random package ID is not a cryptographic decryption key. Possession of the package link does not reveal the password or pattern.
+## Protected assets
 
-## Server-side decryption
+- File contents
+- Original filenames
+- Original directory hierarchy
+- Logical parent-child relationships
+- Package decryption keys
+- Project management metadata
 
-The supplied server-side `decrypt` API creates restored plaintext on the server. A strict zero-knowledge architecture would require client-side decryption with a browser-compatible cryptographic implementation and should be treated as a separate deployment mode.
+## Main attack classes
+
+### Offline credential attacks
+
+An attacker with a package can perform offline guesses. Argon2id increases the cost of each guess, but no KDF can compensate for weak credentials indefinitely.
+
+### Ciphertext tampering
+
+Authenticated encryption causes modified ciphertext to fail authentication instead of being accepted as trusted plaintext.
+
+### Package manipulation
+
+Manifest authentication, strict schema validation, identifier validation, and package structure checks reduce the ability to inject or redirect package content.
+
+### Archive attacks
+
+ZIP input is treated as hostile. Extraction is bounded and rejects unsafe paths, links, and excessive resource use.
+
+### Web attacks
+
+State-changing web actions use CSRF protection. Sessions use strict cookies. Rate limiting and generic errors reduce abuse and credential oracle information.
+
+### Path attacks during restore
+
+Restored names are validated against traversal, control-character, separator, Windows device-name, and trailing dot/space hazards.
+
+## Out of scope
+
+The following are not solved by the cryptographic layer alone:
+
+- A compromised server that reads plaintext during server-side decryption
+- Malware on the endpoint that captures credentials
+- Weak or reused user credentials
+- Physical compromise of an unlocked host
+- Traffic analysis that reveals package size
+- Guaranteed secure deletion from flash storage
+- Denial of service against the operating system or PHP runtime beyond implemented application limits
+
+## Future security direction
+
+A future client-side decryption mode can reduce server trust by moving key derivation, manifest decryption, and file restoration into the user's environment. Such a mode must be designed as a separate security boundary rather than presented as an automatic property of the current server-side workflow.

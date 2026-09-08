@@ -1,14 +1,14 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Crypto;
+namespace SecurePackage\Crypto;
 
 use RuntimeException;
 
 final class CryptoEngine
 {
-    private const STRING_MAGIC = 'TCHS2';
-    private const STREAM_MAGIC = 'TCHF2';
+    private const STRING_MAGIC = 'SPKS3';
+    private const STREAM_MAGIC = 'SPKF3';
     private const MAX_CHUNK = 4_194_304;
 
     public static function encryptString(string $plaintext, string $key, string $aad = ''): string
