@@ -1,0 +1,4 @@
+<?php
+declare(strict_types=1);
+require dirname(__DIR__) . '/bootstrap.php';
+$root=dirname(__DIR__);$m=file_get_contents($root.'/public/release/manifest.json');$sig=base64_decode(trim(file_get_contents($root.'/public/release/manifest.sig')),true);$pub=hex2bin(trim(file_get_contents($root.'/public/release/public-key.hex')));if($m===false||$sig===false||$pub===false)throw new RuntimeException('Release material missing.');if(!sodium_crypto_sign_verify_detached($sig,$m,$pub))throw new RuntimeException('Release signature failed.');$data=json_decode($m,true,512,JSON_THROW_ON_ERROR);foreach(($data['assets']??[]) as $relative=>$expected){$actual=hash_file('sha256',$root.'/public/'.$relative);if(!hash_equals((string)$expected,$actual))throw new RuntimeException('Asset hash failed: '.$relative);}echo "Release integrity tests passed.\n";

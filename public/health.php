@@ -1,10 +1,31 @@
 <?php
-header('Content-Type: text/plain; charset=utf-8');
-header('Cache-Control: no-store');
+declare(strict_types=1);
 
-echo "Secure Package health check\n";
-echo "PHP: " . PHP_VERSION . "\n";
-echo "Sodium: " . (extension_loaded('sodium') ? 'enabled' : 'missing') . "\n";
-echo "Zip: " . (extension_loaded('zip') ? 'enabled' : 'missing') . "\n";
-echo "PDO MySQL: " . (extension_loaded('pdo_mysql') ? 'enabled' : 'missing') . "\n";
-echo "Document root: " . ($_SERVER['DOCUMENT_ROOT'] ?? 'unknown') . "\n";
+require dirname(__DIR__) . '/bootstrap.php';
+
+use SecurePackage\Security\WebSecurity;
+
+WebSecurity::startSession();
+WebSecurity::applyHeaders();
+header('Content-Type: application/json; charset=utf-8');
+
+$config = require dirname(__DIR__) . '/config/config.php';
+$checks = [
+    'php' => version_compare(PHP_VERSION, '8.2.0', '>='),
+    'sodium' => extension_loaded('sodium'),
+    'zip' => extension_loaded('zip'),
+    'pdo_mysql' => extension_loaded('pdo_mysql'),
+    'random_bytes' => function_exists('random_bytes'),
+    'storage' => is_dir($config['storage']['root']) || @mkdir($config['storage']['root'], 0700, true),
+];
+$requiredOk = $checks['php'] && $checks['sodium'] && $checks['random_bytes'];
+http_response_code($requiredOk ? 200 : 503);
+echo json_encode([
+    'ok' => $requiredOk,
+    'application' => $config['app']['name'],
+    'version' => $config['app']['version'],
+    'format' => $config['app']['format'],
+    'author' => $config['app']['author'],
+    'required' => $checks,
+    'optional' => ['zip', 'pdo_mysql'],
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);

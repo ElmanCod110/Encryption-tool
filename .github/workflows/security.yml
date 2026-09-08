@@ -1,0 +1,32 @@
+name: Security and Release Integrity
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  php-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: sodium, zip, pdo_mysql
+      - name: PHP syntax check
+        run: |
+          find . -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Core tests
+        run: |
+          php tests/CryptoRoundTripTest.php
+          php tests/FileRoundTripTest.php
+          php tests/KdfParameterTest.php
+          php tests/PackageRoundTripTest.php
+          php tests/TamperDetectionTest.php
+          php tests/ResumableUploadTest.php
+          php tests/SecurityInvariantTest.php
+          php tests/SignedStateTest.php
+          php tests/V9FormatTest.php
+          php tests/ReleaseIntegrityTest.php
+      - name: Self check
+        run: php bin/self-check.php || test "$?" = "0"

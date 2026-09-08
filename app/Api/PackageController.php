@@ -12,6 +12,8 @@ use SecurePackage\Project\PackageReader;
 use SecurePackage\Project\PackageService;
 use SecurePackage\Security\AccessContext;
 use SecurePackage\Security\AccountStore;
+use SecurePackage\Security\AuthorizationService;
+use SecurePackage\Security\SecurityPolicy;
 use SecurePackage\Security\FileProjectNameRegistry;
 use SecurePackage\Security\PackageAccessTokenStore;
 use SecurePackage\Security\RateLimiter;
@@ -34,7 +36,8 @@ final class PackageController
         private readonly PackageCatalog $catalog,
         private readonly PackageAccessTokenStore $accessTokens,
         private readonly AccountStore $accounts,
-        private readonly AuditLogger $audit
+        private readonly AuditLogger $audit,
+        private readonly AuthorizationService $authorization
     ) {}
 
     public function me(): never
@@ -101,8 +104,9 @@ final class PackageController
         WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
         $input = Request::json();
         $total = (int) ($input['total_bytes'] ?? 0);
+        $sha256 = isset($input['sha256']) ? strtolower((string) $input['sha256']) : null;
         try {
-            $result = $this->uploads->initialize($total, AccessContext::ownerId());
+            $result = $this->uploads->initialize($total, AccessContext::ownerId(), $sha256);
             JsonResponse::send(['ok' => true, 'upload' => $result], 201);
         } catch (\Throwable) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to initialize upload.'], 422);
@@ -246,6 +250,7 @@ final class PackageController
     public function listPackages(): never
     {
         WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $this->authorization->requireAuthenticated();
         $items = $this->catalog->listForOwner(AccessContext::ownerId());
         JsonResponse::send(['ok' => true, 'packages' => array_map(static function (array $item): array {
             return [
@@ -263,6 +268,7 @@ final class PackageController
         $input = Request::json();
         $packageId = (string) ($input['package_id'] ?? '');
         try {
+            $this->authorization->requireAuthenticated();
             $record = $this->catalog->assertOwner($packageId, AccessContext::ownerId());
             if (($record['revoked_at'] ?? null) !== null) throw new RuntimeException('Package revoked.');
             $token = $this->accessTokens->issue($packageId, AccessContext::ownerId(), false);
@@ -277,6 +283,7 @@ final class PackageController
         WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
         $input = Request::json(); $packageId = (string) ($input['package_id'] ?? ''); $expiresIn = (int) ($input['expires_in'] ?? 0);
         try {
+            $this->authorization->requireAuthenticated();
             $expiresAt = $expiresIn === 0 ? null : time() + max(300, min($expiresIn, 31536000));
             $this->catalog->setExpiry($packageId, AccessContext::ownerId(), $expiresAt);
             $this->audit->event('package.expiry_changed', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
@@ -291,6 +298,7 @@ final class PackageController
         WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
         $input = Request::json(); $packageId = (string) ($input['package_id'] ?? '');
         try {
+            $this->authorization->requireAuthenticated();
             $this->catalog->revoke($packageId, AccessContext::ownerId());
             $this->accessTokens->revokeForPackage($packageId);
             $this->audit->event('package.revoked', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
@@ -298,6 +306,51 @@ final class PackageController
         } catch (\Throwable) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to revoke package.'], 404);
         }
+    }
+
+    public function delete(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $input = Request::json();
+        $packageId = (string) ($input['package_id'] ?? '');
+        try {
+            $this->authorization->requireAuthenticated();
+            $record = $this->catalog->assertOwner($packageId, AccessContext::ownerId());
+            $path = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
+            $portable = $path . '.spkg';
+            $this->removePath($portable);
+            $this->removePath($path);
+            $this->accessTokens->revokeForPackage($packageId);
+            $this->catalog->delete($packageId, AccessContext::ownerId());
+            $this->audit->event('package.deleted', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
+            JsonResponse::send(['ok' => true]);
+        } catch (\Throwable) {
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to delete package.'], 404);
+        }
+    }
+
+    public function securityStatus(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        JsonResponse::send([
+            'ok' => true,
+            'version' => $this->config['app']['version'],
+            'format' => $this->config['app']['format'],
+            'author' => $this->config['app']['author'],
+            'crypto' => ['kdf' => 'argon2id', 'aead' => 'xchacha20poly1305-ietf', 'stream' => 'secretstream-xchacha20poly1305'],
+            'controls' => ['csrf' => true, 'same_origin' => true, 'rate_limiting' => true, 'resumable_uploads' => true, 'tamper_evident_audit' => true, 'package_ownership' => true]
+        ]);
+    }
+
+    private function removePath(string $path): void
+    {
+        if (is_file($path) || is_link($path)) { @unlink($path); return; }
+        if (!is_dir($path)) return;
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($iterator as $item) {
+            $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+        }
+        @rmdir($path);
     }
 
     private function makePackageService(): PackageService

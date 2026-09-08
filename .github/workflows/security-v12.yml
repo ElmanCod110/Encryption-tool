@@ -1,0 +1,27 @@
+name: Security V12
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: sodium, zip
+      - name: PHP syntax
+        run: find . -path './vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Security suite
+        run: php bin/security-test.php
+      - name: Source audit
+        run: php bin/source-audit.php
+      - name: Release verification
+        run: php tests/ReleaseIntegrityTest.php
+      - name: Composer validation
+        run: composer validate --strict --no-check-publish
+      - name: Dependency audit
+        run: composer audit --no-interaction || true

@@ -1,0 +1,14 @@
+{
+    "product": "Secure Package",
+    "format": "SECURE-BROWSER-V12",
+    "version": "12.0.0",
+    "author": "ElmanCod110",
+    "assets": {
+        "client-vault-v12.html": "62f820031cbab4f6c69d2a1e662da2d40d0292a049b75337c71dae723ea69ad4",
+        "client-v12.php": "782800014dc73fa0469bddf1fb522a32ba6ddd3fca1b140697b5a9f82d403353",
+        "health-v12.php": "2b7e5e42f3b567002aa2bf17dd1862ad8a5b2c8cfc1b09dcf37781592137cf77",
+        "client/v12/vault-v12.js": "0135d03e03bfa72a4aaf5729b0984adb02eecbfc53ea0f881cd21c1609a94781",
+        "client/v12/worker.js": "2a8e2d49bf664f4c9cdeed87ee1fe3c935fca771c08214b963d4aa0ebf07205b",
+        "client/v12/vault-v12.css": "967f8c4d8f3892d2948c9e22491335fe97ff84d5ced59060468c04aa16270ab8"
+    }
+}

@@ -1,13 +1,19 @@
 # Changelog
 
-## 4.0.0
+## V12.0.0
 
-- Renamed the package format to `SECURE-PKG-V4`.
-- Added resumable uploads with owner binding.
-- Added account registration, login, logout, and session rotation.
-- Added package catalog, ownership checks, revocation, and access tokens.
-- Added audit logging with secret-field filtering.
-- Added stronger security headers and same-origin validation.
-- Added a production-oriented package management UI.
-- Fixed the root `.htaccess` configuration that could cause HTTP 500 errors when invalid directory context directives were processed.
-- Added CI, runtime self-checks, and client-side decryption architecture documentation.
+- Added V12 browser-first package descriptor.
+- Added large-scale security regression harness.
+- Added deterministic canonical JSON encoder.
+- Added replay guard with locking.
+- Added secure encrypted build-state envelope.
+- Added scalable marker-based resumable upload inventory.
+- Added V12 ciphertext-only upload API.
+- Added runtime security diagnostics.
+- Added fuzz and race regression tests.
+- Added source security audit tooling.
+- Added benchmark tooling.
+- Added PHPStan and PHP-CS-Fixer configuration.
+- Added GitHub security workflow.
+- Added V12 browser vault UI and worker entry points.
+- Added V12 format, threat model, and security policy documentation.

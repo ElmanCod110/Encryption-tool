@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self';">
+<title>Secure Package — Browser Vault V7</title>
+<link rel="stylesheet" href="assets/app.css"><link rel="stylesheet" href="assets/client-vault.css"><link rel="stylesheet" href="client/v7/vault-v7.css">
+</head>
+<body>
+<div class="v7-aurora aurora-one"></div><div class="v7-aurora aurora-two"></div>
+<div class="v7-shell">
+<header class="v7-top glass"><a class="v7-brand" href="./"><span class="v7-logo">⌬</span><span><b>Secure Package</b><small>Browser Vault V7</small></span></a><div class="v7-top-meta"><span class="v7-chip">SECURE-BROWSER-V7</span><span class="v7-chip">SERVER-BLIND</span><a href="./" class="v7-link">Dashboard</a></div></header>
+<main>
+<section class="v7-hero"><div><div class="v7-eyebrow"><span></span> Local-first cryptography</div><h1>Encrypt the vault <em>before it leaves your browser.</em></h1><p>V7 turns files and folders into an opaque binary package locally. The PHP service can transport the ciphertext, but it never receives the password, pattern, filenames, or plaintext from this page.</p><div class="v7-proof"><span>AES-256-GCM</span><span>HKDF-SHA-256</span><span>PBKDF2-HMAC-SHA-256</span><span>Merkle integrity</span></div></div><div class="v7-orb glass"><div class="v7-orb-core">07</div><div class="v7-orbit o1"></div><div class="v7-orbit o2"></div><div class="v7-orbit o3"></div></div></section>
+<section class="v7-workspace">
+<article class="v7-card glass v7-span-2"><div class="v7-card-head"><div><span class="v7-step">01</span><h2>Build a V7 package</h2><p>Files are encrypted in 4 MiB authenticated chunks inside a dedicated Web Worker.</p></div><span id="buildState" class="v7-status">READY</span></div>
+<div id="dropZone" class="v7-drop"><input id="fileInput" type="file" multiple webkitdirectory directory hidden><div class="v7-drop-icon">↥</div><h3>Drop files or a folder</h3><p>or <button type="button" id="browseButton">choose from your device</button></p><small>Browser-only encryption • no upload required • package created as .spk7</small></div>
+<div id="fileSummary" class="v7-summary hidden"></div>
+<div class="v7-form-grid"><label>Password<div class="v7-secret"><input id="password" class="text-input" type="password" autocomplete="new-password"><button type="button" id="showPassword">Show</button></div><small>At least 12 characters; use mixed character classes.</small></label><label>Pattern<div class="v7-secret"><input id="pattern" class="text-input" type="password" autocomplete="new-password"><button type="button" id="showPattern">Show</button></div><small>At least 12 characters with strong diversity.</small></label></div>
+<div class="v7-actions"><div id="buildProgress" class="v7-progress"><div><span></span></div><small>0%</small></div><button class="primary-button" id="buildButton" type="button">Build V7 package</button></div><div id="buildResult" class="v7-result"></div></article>
+<article class="v7-card glass"><div class="v7-card-head"><div><span class="v7-step">02</span><h2>Open locally</h2><p>Credentials and plaintext stay inside this page.</p></div></div><input id="packageInput" type="file" accept=".spk7,application/octet-stream" class="v7-file-input"><label>Password<input id="decryptPassword" class="text-input" type="password" autocomplete="off"></label><label>Pattern<input id="decryptPattern" class="text-input" type="password" autocomplete="off"></label><button class="primary-button full" id="decryptButton" type="button">Decrypt and restore</button><div class="v7-result" id="decryptResult"></div></article>
+<article class="v7-card glass"><div class="v7-card-head"><div><span class="v7-step">03</span><h2>Integrity</h2><p>Every chunk is bound to its package, file and position.</p></div></div><div class="v7-metrics"><div><strong id="metricFiles">0</strong><span>Files</span></div><div><strong id="metricChunks">0</strong><span>Chunks</span></div><div><strong id="metricBytes">0 B</strong><span>Plaintext</span></div></div><div class="v7-security-list"><div><b>Credential boundary</b><span>Password and pattern never leave the page.</span></div><div><b>Inventory binding</b><span>Manifest and chunk inventory must agree exactly.</span></div><div><b>Integrity root</b><span>SHA-256 Merkle root authenticates encrypted chunk records.</span></div></div></article>
+</section>
+<section class="v7-console glass"><div class="v7-console-head"><strong>Local activity</strong><button id="clearLog" class="ghost-button" type="button">Clear</button></div><pre id="log">V7 ready. Cryptographic operations execute inside a dedicated Web Worker.</pre></section>
+</main><footer>Secure Package · Author: ElmanCod110 · SECURE-BROWSER-V7</footer></div>
+<script src="client/v7/vault-v7.js" defer></script></body></html>

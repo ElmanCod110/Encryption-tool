@@ -7,8 +7,8 @@ use RuntimeException;
 
 final class CryptoEngine
 {
-    private const STRING_MAGIC = 'SPKS4';
-    private const STREAM_MAGIC = 'SPKF4';
+    private const STRING_MAGIC = 'SPKS6';
+    private const STREAM_MAGIC = 'SPKF6';
 
     public static function encryptString(string $plaintext, string $key, string $aad = ''): string
     {

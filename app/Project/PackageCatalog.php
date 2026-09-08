@@ -51,6 +51,22 @@ final class PackageCatalog
         return $record;
     }
 
+
+    public function assertAvailable(string $packageId): array
+    {
+        $record = $this->get($packageId);
+        if (($record['revoked_at'] ?? null) !== null) throw new RuntimeException('Package is revoked.');
+        if (($record['expires_at'] ?? null) !== null && (int) $record['expires_at'] <= time()) throw new RuntimeException('Package is expired.');
+        return $record;
+    }
+
+    public function delete(string $packageId, string $ownerId): void
+    {
+        $this->assertOwner($packageId, $ownerId);
+        $file = $this->file($packageId);
+        if (!@unlink($file) && is_file($file)) throw new RuntimeException('Unable to delete package record.');
+    }
+
     public function setExpiry(string $packageId, string $ownerId, ?int $expiresAt): void
     {
         $record = $this->assertOwner($packageId, $ownerId);
