@@ -1,0 +1,5 @@
+/storage/packages/*
+/storage/temp/*
+!storage/packages/.gitkeep
+!storage/temp/.gitkeep
+.env

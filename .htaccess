@@ -1,0 +1,4 @@
+Options -Indexes
+<FilesMatch "\.(bin|enc)$">
+    Require all denied
+</FilesMatch>

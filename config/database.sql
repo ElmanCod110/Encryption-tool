@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS reserved_project_names (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name_hash CHAR(64) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_reserved_project_name_hash (name_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
