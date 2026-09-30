@@ -73,18 +73,20 @@ final class PackageController
         $input = Request::json();
         $username = (string) ($input['username'] ?? '');
         $password = (string) ($input['password'] ?? '');
-        $key = 'login:' . hash('sha256', strtolower(trim($username)) . '|' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
-        if (!$this->rateLimiter->check($key)) {
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $userKey = 'login:user:' . hash('sha256', strtolower(trim($username)) . '|' . $ip);
+        $ipKey = 'login:ip:' . hash('sha256', $ip);
+        if (!$this->rateLimiter->allow($ipKey) || !$this->rateLimiter->allow($userKey)) {
             sodium_memzero($password);
             JsonResponse::send(['ok' => false, 'error' => 'Too many login attempts.'], 429);
         }
         $id = $this->accounts->verify($username, $password);
         sodium_memzero($password);
         if ($id === null) {
-            $this->rateLimiter->failure($key);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to sign in.'], 401);
         }
-        $this->rateLimiter->success($key);
+        $this->rateLimiter->success($userKey);
+        $this->rateLimiter->success($ipKey);
         WebSecurity::login($id);
         $this->audit->event('account.logged_in', ['account_id' => $id]);
         JsonResponse::send(['ok' => true, 'authenticated' => true, 'account_id' => $id, 'csrf' => WebSecurity::csrfToken()]);
@@ -118,8 +120,14 @@ final class PackageController
         WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
         $id = (string) ($_SERVER['HTTP_X_UPLOAD_ID'] ?? '');
         $offset = (int) ($_SERVER['HTTP_X_UPLOAD_OFFSET'] ?? -1);
+        $contentLength = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : 0;
+        if ($contentLength < 1 || $contentLength > (int) $this->config['limits']['upload_chunk_bytes']) {
+            JsonResponse::send(['ok' => false, 'error' => 'Upload chunk is too large.'], 413);
+        }
         $chunk = file_get_contents('php://input');
-        if ($chunk === false) JsonResponse::send(['ok' => false, 'error' => 'Unable to read upload chunk.'], 400);
+        if ($chunk === false || strlen($chunk) > (int) $this->config['limits']['upload_chunk_bytes']) {
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to read upload chunk.'], 400);
+        }
         try {
             $state = $this->uploads->append($id, $offset, $chunk, AccessContext::ownerId());
             JsonResponse::send(['ok' => true, 'upload' => $state]);
@@ -161,7 +169,7 @@ final class PackageController
         try {
             $this->jobs->assertOwner($jobId, AccessContext::ownerId());
             $rateKey = 'archive:' . $jobId . ':' . $archiveId . ':' . hash('sha256', AccessContext::ownerId());
-            if (!$this->rateLimiter->check($rateKey)) {
+            if (!$this->rateLimiter->allow($rateKey)) {
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => false, 'error' => 'Too many archive password attempts.'], 429);
             }
@@ -171,7 +179,6 @@ final class PackageController
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => true, 'state' => $state]);
             } catch (\Throwable) {
-                $this->rateLimiter->failure($rateKey);
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => false, 'error' => 'Unable to open archive with the supplied password.'], 422);
             }
@@ -223,7 +230,7 @@ final class PackageController
         $password = (string) ($input['password'] ?? '');
         $pattern = (string) ($input['pattern'] ?? '');
         $rateKey = 'package:' . $packageId . ':' . hash('sha256', AccessContext::ownerId());
-        if (!$this->rateLimiter->check($rateKey)) {
+        if (!$this->rateLimiter->allow($rateKey)) {
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Too many failed attempts.'], 429);
         }
@@ -241,7 +248,6 @@ final class PackageController
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => true, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
         } catch (\Throwable) {
-            $this->rateLimiter->failure($rateKey);
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 422);
         }
@@ -336,6 +342,8 @@ final class PackageController
             'ok' => true,
             'version' => $this->config['app']['version'],
             'format' => $this->config['app']['format'],
+            'browser_format' => 'SECURE-BROWSER-V13',
+            'server_package_format' => 'SECURE-PKG-V6',
             'author' => $this->config['app']['author'],
             'crypto' => ['kdf' => 'argon2id', 'aead' => 'xchacha20poly1305-ietf', 'stream' => 'secretstream-xchacha20poly1305'],
             'controls' => ['csrf' => true, 'same_origin' => true, 'rate_limiting' => true, 'resumable_uploads' => true, 'tamper_evident_audit' => true, 'package_ownership' => true]

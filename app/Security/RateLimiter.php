@@ -17,6 +17,45 @@ final class RateLimiter
         }
     }
 
+    /**
+     * Atomically admits one attempt in the current fixed window.
+     * This prevents parallel requests from racing between check() and failure().
+     */
+    public function allow(string $key): bool
+    {
+        $file = $this->file($key);
+        $handle = fopen($file, 'c+');
+        if ($handle === false || !flock($handle, LOCK_EX)) {
+            if (is_resource($handle)) fclose($handle);
+            return false;
+        }
+        try {
+            $contents = stream_get_contents($handle) ?: '';
+            $record = json_decode($contents, true);
+            $now = time();
+            if (!is_array($record) || ($now - (int) ($record['window_start'] ?? $now)) >= $this->windowSeconds) {
+                $record = ['failures' => 0, 'window_start' => $now];
+            }
+            if ((int) ($record['failures'] ?? 0) >= $this->maxFailures) {
+                return false;
+            }
+            $record['failures'] = (int) ($record['failures'] ?? 0) + 1;
+            rewind($handle);
+            ftruncate($handle, 0);
+            $encoded = json_encode($record, JSON_THROW_ON_ERROR);
+            $written = fwrite($handle, $encoded);
+            if ($written !== strlen($encoded)) {
+                throw new RuntimeException('Unable to persist rate-limit state.');
+            }
+            fflush($handle);
+            @chmod($file, 0600);
+            return true;
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+    }
+
     public function check(string $key): bool
     {
         $record = $this->read($key);
