@@ -4,22 +4,37 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   php-security:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: sodium, zip, pdo_mysql
+          coverage: none
+
+      - name: Validate Composer configuration
+        run: composer validate --strict --no-check-publish
+
+      - name: Install locked dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Dependency audit
+        run: composer audit --no-interaction
+
       - name: PHP syntax check
         run: |
           find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-      - name: Composer validation
-        run: composer validate --strict --no-check-publish
-      - name: Dependency audit
-        run: composer audit --no-interaction
+
       - name: Core tests
         run: |
           php tests/CryptoRoundTripTest.php
@@ -33,5 +48,6 @@ jobs:
           php tests/ReleaseIntegrityTest.php
           php tests/V13DescriptorTest.php
           php tests/V13UploadTest.php
+
       - name: Self check
         run: php bin/self-check.php
