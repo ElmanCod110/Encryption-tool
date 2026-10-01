@@ -2,6 +2,7 @@
 storage/*
 !storage/.gitkeep
 *.spkg
+*.spkg14
 *.partial.*
 .phpunit.result.cache
 vendor/

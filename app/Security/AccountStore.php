@@ -8,6 +8,8 @@ use SecurePackage\Storage\AtomicFile;
 
 final class AccountStore
 {
+    private const DUMMY_PASSWORD_HASH = '$argon2id$v=19$m=65536,t=4,p=1$b1Y4N0g2LnpGWERhcnJnMA$lfwGaGdjTi9Qms8YRPWm1QzpSUizRvlUhFoISfuVFFA';
+
     public function __construct(private readonly string $file)
     {
         $dir = dirname($file);
@@ -57,8 +59,9 @@ final class AccountStore
     public function verify(string $username, string $password): ?string
     {
         $username = $this->normalizeUsername($username);
+        $usernameHash = $this->usernameHash($username);
         foreach ($this->read() as $account) {
-            if (!hash_equals((string) $account['username_hash'], $this->usernameHash($username))) {
+            if (!hash_equals((string) $account['username_hash'], $usernameHash)) {
                 continue;
             }
             if (!password_verify($password, (string) $account['password_hash'])) {
@@ -70,6 +73,9 @@ final class AccountStore
             }
             return (string) $account['id'];
         }
+        // Perform an Argon2id verification even when the username does not exist
+        // to reduce the username-enumeration timing signal.
+        password_verify($password, self::DUMMY_PASSWORD_HASH);
         return null;
     }
 

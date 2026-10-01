@@ -1,6 +1,6 @@
 {
   "name": "elmancod110/secure-package",
-  "description": "Open-source browser-first encrypted package system with a unified server-blind V10 format.",
+  "description": "High-assurance encrypted project package engine with authenticated V14 package integrity and a separate browser vault compatibility boundary.",
   "type": "library",
   "license": "MIT",
   "authors": [
@@ -16,10 +16,14 @@
     "phpstan/phpstan": "^2.0",
     "friendsofphp/php-cs-fixer": "^3.0"
   },
+  "config": {
+    "allow-plugins": false,
+    "preferred-install": "dist",
+    "sort-packages": true
+  },
   "autoload": {
     "psr-4": {
       "SecurePackage\\": "app/"
     }
-  },
-  "version": "12.0.0"
+  }
 }

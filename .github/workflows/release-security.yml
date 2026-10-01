@@ -1,0 +1,51 @@
+name: V14 Release Security Gate
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Require committed dependency lock
+        run: test -f composer.lock
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: sodium,zip,pdo_mysql
+          coverage: none
+
+      - name: Validate Composer manifest and lock
+        run: composer validate --strict --no-check-publish
+
+      - name: Install exact locked dependencies
+        run: composer install --locked --no-interaction --no-progress --prefer-dist --no-dev
+
+      - name: Dependency audit
+        run: composer audit --locked --no-interaction --no-dev
+
+      - name: PHP syntax
+        run: find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: JavaScript syntax
+        run: find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Self check
+        run: php bin/self-check.php
+
+      - name: Security suite
+        run: php bin/security-test.php --full
+
+      - name: Source audit
+        run: php bin/source-audit.php

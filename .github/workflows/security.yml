@@ -4,29 +4,67 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   php-security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: sodium, zip, pdo_mysql
+          extensions: sodium,zip,pdo_mysql
+          coverage: none
+
       - name: PHP syntax check
         run: |
-          find . -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Composer validation
+        run: composer validate --strict --no-check-publish
+
+      - name: Install locked dependencies when available
+        run: |
+          if [ -f composer.lock ]; then
+            composer install --no-interaction --no-progress --prefer-dist --no-dev
+          else
+            echo "::warning::composer.lock is not committed yet; dependency installation will resolve composer.json.";
+            composer install --no-interaction --no-progress --prefer-dist --no-dev
+          fi
+
+      - name: Dependency audit
+        run: composer audit --no-interaction --no-dev
+
       - name: Core tests
         run: |
+          set -e
           php tests/CryptoRoundTripTest.php
           php tests/FileRoundTripTest.php
           php tests/KdfParameterTest.php
-          php tests/PackageRoundTripTest.php
           php tests/TamperDetectionTest.php
           php tests/ResumableUploadTest.php
           php tests/SecurityInvariantTest.php
           php tests/SignedStateTest.php
-          php tests/V9FormatTest.php
           php tests/ReleaseIntegrityTest.php
+          php tests/ReleaseVerifierTrustRootTest.php
+          php tests/V13DescriptorTest.php
+          php tests/V13UploadTest.php
+          php tests/V14DescriptorTest.php
+          php tests/V14HeaderBindingTest.php
+          php tests/V14PackageRoundTripTest.php
+          php tests/V14RecoveryTest.php
+          php tests/V14TamperHeaderTest.php
+          php tests/V14BlobTamperTest.php
+          php tests/V14RestoreSafetyTest.php
+          php tests/V14PackageArchiveTest.php
+
       - name: Self check
-        run: php bin/self-check.php || test "$?" = "0"
+        run: php bin/self-check.php
+
+      - name: Source security audit
+        run: php bin/source-audit.php

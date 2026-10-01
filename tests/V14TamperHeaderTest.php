@@ -1,0 +1,9 @@
+<?php
+declare(strict_types=1);
+require dirname(__DIR__) . '/bootstrap.php';
+use SecurePackage\Project\V14PackageBuilder;
+use SecurePackage\Project\V14PackageReader;
+
+$root=sys_get_temp_dir().'/spk-v14-tamper-h-'.bin2hex(random_bytes(6)); $source=$root.'/source'; $package=$root.'/package'; $restored=$root.'/restored'; @mkdir($source,0700,true); @mkdir($package,0700,true); @mkdir($package.'/blobs',0700,true); file_put_contents($source.'/x.txt','x');
+$pw='Strong!Password2026#'; $pat='Az!71_xYp#42Qw9';
+try{(new V14PackageBuilder())->build($source,$package,$pw,$pat,str_repeat('c',48),false); $originalHeader=file_get_contents($package.'/header.json'); $header=json_decode($originalHeader,true,32,JSON_THROW_ON_ERROR); $header['package_id']=str_repeat('d',48); file_put_contents($package.'/header.json',json_encode($header)); try{(new V14PackageReader())->restore($package,$restored,$pw,$pat); throw new RuntimeException('Header tamper accepted.');}catch(RuntimeException $e){if($e->getMessage()==='Header tamper accepted.')throw $e;} file_put_contents($package.'/header.json',$originalHeader); $complete=json_decode(file_get_contents($package.'/complete.json'),true,32,JSON_THROW_ON_ERROR); $complete['created_at']='2026-01-01T00:00:00Z'; file_put_contents($package.'/complete.json',json_encode($complete)); try{(new V14PackageReader())->restore($package,$restored,$pw,$pat); throw new RuntimeException('Completion metadata tamper accepted.');}catch(RuntimeException $e){if($e->getMessage()==='Completion metadata tamper accepted.')throw $e;} echo "V14 header/completion tamper tests passed.\n";}finally{ sodium_memzero($pw); sodium_memzero($pat); if(is_dir($root)){ $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST); foreach($it as $item)$item->isDir()?@rmdir($item->getPathname()):@unlink($item->getPathname()); @rmdir($root); }}
