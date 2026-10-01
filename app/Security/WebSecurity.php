@@ -10,16 +10,11 @@ final class WebSecurity
     public static function startSession(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) return;
-        $requireHttps = getenv('SPK_REQUIRE_HTTPS') === '1';
-        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-        if ($requireHttps && !$secure) {
-            throw new RuntimeException('HTTPS is required for this deployment.');
-        }
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
         ini_set('session.cookie_httponly', '1');
         ini_set('session.cookie_samesite', 'Strict');
-        ini_set('session.cookie_name', 'SECUREPKGSESSID');
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
         session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Strict']);
         session_start();
     }
@@ -48,17 +43,8 @@ final class WebSecurity
     {
         $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
         if ($origin === '') return;
-        $configured = trim((string) (getenv('SPK_PUBLIC_ORIGIN') ?: ''));
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        if ($configured !== '') {
-            $expected = rtrim($configured, '/');
-        } else {
-            $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
-            if ($host === '' || !preg_match('/^(?:[A-Za-z0-9-]+\.)*[A-Za-z0-9-]+(?::\d+)?$/', $host)) {
-                throw new RuntimeException('Origin policy is not configured.');
-            }
-            $expected = $scheme . '://' . $host;
-        }
+        $expected = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? '');
         if (!hash_equals($expected, $origin)) throw new RuntimeException('Invalid request origin.');
     }
 

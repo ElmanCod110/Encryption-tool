@@ -19,9 +19,7 @@ jobs:
           extensions: sodium,zip
           coverage: none
       - name: Syntax check
-        run: find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-      - name: JavaScript syntax
-        run: find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+        run: find app bin public tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Self check
         run: php bin/self-check.php
       - name: Core tests

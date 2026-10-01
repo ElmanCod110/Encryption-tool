@@ -17,12 +17,12 @@ if ($root === false) {
     exit(1);
 }
 $assets = [
-    'client-vault.html',
-    'client-v13.php',
-    'health-v13.php',
-    'client/v13/vault-v13.js',
-    'client/v13/worker.js',
-    'client/v13/vault-v13.css',
+    'client-vault-v12.html',
+    'client-v12.php',
+    'health-v12.php',
+    'client/v12/vault-v12.js',
+    'client/v12/worker.js',
+    'client/v12/vault-v12.css',
 ];
 $publicRoot = $root . DIRECTORY_SEPARATOR . 'public';
 $hashes = [];
@@ -36,8 +36,8 @@ foreach ($assets as $relative) {
 }
 $manifest = [
     'product' => 'Secure Package',
-    'format' => 'SECURE-BROWSER-V13',
-    'version' => '13.0.0',
+    'format' => 'SECURE-BROWSER-V12',
+    'version' => '12.0.0',
     'author' => 'ElmanCod110',
     'assets' => $hashes,
 ];
@@ -50,4 +50,4 @@ if (!is_dir($releaseDir) && !mkdir($releaseDir, 0700, true) && !is_dir($releaseD
 file_put_contents($releaseDir . '/manifest.json', $payload, LOCK_EX);
 file_put_contents($releaseDir . '/manifest.sig', base64_encode(sodium_crypto_sign_detached($payload, $key)) . PHP_EOL, LOCK_EX);
 file_put_contents($releaseDir . '/public-key.hex', bin2hex(sodium_crypto_sign_publickey_from_secretkey($key)) . PHP_EOL, LOCK_EX);
-echo "V13 release manifest signed successfully.\n";
+echo "V12 release manifest signed successfully.\n";

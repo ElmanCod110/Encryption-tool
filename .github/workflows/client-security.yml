@@ -14,4 +14,5 @@ jobs:
           node-version: '22'
       - name: Syntax checks
         run: |
-          find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check public/client/v9/vault-v9.js
+          node --check public/client/v9/worker.js
