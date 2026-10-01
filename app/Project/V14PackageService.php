@@ -26,7 +26,13 @@ final class V14PackageService
         $packageDir = $this->store->createPackageDirectory($packageId);
         try {
             $stats = $this->builder->build($sourceDir, $packageDir, $password, $pattern, $packageId, $createRecovery);
-            return ['package_id' => $packageId, 'package_dir' => $packageDir, 'project_name' => $projectName, 'stats' => $stats];
+            return [
+                'package_id' => $packageId,
+                'package_dir' => $packageDir,
+                'project_name' => $projectName,
+                'stats' => $stats,
+                'recovery_key' => $stats['recovery_key'] ?? null,
+            ];
         } catch (\Throwable $e) {
             $this->removeDirectory($packageDir);
             throw $e;

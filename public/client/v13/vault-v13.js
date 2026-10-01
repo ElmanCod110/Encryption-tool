@@ -279,7 +279,10 @@ async function build(files, password, pattern, makeRecovery) {
     kdf: 'PBKDF2-HMAC-SHA-256',
     iterations: ITER,
     chunking: { algorithm: 'content-defined-streaming', min: MIN, target: TARGET, max: MAX },
-    key_slots: { primary, recovery: recoverySlot },
+    key_slots: {
+      primary: { type: 'password-pattern', version: 1, ...primary },
+      recovery: recoverySlot ? { type: 'recovery', version: 1, ...recoverySlot } : null,
+    },
     manifest_iv: b64(manifestIv),
     server_plaintext: false,
     streaming: true,
@@ -517,6 +520,7 @@ async function verifyInventory(file, inventory, manifest) {
 }
 
 async function restore(file, password, pattern, recovery) {
+  if (/\.spkg14$/i.test(file.name || '')) fail('V14 server packages (.spkg14) are not compatible with Browser Vault V13. Open them in the V14 server workspace.');
   const { header, offset, salt } = await readHeader(file);
   const footer = await readFooter(file);
   if (footer.start <= offset) fail('Package contains no encrypted records.');
@@ -539,7 +543,7 @@ async function restore(file, password, pattern, recovery) {
     validateManifest(manifest, header.package_id);
     const inventory = await readInventory(file, offset, footer.start);
     await verifyInventory(file, inventory, manifest);
-    if (!window.showDirectoryPicker) fail('This browser requires the File System Access API for streamed restore.');
+    if (!window.showDirectoryPicker) fail('Directory restore is unavailable in this browser or security context. Use a current Chrome/Edge browser over HTTPS or localhost.');
 
     const root = await showDirectoryPicker({ mode: 'readwrite' });
     const outputPaths = new Set();
@@ -681,6 +685,7 @@ $('decrypt').onclick = async () => {
   try {
     const file = $('package').files[0];
     if (!file) fail('Select a .spk13 package.');
+    if (/\.spkg14$/i.test(file.name || '')) fail('V14 server packages (.spkg14) are not compatible with Browser Vault V13. Open them in the V14 server workspace.');
     $('decrypt').disabled = true;
     $('state').textContent = 'VERIFYING';
     const count = await restore(file, $('decryptPassword').value, $('decryptPattern').value, $('recoveryKey').value.trim());

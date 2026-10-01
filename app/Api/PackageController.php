@@ -11,6 +11,7 @@ use SecurePackage\Project\PackageCatalog;
 use SecurePackage\Project\V14PackageReader;
 use SecurePackage\Project\V14PackageService;
 use SecurePackage\Security\AccessContext;
+use SecurePackage\Security\ApplicationSecrets;
 use SecurePackage\Security\AccountStore;
 use SecurePackage\Security\AuthorizationService;
 use SecurePackage\Security\SecurityPolicy;
@@ -205,7 +206,13 @@ final class PackageController
             $service = $this->makePackageService();
             $result = $service->build($this->archives->sourceDirectory($jobId), $name, $password, $pattern, $createRecovery);
             $portable = $result['package_dir'] . '.spkg14';
-            (new PackageArchive())->create($result['package_dir'], $portable);
+            try {
+                (new PackageArchive())->create($result['package_dir'], $portable);
+            } catch (\Throwable $archiveError) {
+                $this->removePath($portable);
+                $this->removePath($result['package_dir']);
+                throw $archiveError;
+            }
             $this->catalog->create($result['package_id'], AccessContext::ownerId(), $name);
             $token = $this->accessTokens->issue($result['package_id'], AccessContext::ownerId(), false);
             $this->audit->event('package.created', ['package_id' => $result['package_id'], 'account_id' => AccessContext::accountId(), 'nodes' => $result['stats']['nodes'] ?? null, 'format' => 'SECURE-PKG-V14']);
@@ -373,8 +380,7 @@ final class PackageController
 
     private function makePackageService(): V14PackageService
     {
-        $pepper = (string) (getenv('SPK_NAME_PEPPER') ?: '');
-        if ($pepper === '') throw new RuntimeException('SPK_NAME_PEPPER must be configured.');
+        $pepper = ApplicationSecrets::namePepper($this->config['storage']['root']);
         $registry = new FileProjectNameRegistry($this->config['storage']['root'] . DIRECTORY_SEPARATOR . 'reserved-names.db', $pepper);
         return new V14PackageService(new \SecurePackage\Project\V14PackageBuilder(), new FileStore($this->config['storage']['packages']), $registry);
     }

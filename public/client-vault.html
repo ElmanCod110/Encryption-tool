@@ -57,7 +57,7 @@
   <aside class="side">
     <article class="panel surface">
       <div class="head"><div><span class="num">02</span><h2>Verify & restore</h2><p>The package inventory and Merkle root are checked before any file is written.</p></div></div>
-      <label>Encrypted package<input id="package" type="file" accept=".spk13,application/octet-stream"></label>
+      <label>Encrypted package<input id="package" type="file" accept=".spk13,application/octet-stream"></label><small class="hint">Browser Vault accepts .spk13 packages only. Server-built .spkg14 packages are opened in the V14 server workspace.</small>
       <label>Password<input id="decryptPassword" type="password" autocomplete="off"></label>
       <label>Pattern<input id="decryptPattern" type="password" autocomplete="off"></label>
       <label>Recovery key<input id="recoveryKey" type="password" autocomplete="off" placeholder="Optional alternate unlock"></label>
