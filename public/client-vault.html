@@ -76,7 +76,7 @@
       <div class="head"><div><span class="num">04</span><h2>Security posture</h2></div></div>
       <div class="metric"><b>Fail-closed parser</b><span>Header, footer, metadata, sizes and identifiers have explicit bounds.</span></div>
       <div class="metric"><b>Integrity before restore</b><span>Every ciphertext digest and the authenticated Merkle root are verified before output begins.</span></div>
-      <div class="metric"><b>No clobber</b><span>Existing restore targets are rejected instead of silently overwritten.</span></div>
+      <div class="metric"><b>No clobber</b><span>Existing restore targets are never overwritten; incompatible names are mapped safely when required.</span></div>
       <div class="metric"><b>Credential isolation</b><span>Password, pattern and package root stay in the worker session.</span></div>
     </article>
   </aside>
@@ -86,6 +86,6 @@
 <section class="console surface"><div><b>Security console</b><button id="clear" type="button">Clear</button></div><pre id="log">V13 initialized.</pre></section>
 <footer><span>Secure Package · ElmanCod110</span><span>Open-source · cryptographic format is documented, not secret</span></footer>
 </main>
-<script src="client/v13/vault-v13.js" defer></script>
+<script src="client/v13/vault-v13.js?v=14.1.2" defer></script>
 </body>
 </html>
