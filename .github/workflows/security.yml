@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@2.37.2
         with:
           php-version: '8.3'
           extensions: sodium,zip,pdo_mysql
@@ -33,20 +33,20 @@ jobs:
           if [ -f composer.lock ]; then
             composer validate --strict --no-check-publish
           else
-            echo "::notice::composer.lock is not committed; release-gate enforces the lock for tagged releases."
+            echo "::notice::composer.lock is not committed; dependency installation will resolve composer.json."
           fi
 
       - name: Install dependencies
         run: |
           if [ -f composer.lock ]; then
-            composer install --no-interaction --no-progress --prefer-dist --no-dev
+            composer install --no-interaction --no-progress --prefer-dist
           else
-            echo "::warning::composer.lock is not committed yet; dependency installation will resolve composer.json.";
-            composer install --no-interaction --no-progress --prefer-dist --no-dev
+            echo "::warning::composer.lock is not committed; dependency installation will resolve composer.json.";
+            composer install --no-interaction --no-progress --prefer-dist
           fi
 
       - name: Dependency audit
-        run: composer audit --no-interaction --no-dev
+        run: composer audit --no-interaction
 
       - name: Core tests
         run: |
