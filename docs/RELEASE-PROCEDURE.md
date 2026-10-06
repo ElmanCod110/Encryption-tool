@@ -22,7 +22,7 @@ find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 php bin/sign-release.php /secure/location/release-private-key.hex .
 ```
 
-The signing script hashes the active V14 source tree (`app/`, `bin/`, `config/`, `public/`, `bootstrap.php`, `composer.json`, and `VERSION`) while excluding runtime-generated release material and storage content.
+The signing script hashes the active V14 source tree (`app/`, `bin/`, `config/`, `public/`, `bootstrap.php`, `composer.json`, `composer.lock` (when present), and `VERSION`) while excluding runtime-generated release material and storage content.
 
 ## 4. Verify with an external trust root
 

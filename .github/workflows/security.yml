@@ -25,10 +25,18 @@ jobs:
         run: |
           find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Composer validation
-        run: composer validate --strict --no-check-publish
+      - name: Composer manifest validation
+        run: composer validate --no-check-publish
 
-      - name: Install locked dependencies when available
+      - name: Strict lock validation when a lock is committed
+        run: |
+          if [ -f composer.lock ]; then
+            composer validate --strict --no-check-publish
+          else
+            echo "::notice::composer.lock is not committed; release-gate enforces the lock for tagged releases."
+          fi
+
+      - name: Install dependencies
         run: |
           if [ -f composer.lock ]; then
             composer install --no-interaction --no-progress --prefer-dist --no-dev
@@ -62,6 +70,7 @@ jobs:
           php tests/V14BlobTamperTest.php
           php tests/V14RestoreSafetyTest.php
           php tests/V14PackageArchiveTest.php
+          php tests/V14PackageArchiveStorageTest.php
 
       - name: Self check
         run: php bin/self-check.php
@@ -69,5 +78,5 @@ jobs:
       - name: Source security audit
         run: php bin/source-audit.php
 
-      - name: Browser V13 round-trip
+      - name: Legacy browser V13 round-trip
         run: node tests/BrowserV13RoundTripTest.mjs

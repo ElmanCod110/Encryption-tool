@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 return [
-    'app' => ['name'=>'Secure Package','author'=>'ElmanCod110','format'=>'SECURE-PKG-V14','version'=>14],
+    'app' => ['name'=>'Secure Package','author'=>'ElmanCod110','format'=>'SECURE-PKG-V14','version'=>SECURE_PACKAGE_MAJOR_VERSION,'version_string'=>SECURE_PACKAGE_VERSION],
     'security' => [
         'require_https' => getenv('SPK_REQUIRE_HTTPS') === '1',
         'public_origin' => trim((string) (getenv('SPK_PUBLIC_ORIGIN') ?: '')),

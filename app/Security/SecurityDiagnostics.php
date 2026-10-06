@@ -28,7 +28,8 @@ final class SecurityDiagnostics
         $secure = true;
         foreach ($critical as $name) if (($checks[$name] ?? false) !== true) $secure = false;
         return [
-            'version' => 14,
+            'version' => SECURE_PACKAGE_MAJOR_VERSION,
+            'version_string' => SECURE_PACKAGE_VERSION,
             'author' => 'ElmanCod110',
             'checks' => $checks,
             'secure' => $secure,

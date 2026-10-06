@@ -213,6 +213,9 @@ final class PackageController
                 $this->removePath($result['package_dir']);
                 throw $archiveError;
             }
+            // The portable archive is the canonical stored package. Keeping both the extracted
+            // package directory and .spkg14 duplicates encrypted bytes and wastes disk space.
+            $this->removePath($result['package_dir']);
             $this->catalog->create($result['package_id'], AccessContext::ownerId(), $name);
             $token = $this->accessTokens->issue($result['package_id'], AccessContext::ownerId(), false);
             $this->audit->event('package.created', ['package_id' => $result['package_id'], 'account_id' => AccessContext::accountId(), 'nodes' => $result['stats']['nodes'] ?? null, 'format' => 'SECURE-PKG-V14']);
@@ -253,8 +256,20 @@ final class PackageController
             $record = $this->catalog->get($packageId);
             if (($record['revoked_at'] ?? null) !== null || ($record['expires_at'] ?? null) !== null && (int) $record['expires_at'] < time()) throw new RuntimeException('Unavailable.');
             $packageDir = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
-            $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
-            $result = (new V14PackageReader())->restore($packageDir, $outputDir, $password, $pattern, $recoveryKey);
+            $temporaryPackageDir = null;
+            $portable = $packageDir . '.spkg14';
+            try {
+                if (!is_dir($packageDir)) {
+                    if (!is_file($portable)) throw new RuntimeException('Package does not exist.');
+                    $temporaryPackageDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'package-' . bin2hex(random_bytes(16));
+                    (new PackageArchive())->extract($portable, $temporaryPackageDir);
+                    $packageDir = $temporaryPackageDir;
+                }
+                $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
+                $result = (new V14PackageReader())->restore($packageDir, $outputDir, $password, $pattern, $recoveryKey);
+            } finally {
+                if ($temporaryPackageDir !== null) $this->removePath($temporaryPackageDir);
+            }
             $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
             $restoreToken = $tokenStore->issue($outputDir);
             $this->rateLimiter->success($rateKey);
@@ -358,6 +373,7 @@ final class PackageController
         JsonResponse::send([
             'ok' => true,
             'version' => $this->config['app']['version'],
+            'version_string' => $this->config['app']['version_string'],
             'format' => $this->config['app']['format'],
             'browser_format' => 'SECURE-BROWSER-V13',
             'server_package_format' => 'SECURE-PKG-V14',

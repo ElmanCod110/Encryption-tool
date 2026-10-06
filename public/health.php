@@ -24,6 +24,7 @@ echo json_encode([
     'ok' => $requiredOk,
     'application' => $config['app']['name'],
     'version' => $config['app']['version'],
+    'version_string' => $config['app']['version_string'],
     'format' => $config['app']['format'],
     'author' => $config['app']['author'],
     'required' => $checks,

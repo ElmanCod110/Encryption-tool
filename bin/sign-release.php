@@ -23,7 +23,7 @@ if ($root === false || !is_dir($root)) {
 }
 
 $files = [];
-$roots = ['app', 'bin', 'config', 'public', 'bootstrap.php', 'composer.json', 'VERSION'];
+$roots = ['app', 'bin', 'config', 'public', 'bootstrap.php', 'composer.json', 'composer.lock', 'VERSION'];
 $exclude = static function (string $relative): bool {
     return str_starts_with($relative, 'public/release/') || str_starts_with($relative, 'public/storage/') || str_starts_with($relative, 'public/uploads/');
 };
@@ -49,7 +49,7 @@ ksort($files, SORT_STRING);
 $manifest = [
     'product' => 'Secure Package',
     'format' => 'SECURE-PKG-V14',
-    'version' => '14.1.0',
+    'version' => SECURE_PACKAGE_VERSION,
     'author' => 'ElmanCod110',
     'scope' => 'active-source',
     'hash' => 'sha256',

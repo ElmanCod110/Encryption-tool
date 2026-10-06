@@ -20,5 +20,5 @@ jobs:
       - name: Syntax checks
         run: |
           find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Browser V13 round-trip
+      - name: Legacy browser V13 round-trip
         run: node tests/BrowserV13RoundTripTest.mjs

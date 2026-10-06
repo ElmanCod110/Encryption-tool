@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self';base-uri 'none';frame-ancestors 'none';object-src 'none';form-action 'self';style-src 'self';script-src 'self';worker-src 'self';connect-src 'self';img-src 'self' data:;font-src 'self';media-src 'none'">
 <meta name="referrer" content="no-referrer">
-<title>Secure Package · Browser Vault V13</title>
+<title>Secure Package · Legacy Browser Compatibility</title>
 <link rel="stylesheet" href="client/v13/vault-v13.css">
 </head>
 <body>
@@ -14,16 +14,16 @@
 <header class="nav surface">
   <a class="brand" href="./">
     <span class="mark" aria-hidden="true">SP</span>
-    <span><b>Secure Package</b><small>Hardened Browser Vault V13</small></span>
+    <span><b>Secure Package</b><small>Legacy Browser Compatibility · V13</small></span>
   </a>
-  <div class="badges"><span>SERVER-BLIND</span><span>MERKLE VERIFIED</span><span>V13</span></div>
+  <div class="badges"><span>SERVER-BLIND</span><span>MERKLE VERIFIED</span><span>LEGACY V13</span></div>
 </header>
 
 <section class="hero">
   <div>
     <span class="eyebrow">LOCAL-FIRST ENCRYPTION WORKSPACE</span>
     <h1>Encrypt the package.<br><em>Keep the plaintext local.</em></h1>
-    <p>V13 adds fail-closed package parsing, bounded metadata, authenticated chunk records, full Merkle verification before restore, and a no-overwrite restore policy.</p>
+    <p>This compatibility surface preserves the V13 browser package format with fail-closed parsing, authenticated chunk records, Merkle verification before restore, and a no-overwrite restore policy.</p>
     <div class="chips"><i>AES-256-GCM</i><i>HKDF-SHA-256</i><i>SHA-256</i><i>MERKLE</i><i>RESUMABLE</i><i>PBKDF2 / WEB CRYPTO</i></div>
   </div>
   <div class="stat surface"><strong>13</strong><span>FORMAT</span><small>SPK13</small></div>
@@ -83,9 +83,9 @@
 </section>
 
 <section class="flow surface"><span class="eyebrow">SPK13BIN1</span><div><b>FILES</b><i></i><b>CDC</b><i></i><b>AEAD</b><i></i><b>CHUNK HASH</b><i></i><b>MERKLE</b><i></i><b>FOOTER</b></div></section>
-<section class="console surface"><div><b>Security console</b><button id="clear" type="button">Clear</button></div><pre id="log">V13 initialized.</pre></section>
+<section class="console surface"><div><b>Security console</b><button id="clear" type="button">Clear</button></div><pre id="log">Legacy V13 compatibility initialized.</pre></section>
 <footer><span>Secure Package · ElmanCod110</span><span>Open-source · cryptographic format is documented, not secret</span></footer>
 </main>
-<script src="client/v13/vault-v13.js?v=14.1.2" defer></script>
+<script src="client/v13/vault-v13.js?v=14.1.0" defer></script>
 </body>
 </html>
