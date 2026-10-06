@@ -99,17 +99,299 @@ function call(op, payload = {}) {
 }
 
 function safeParts(path) {
+  if (typeof path !== 'string') fail('Unsafe path.');
   const parts = path.replaceAll('\\', '/').split('/').filter(Boolean);
-  const device = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
   if (!parts.length || parts.length > MAX_NAME_PARTS) fail('Unsafe path.');
   let bytesTotal = 0;
   for (const part of parts) {
-    const encoded = te.encode(part.normalize('NFC'));
+    const normalized = part.normalize('NFC');
+    const encoded = te.encode(normalized);
     bytesTotal += encoded.length;
-    if (part === '.' || part === '..' || part.endsWith('.') || part.endsWith(' ') || part.includes(':') || device.test(part) || /[\u0000-\u001f\u007f]/.test(part) || encoded.length > 255) fail('Unsafe path.');
+    if (
+      part === '.' ||
+      part === '..' ||
+      /[\u0000-\u001f\u007f]/.test(part) ||
+      /[\uD800-\uDFFF]/.test(part) ||
+      encoded.length > 255
+    ) fail('Unsafe path.');
   }
   if (bytesTotal > MAX_NAME_BYTES) fail('Path is too long.');
   return parts;
+}
+
+const FS_NAME_NOT_ALLOWED = /name is not allowed/i;
+const WINDOWS_RESERVED = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i;
+
+function isNotFound(error) {
+  return error?.name === 'NotFoundError';
+}
+
+function isNameNotAllowed(error) {
+  return Boolean(error) && FS_NAME_NOT_ALLOWED.test(String(error.message || ''));
+}
+
+function utf8Trim(value, maxBytes) {
+  let output = '';
+  for (const char of value) {
+    const next = output + char;
+    if (te.encode(next).length > maxBytes) break;
+    output = next;
+  }
+  return output || 'file';
+}
+
+async function nameDigest(value) {
+  return hex(await crypto.subtle.digest('SHA-256', te.encode(value)));
+}
+
+async function compatibilityName(original, strong = false) {
+  const digest = (await nameDigest(original)).slice(0, 12);
+  if (strong) return `_V13_${digest}.bin`;
+
+  let value = original.normalize('NFC');
+  value = value.replace(/[\u0000-\u001f\u007f]/g, '_');
+  value = value.replace(/[<>:"|?*]/g, '_');
+  value = value.replace(/[. ]+$/g, '');
+  if (!value) value = 'file';
+
+  const stem = value.split('.')[0];
+  if (WINDOWS_RESERVED.test(stem) || WINDOWS_RESERVED.test(value)) value = `_${value}`;
+  value = utf8Trim(value, 170);
+
+  // Chromium/Chrome may reject certain executable/script extensions at the File System Access API boundary.
+  // Moving the original extension away from the final extension keeps the restored bytes intact while
+  // avoiding a browser-level filename block. A cryptographic suffix prevents sanitization collisions.
+  if (/\.(?:ade|adp|app|apk|appx|appxbundle|arj|asp|aspx|bat|cab|cer|chm|cmd|com|cpl|dll|dmg|exe|hta|img|ins|iso|isp|jar|jnlp|js|jse|lnk|msp|msi|msix|msixbundle|mst|nsh|ocx|ps1|reg|scr|sys|vb|vbe|vbs|vhd|vhdx|vsix|ws|wsc|wsf|wsh|xll|xla|xlam)$/i.test(value)) {
+    value = `${utf8Trim(value, 150)}.v13-restore`;
+  } else {
+    value = `${utf8Trim(value, 170)}~v13-${digest}`;
+  }
+  return utf8Trim(value, 220);
+}
+
+function collisionName(name, index) {
+  const dot = name.lastIndexOf('.');
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : '';
+  return utf8Trim(`${base} (${index})${ext}`, 220);
+}
+
+function exactPathKey(parts) {
+  return parts.map((part) => part.normalize('NFC')).join('/');
+}
+
+function physicalKey(parts) {
+  return parts.map((part) => part.normalize('NFC').toLocaleLowerCase('en-US')).join('/');
+}
+
+async function probeDirectory(parent, name) {
+  try {
+    return await parent.getDirectoryHandle(name, { create: true });
+  } catch (error) {
+    if (isNameNotAllowed(error)) return null;
+    throw error;
+  }
+}
+
+async function probeFile(parent, name) {
+  let handle = null;
+  let writable = null;
+  try {
+    handle = await parent.getFileHandle(name, { create: true });
+    writable = await handle.createWritable();
+    await writable.close();
+    writable = null;
+    await parent.removeEntry(name);
+    return true;
+  } catch (error) {
+    try { await writable?.close(); } catch (_) {}
+    if (handle) await parent.removeEntry(name).catch(() => {});
+    if (isNameNotAllowed(error)) return false;
+    throw error;
+  }
+}
+
+async function probePhysicalPath(root, outputFiles) {
+  const probeName = `.__secure-v13-probe-${[...rnd(8)].map((x) => x.toString(16).padStart(2, '0')).join('')}`;
+  const probeRoot = await root.getDirectoryHandle(probeName, { create: true });
+  const directoryChoices = new Map();
+  const usedDirectoryNames = new Map();
+  const usedFileNames = new WeakMap();
+
+  const uniqueCandidate = (base, used) => {
+    if (!used.has(base.toLocaleLowerCase('en-US'))) return base;
+    for (let index = 1; index <= 100_000; index += 1) {
+      const candidate = collisionName(base, index);
+      if (!used.has(candidate.toLocaleLowerCase('en-US'))) return candidate;
+    }
+    fail('Unable to choose a unique compatible restore name.');
+  };
+
+  try {
+    for (const output of outputFiles) {
+      let probeDir = probeRoot;
+      const physical = [];
+
+      for (let i = 0; i < output.safe.length - 1; i += 1) {
+        const sourcePrefix = exactPathKey(output.safe.slice(0, i + 1));
+        const parentPrefix = exactPathKey(output.safe.slice(0, i));
+        let choice = directoryChoices.get(sourcePrefix);
+        if (!choice) {
+          const used = usedDirectoryNames.get(parentPrefix) || new Set();
+          usedDirectoryNames.set(parentPrefix, used);
+          let candidate = uniqueCandidate(output.safe[i], used);
+          let directory = await probeDirectory(probeDir, candidate);
+          if (!directory) {
+            candidate = uniqueCandidate(await compatibilityName(output.safe[i]), used);
+            directory = await probeDirectory(probeDir, candidate);
+            if (!directory) {
+              candidate = uniqueCandidate(await compatibilityName(output.safe[i], true), used);
+              directory = await probeDirectory(probeDir, candidate);
+              if (!directory) fail('This browser cannot create a compatible restore directory name.');
+            }
+            choice = { name: candidate, directory, adapted: true };
+          } else {
+            choice = { name: candidate, directory, adapted: candidate !== output.safe[i] };
+          }
+          used.add(candidate.toLocaleLowerCase('en-US'));
+          directoryChoices.set(sourcePrefix, choice);
+        }
+        probeDir = choice.directory;
+        physical.push(choice.name);
+      }
+
+      let used = usedFileNames.get(probeDir);
+      if (!used) { used = new Set(); usedFileNames.set(probeDir, used); }
+      let candidate = uniqueCandidate(output.safe.at(-1), used);
+      let ok = await probeFile(probeDir, candidate);
+      if (!ok) {
+        candidate = uniqueCandidate(await compatibilityName(output.safe.at(-1)), used);
+        ok = await probeFile(probeDir, candidate);
+        if (!ok) {
+          candidate = uniqueCandidate(await compatibilityName(output.safe.at(-1), true), used);
+          ok = await probeFile(probeDir, candidate);
+        }
+      }
+      if (!ok) fail('This browser cannot create a compatible restore filename.');
+      used.add(candidate.toLocaleLowerCase('en-US'));
+      physical.push(candidate);
+      output.physical = physical;
+      output.preflightAdapted = physical.some((part, index) => part !== output.safe[index]);
+    }
+  } finally {
+    await root.removeEntry(probeName, { recursive: true }).catch(() => {});
+  }
+}
+
+async function restorePathState(parent, name) {
+  try {
+    await parent.getDirectoryHandle(name, { create: false });
+    return 'directory';
+  } catch (error) {
+    if (isNameNotAllowed(error)) return 'blocked';
+    if (error?.name !== 'TypeMismatchError' && !isNotFound(error)) throw error;
+  }
+  try {
+    await parent.getFileHandle(name, { create: false });
+    return 'file';
+  } catch (error) {
+    if (isNameNotAllowed(error)) return 'blocked';
+    if (isNotFound(error)) return 'missing';
+    throw error;
+  }
+}
+
+async function resolveActualRestorePaths(root, outputFiles) {
+  const directoryCache = new Map();
+  const usedByDirectory = new WeakMap();
+  const createdDirectories = [];
+  const actualPaths = [];
+
+  const usedSet = (dir) => {
+    let used = usedByDirectory.get(dir);
+    if (!used) { used = new Set(); usedByDirectory.set(dir, used); }
+    return used;
+  };
+
+
+
+  const chooseAvailable = async (parent, desired, used, forceSafe = false) => {
+    let candidate = forceSafe ? await compatibilityName(desired, true) : desired;
+    for (let index = 0; index <= 100_000; index += 1) {
+      const candidateKey = candidate.toLocaleLowerCase('en-US');
+      if (!used.has(candidateKey)) {
+        const state = await restorePathState(parent, candidate);
+        if (state === 'missing') {
+          if (await probeFile(parent, candidate)) return candidate;
+          if (!forceSafe) return chooseAvailable(parent, desired, used, true);
+        }
+      }
+      candidate = collisionName(candidate, Math.max(1, index + 1));
+    }
+    fail('Unable to choose a non-conflicting restore path.');
+  };
+
+  try {
+    for (const output of outputFiles) {
+      let dir = root;
+      const actualDirs = [];
+      for (let i = 0; i < output.physical.length - 1; i += 1) {
+        const sourcePrefix = exactPathKey(output.safe.slice(0, i + 1));
+        const cached = directoryCache.get(sourcePrefix);
+        if (cached) {
+          dir = cached.dir;
+          actualDirs.push(cached.name);
+          continue;
+        }
+
+        const used = usedSet(dir);
+        let desired = output.physical[i];
+        let state = used.has(desired.toLocaleLowerCase('en-US')) ? 'package-collision' : await restorePathState(dir, desired);
+        let name = desired;
+        let child = null;
+
+        if (state === 'directory' && desired === output.safe[i]) {
+          child = await dir.getDirectoryHandle(name, { create: false });
+        } else {
+          if (state === 'blocked' || state === 'file' || state === 'package-collision' || state === 'directory') {
+            name = await chooseAvailable(dir, desired, used, true);
+          } else {
+            try {
+              child = await dir.getDirectoryHandle(name, { create: true });
+              createdDirectories.push({ parent: dir, name });
+            } catch (error) {
+              if (!isNameNotAllowed(error) && error?.name !== 'TypeMismatchError') throw error;
+              name = await chooseAvailable(dir, desired, used, true);
+            }
+          }
+          if (!child) child = await dir.getDirectoryHandle(name, { create: true });
+        }
+
+        used.add(name.toLocaleLowerCase('en-US'));
+        directoryCache.set(sourcePrefix, { name, dir: child });
+        dir = child;
+        actualDirs.push(name);
+      }
+
+      const used = usedSet(dir);
+      let desired = output.physical.at(-1);
+      let state = await restorePathState(dir, desired);
+      let name = desired;
+      if (state !== 'missing') name = await chooseAvailable(dir, desired, used, state === 'blocked');
+      else if (!(await probeFile(dir, name))) name = await chooseAvailable(dir, desired, used, true);
+      used.add(name.toLocaleLowerCase('en-US'));
+      output.actualPhysical = [...actualDirs, name];
+      actualPaths.push(output);
+    }
+  } catch (error) {
+    for (let i = createdDirectories.length - 1; i >= 0; i -= 1) {
+      const created = createdDirectories[i];
+      await created.parent.removeEntry(created.name).catch(() => {});
+    }
+    throw error;
+  }
+
+  return actualPaths.reduce((count, output) => count + (output.actualPhysical.some((part, index) => part !== output.safe[index]) ? 1 : 0), 0);
 }
 
 function validateSecrets(password, pattern) {
@@ -519,8 +801,9 @@ async function verifyInventory(file, inventory, manifest) {
   return true;
 }
 
-async function restore(file, password, pattern, recovery) {
+async function restore(file, password, pattern, recovery, root) {
   if (/\.spkg14$/i.test(file.name || '')) fail('V14 server packages (.spkg14) are not compatible with Browser Vault V13. Open them in the V14 server workspace.');
+  if (!root) fail('A restore destination was not selected.');
   const { header, offset, salt } = await readHeader(file);
   const footer = await readFooter(file);
   if (footer.start <= offset) fail('Package contains no encrypted records.');
@@ -543,14 +826,9 @@ async function restore(file, password, pattern, recovery) {
     validateManifest(manifest, header.package_id);
     const inventory = await readInventory(file, offset, footer.start);
     await verifyInventory(file, inventory, manifest);
-    if (!window.showDirectoryPicker) fail('Directory restore is unavailable in this browser or security context. Use a current Chrome/Edge browser over HTTPS or localhost.');
 
-    const root = await showDirectoryPicker({ mode: 'readwrite' });
     const outputPaths = new Set();
-    const outputPathList = [];
     const outputFiles = [];
-
-    // Preflight every decrypted path and external destination before creating any output.
     for (const fileEntry of manifest.files) {
       const names = [];
       for (let i = 0; i < fileEntry.path_parts.length; i += 1) {
@@ -567,41 +845,54 @@ async function restore(file, password, pattern, recovery) {
         names.push(td.decode(plain));
       }
       const safe = safeParts(names.join('/'));
-      const normalizedKey = safe.map((part) => part.normalize('NFC').toLocaleLowerCase('en-US')).join('/');
+      const normalizedKey = exactPathKey(safe);
       if (outputPaths.has(normalizedKey)) fail('Duplicate restored path.');
       outputPaths.add(normalizedKey);
-      outputPathList.push(normalizedKey);
-      outputFiles.push({ fileEntry, safe });
+      outputFiles.push({ fileEntry, safe, physical: null });
     }
 
-    outputPathList.sort();
+    const outputPathList = [...outputPaths].sort();
     for (let i = 1; i < outputPathList.length; i += 1) {
       const previous = outputPathList[i - 1];
       const current = outputPathList[i];
       if (current.startsWith(`${previous}/`)) fail('Package contains a file/directory path conflict.');
     }
 
-    // External destination checks are kept separate so the preflight never mutates the filesystem.
-    for (const { safe } of outputFiles) {
-      let dir = root;
-      for (const part of safe.slice(0, -1)) {
-        try { dir = await dir.getDirectoryHandle(part, { create: false }); }
-        catch (error) { if (error?.name === 'NotFoundError') { dir = null; break; } throw error; }
-      }
-      if (!dir) continue;
-      try {
-        await dir.getFileHandle(safe.at(-1), { create: false });
-        fail('Restore target already contains one of the package files.');
-      } catch (error) {
-        if (error?.name !== 'NotFoundError') throw error;
-      }
-    }
+    await probePhysicalPath(root, outputFiles);
+    const adaptedCount = await resolveActualRestorePaths(root, outputFiles);
+
+    $('state').textContent = 'RESTORING';
 
     let total = 0;
-    for (const { fileEntry, safe } of outputFiles) {
+    for (const { fileEntry, actualPhysical } of outputFiles) {
       let dir = root;
-      for (const part of safe.slice(0, -1)) dir = await dir.getDirectoryHandle(part, { create: true });
-      const handle = await dir.getFileHandle(safe.at(-1), { create: true });
+      for (let i = 0; i < actualPhysical.length - 1; i += 1) {
+        const part = actualPhysical[i];
+        try {
+          dir = await dir.getDirectoryHandle(part, { create: true });
+        } catch (error) {
+          if (!isNameNotAllowed(error)) throw error;
+          const fallback = await compatibilityName(part, true);
+          dir = await dir.getDirectoryHandle(fallback, { create: true });
+        }
+      }
+
+      let fileName = actualPhysical.at(-1);
+      let handle;
+      const currentState = await restorePathState(dir, fileName);
+      if (currentState !== 'missing') {
+        fileName = await chooseAvailable(dir, fileName, new Set(), currentState === 'blocked');
+        actualPhysical[actualPhysical.length - 1] = fileName;
+      }
+      try {
+        handle = await dir.getFileHandle(fileName, { create: true });
+      } catch (error) {
+        if (!isNameNotAllowed(error)) throw error;
+        fileName = await compatibilityName(fileName, true);
+        actualPhysical[actualPhysical.length - 1] = fileName;
+        handle = await dir.getFileHandle(fileName, { create: true });
+      }
+
       const writable = await handle.createWritable();
       try {
         let fileTotal = 0;
@@ -630,7 +921,8 @@ async function restore(file, password, pattern, recovery) {
         await writable.close();
       }
     }
-    return manifest.files.length;
+    const finalAdaptedCount = outputFiles.reduce((count, output) => count + (output.actualPhysical.some((part, index) => part !== output.safe[index]) ? 1 : 0), 0);
+    return { count: manifest.files.length, adaptedCount: finalAdaptedCount };
   } finally {
     await call('destroy', { sessionId: sid }).catch(() => {});
   }
@@ -682,23 +974,48 @@ $('build').onclick = async () => {
 };
 
 $('decrypt').onclick = async () => {
+  let root = null;
   try {
     const file = $('package').files[0];
     if (!file) fail('Select a .spk13 package.');
     if (/\.spkg14$/i.test(file.name || '')) fail('V14 server packages (.spkg14) are not compatible with Browser Vault V13. Open them in the V14 server workspace.');
+    if (!window.showDirectoryPicker) fail('Directory restore is unavailable in this browser or security context. Use a current Chrome/Edge browser over HTTPS or localhost.');
+
     $('decrypt').disabled = true;
+    $('state').textContent = 'SELECT DESTINATION';
+
+    // The picker must run immediately inside the click activation; doing crypto awaits first can make browsers reject it.
+    try {
+      root = await showDirectoryPicker({ mode: 'readwrite' });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        $('decryptResult').textContent = 'Restore cancelled. No files were changed.';
+        $('state').textContent = 'READY';
+        log('Restore cancelled; no files were changed.');
+        return;
+      }
+      throw error;
+    }
+
     $('state').textContent = 'VERIFYING';
-    const count = await restore(file, $('decryptPassword').value, $('decryptPattern').value, $('recoveryKey').value.trim());
+    const result = await restore(file, $('decryptPassword').value, $('decryptPattern').value, $('recoveryKey').value.trim(), root);
     $('decryptPassword').value = '';
     $('decryptPattern').value = '';
     $('recoveryKey').value = '';
-    $('decryptResult').textContent = `${count} file(s) restored locally.`;
+    $('decryptResult').textContent = result.adaptedCount
+      ? `${result.count} file(s) restored locally. ${result.adaptedCount} path name(s) were adjusted for browser/filesystem compatibility; no data was overwritten.`
+      : `${result.count} file(s) restored locally. No existing data was overwritten.`;
     $('state').textContent = 'READY';
-    log('V13 package authenticated, Merkle-verified, then restored without overwriting existing paths.');
+    log(result.adaptedCount
+      ? `V13 package authenticated and restored. ${result.adaptedCount} incompatible path name(s) were mapped to safe local names without overwriting existing data.`
+      : 'V13 package authenticated, Merkle-verified, then restored without overwriting existing paths.');
   } catch (error) {
-    $('decryptResult').textContent = 'Unable to open or restore the package.';
+    const message = isNameNotAllowed(error)
+      ? 'The browser rejected a restore filename. The package was not overwritten; retrying after a page refresh may be required if an old client is cached.'
+      : (error?.message || 'Unable to open or restore the package.');
+    $('decryptResult').textContent = message;
     $('state').textContent = 'ERROR';
-    log(error.message);
+    log(message);
   } finally { $('decrypt').disabled = false; }
 };
 
