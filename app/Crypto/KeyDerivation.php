@@ -9,39 +9,41 @@ final class KeyDerivation
 {
     public const MASTER_KEY_BYTES = SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES;
     public const SALT_BYTES = 32;
-    public const CONTEXT = 'TCH-PKG-V1';
+    public const CONTEXT = 'TCH-PKG-V2';
 
-    public static function deriveMasterKey(string $password, string $pattern, string $salt): string
+    public static function deriveMasterKey(string $password, string $pattern, string $salt, int $opslimit = SODIUM_CRYPTO_PWHASH_OPSLIMIT_MODERATE, int $memlimit = SODIUM_CRYPTO_PWHASH_MEMLIMIT_MODERATE): string
     {
         self::assertRuntime();
+        if ($password === '' || $pattern === '') {
+            throw new RuntimeException('Credentials must not be empty.');
+        }
         if (strlen($salt) !== self::SALT_BYTES) {
             throw new RuntimeException('Invalid KDF salt length.');
         }
-        $passwordSalt = substr(hash('sha256', self::CONTEXT . '|password|' . $salt, true), 0, SODIUM_CRYPTO_PWHASH_SALTBYTES);
+
+        $passwordSalt = self::purposeSalt($salt, 'password');
+        $patternSalt = self::purposeSalt($salt, 'pattern');
+
         $passwordKey = sodium_crypto_pwhash(
             self::MASTER_KEY_BYTES,
             $password,
             $passwordSalt,
-            SODIUM_CRYPTO_PWHASH_OPSLIMIT_MODERATE,
-            SODIUM_CRYPTO_PWHASH_MEMLIMIT_MODERATE,
+            $opslimit,
+            $memlimit,
             SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13
         );
-        $patternSalt = substr(hash('sha256', self::CONTEXT . '|pattern|' . $salt, true), 0, SODIUM_CRYPTO_PWHASH_SALTBYTES);
+
         $patternKey = sodium_crypto_pwhash(
             self::MASTER_KEY_BYTES,
             $pattern,
             $patternSalt,
-            SODIUM_CRYPTO_PWHASH_OPSLIMIT_MODERATE,
-            SODIUM_CRYPTO_PWHASH_MEMLIMIT_MODERATE,
+            $opslimit,
+            $memlimit,
             SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13
         );
 
-        return self::hkdfX(
-            hash_hmac('sha256', $patternKey, $passwordKey, true),
-            'master',
-            self::MASTER_KEY_BYTES,
-            $salt
-        );
+        $combined = hash_hmac('sha256', $patternKey, $passwordKey, true);
+        return self::hkdf($combined, 'master', self::MASTER_KEY_BYTES, $salt);
     }
 
     public static function deriveSubkey(string $masterKey, string $purpose, string $context = ''): string
@@ -49,19 +51,30 @@ final class KeyDerivation
         if (strlen($masterKey) !== self::MASTER_KEY_BYTES) {
             throw new RuntimeException('Invalid master key length.');
         }
-        return self::hkdfX($masterKey, $purpose, self::MASTER_KEY_BYTES, $context);
+        if ($purpose === '') {
+            throw new RuntimeException('Key purpose must not be empty.');
+        }
+        return self::hkdf($masterKey, $purpose, self::MASTER_KEY_BYTES, $context);
     }
 
-    private static function hkdfX(string $ikm, string $info, int $length, string $salt): string
+    public static function deriveFileKey(string $fileRootKey, string $fileId): string
+    {
+        return self::deriveSubkey($fileRootKey, 'file', 'file-id:' . $fileId);
+    }
+
+    private static function purposeSalt(string $salt, string $purpose): string
+    {
+        return substr(hash('sha256', self::CONTEXT . '|salt|' . $purpose . '|' . $salt, true), 0, SODIUM_CRYPTO_PWHASH_SALTBYTES);
+    }
+
+    private static function hkdf(string $ikm, string $info, int $length, string $salt): string
     {
         $prk = hash_hmac('sha256', $ikm, $salt !== '' ? $salt : str_repeat("\0", 32), true);
         $result = '';
         $previous = '';
-        $counter = 1;
-        while (strlen($result) < $length) {
+        for ($counter = 1; strlen($result) < $length; $counter++) {
             $previous = hash_hmac('sha256', $previous . $info . chr($counter), $prk, true);
             $result .= $previous;
-            $counter++;
         }
         return substr($result, 0, $length);
     }

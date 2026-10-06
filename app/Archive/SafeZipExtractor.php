@@ -8,81 +8,217 @@ use ZipArchive;
 
 final class SafeZipExtractor
 {
-    public function __construct(
-        private readonly int $maxEntries = 100000,
-        private readonly int $maxSingleFileBytes = 512000000,
-        private readonly int $maxTotalUncompressedBytes = 5368709120
-    ) {}
+    public function __construct(private readonly ArchivePolicy $policy = new ArchivePolicy()) {}
 
-    public function extract(string $zipPath, string $destinationDir, ?string $password = null): void
+    public function extractRecursive(string $zipPath, string $destinationDir, ArchivePasswordProvider $passwordProvider): array
     {
+        if (!extension_loaded('zip') || !class_exists(ZipArchive::class)) {
+            throw new RuntimeException('PHP Zip extension is required.');
+        }
+        $state = ['archives' => 0, 'files' => 0, 'bytes' => 0, 'password_cache' => []];
+        $root = $this->canonicalFile($zipPath);
+        $destinationDir = $this->prepareDestination($destinationDir);
+        $this->extractOne($root, $destinationDir, $passwordProvider, $state, 0);
+        return $state;
+    }
+
+    private function extractOne(string $zipPath, string $destinationDir, ArchivePasswordProvider $provider, array &$state, int $depth): void
+    {
+        if ($depth > $this->policy->maxDepth) {
+            throw new RuntimeException('Nested archive depth limit exceeded.');
+        }
+        if (++$state['archives'] > $this->policy->maxNestedArchives) {
+            throw new RuntimeException('Nested archive count limit exceeded.');
+        }
+
         $zip = new ZipArchive();
-        if ($zip->open($zipPath) !== true) {
+        $openResult = $zip->open($zipPath);
+        if ($openResult !== true) {
             throw new RuntimeException('Unable to open ZIP archive.');
         }
-        if ($password !== null) {
-            $zip->setPassword($password);
-        }
+
         try {
-            if ($zip->numFiles > $this->maxEntries) {
-                throw new RuntimeException('Archive contains too many entries.');
+            if ($zip->numFiles > $this->policy->maxEntries) {
+                throw new RuntimeException('Archive entry limit exceeded.');
             }
-            $total = 0;
+            $password = $provider->passwordFor($zipPath, $depth);
+            if ($password !== '') {
+                $zip->setPassword($password);
+            }
+
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $stat = $zip->statIndex($i, ZipArchive::FL_UNCHANGED);
                 if ($stat === false) {
                     throw new RuntimeException('Unable to inspect archive entry.');
                 }
-                $name = str_replace('\\', '/', (string) $stat['name']);
-                if ($this->unsafePath($name)) {
-                    throw new RuntimeException('Archive contains an unsafe path.');
+                $name = str_replace('\\', '/', (string) ($stat['name'] ?? ''));
+                $this->validateEntryPath($name);
+                if (strlen($name) > $this->policy->maxPathLength) {
+                    throw new RuntimeException('Archive path is too long.');
                 }
-                $size = (int) ($stat['size'] ?? 0);
-                if ($size > $this->maxSingleFileBytes || ($total += max(0, $size)) > $this->maxTotalUncompressedBytes) {
-                    throw new RuntimeException('Archive exceeds extraction limits.');
+                if ($this->isSymbolicLink($zip, $i)) {
+                    throw new RuntimeException('Symbolic links are not supported in archives.');
                 }
-                $stream = $zip->getStream($name);
-                if ($stream === false) {
-                    throw new RuntimeException('Unable to read archive entry.');
-                }
-                $target = $destinationDir . DIRECTORY_SEPARATOR . $name;
-                if (str_ends_with($name, '/')) {
-                    if (!mkdir($target, 0700, true) && !is_dir($target)) {
-                        fclose($stream);
-                        throw new RuntimeException('Unable to create directory.');
+
+                $isDir = str_ends_with($name, '/');
+                $declaredSize = max(0, (int) ($stat['size'] ?? 0));
+                if (!$isDir) {
+                    if ($declaredSize > $this->policy->maxSingleFileBytes) {
+                        throw new RuntimeException('Single file extraction limit exceeded.');
                     }
-                    fclose($stream);
+                    $state['bytes'] += $declaredSize;
+                    if ($state['bytes'] > $this->policy->maxTotalUncompressedBytes) {
+                        throw new RuntimeException('Total extraction limit exceeded.');
+                    }
+                }
+
+                $target = $destinationDir . DIRECTORY_SEPARATOR . $name;
+                if ($isDir) {
+                    if (!mkdir($target, 0700, true) && !is_dir($target)) {
+                        throw new RuntimeException('Unable to create archive directory.');
+                    }
                     continue;
                 }
+
                 $parent = dirname($target);
                 if (!is_dir($parent) && !mkdir($parent, 0700, true) && !is_dir($parent)) {
-                    fclose($stream);
                     throw new RuntimeException('Unable to create extraction directory.');
                 }
-                $out = fopen($target, 'wb');
+                if (file_exists($target)) {
+                    throw new RuntimeException('Archive contains duplicate output paths.');
+                }
+
+                $stream = $zip->getStream($name);
+                if ($stream === false) {
+                    throw new RuntimeException('Unable to read ZIP entry. The archive may require a different password.');
+                }
+                $out = fopen($target, 'xb');
                 if ($out === false) {
                     fclose($stream);
                     throw new RuntimeException('Unable to create extracted file.');
                 }
-                stream_copy_to_stream($stream, $out);
-                fclose($stream);
-                fclose($out);
+                try {
+                    $copied = stream_copy_to_stream($stream, $out);
+                    if ($copied === false) {
+                        throw new RuntimeException('Unable to extract archive entry.');
+                    }
+                    $state['files']++;
+                } finally {
+                    fclose($stream);
+                    fclose($out);
+                }
+
+                if ($this->looksLikeZip($target)) {
+                    $nestedDir = $target . '.contents.' . bin2hex(random_bytes(6));
+                    if (!mkdir($nestedDir, 0700) || !is_dir($nestedDir)) {
+                        throw new RuntimeException('Unable to create nested archive workspace.');
+                    }
+                    try {
+                        $this->extractOne($target, $nestedDir, $provider, $state, $depth + 1);
+                        @unlink($target);
+                        $this->mergeDirectory($nestedDir, $destinationDir . DIRECTORY_SEPARATOR . preg_replace('/\.zip$/i', '', $name));
+                    } finally {
+                        $this->removeDirectory($nestedDir);
+                    }
+                }
             }
         } finally {
             $zip->close();
         }
     }
 
-    private function unsafePath(string $path): bool
+    private function looksLikeZip(string $path): bool
     {
-        if ($path === '' || str_starts_with($path, '/') || preg_match('/^[A-Za-z]:\//', $path)) {
-            return true;
+        if (!is_file($path) || filesize($path) < 4) {
+            return false;
+        }
+        $handle = fopen($path, 'rb');
+        if ($handle === false) {
+            return false;
+        }
+        $signature = fread($handle, 4);
+        fclose($handle);
+        return $signature === "PK\x03\x04" || $signature === "PK\x05\x06" || $signature === "PK\x07\x08";
+    }
+
+    private function validateEntryPath(string $path): void
+    {
+        if ($path === '' || str_starts_with($path, '/') || preg_match('/^[A-Za-z]:\//', $path) === 1 || str_contains($path, "\0")) {
+            throw new RuntimeException('Archive contains an unsafe path.');
         }
         foreach (explode('/', $path) as $part) {
-            if ($part === '..' || $part === '.') {
-                return true;
+            if ($part === '' || $part === '.' || $part === '..') {
+                if ($part !== '' && $part !== null) {
+                    throw new RuntimeException('Archive contains an unsafe path.');
+                }
             }
         }
-        return str_contains($path, "\0");
+    }
+
+    private function isSymbolicLink(ZipArchive $zip, int $index): bool
+    {
+        if (!method_exists($zip, 'getExternalAttributesIndex')) {
+            return false;
+        }
+        $opsys = 0;
+        $attributes = 0;
+        if (!$zip->getExternalAttributesIndex($index, $opsys, $attributes, ZipArchive::FL_UNCHANGED)) {
+            return false;
+        }
+        if ($opsys === ZipArchive::OPSYS_UNIX) {
+            return (($attributes >> 16) & 0xF000) === 0xA000;
+        }
+        return false;
+    }
+
+    private function canonicalFile(string $path): string
+    {
+        $real = realpath($path);
+        if ($real === false || !is_file($real)) {
+            throw new RuntimeException('ZIP file does not exist.');
+        }
+        return $real;
+    }
+
+    private function prepareDestination(string $path): string
+    {
+        if (file_exists($path)) {
+            throw new RuntimeException('Destination directory already exists.');
+        }
+        if (!mkdir($path, 0700, true)) {
+            throw new RuntimeException('Unable to create destination directory.');
+        }
+        return realpath($path) ?: $path;
+    }
+
+    private function mergeDirectory(string $source, string $target): void
+    {
+        if (!is_dir($target) && !mkdir($target, 0700, true)) {
+            throw new RuntimeException('Unable to merge nested archive contents.');
+        }
+        $iterator = new \FilesystemIterator($source, \FilesystemIterator::SKIP_DOTS);
+        foreach ($iterator as $item) {
+            $destination = $target . DIRECTORY_SEPARATOR . $item->getFilename();
+            if (file_exists($destination)) {
+                throw new RuntimeException('Nested archive path collision detected.');
+            }
+            if ($item->isDir()) {
+                rename($item->getPathname(), $destination);
+            } else {
+                rename($item->getPathname(), $destination);
+            }
+        }
+    }
+
+    private function removeDirectory(string $path): void
+    {
+        if (!is_dir($path)) {
+            return;
+        }
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($iterator as $item) {
+            $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+        }
+        @rmdir($path);
     }
 }

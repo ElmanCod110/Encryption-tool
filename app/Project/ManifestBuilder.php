@@ -7,18 +7,39 @@ final class ManifestBuilder
 {
     private array $nodes = [];
 
-    public function addDirectory(string $id, ?string $parentId, string $name): void
+    public function addDirectory(string $id, ?string $parentId, string $encryptedName): void
     {
-        $this->nodes[] = ['id' => $id, 'parent' => $parentId, 'type' => 'dir', 'name' => $name];
+        $this->nodes[] = [
+            'id' => $id,
+            'parent' => $parentId,
+            'type' => 'dir',
+            'name' => $encryptedName,
+        ];
     }
 
-    public function addFile(string $id, ?string $parentId, string $name, string $blobId, int $size): void
+    public function addFile(string $id, ?string $parentId, string $encryptedName, string $blobId, int $size): void
     {
-        $this->nodes[] = ['id' => $id, 'parent' => $parentId, 'type' => 'file', 'name' => $name, 'blob' => $blobId, 'size' => $size];
+        $this->nodes[] = [
+            'id' => $id,
+            'parent' => $parentId,
+            'type' => 'file',
+            'name' => $encryptedName,
+            'blob' => $blobId,
+            'size' => $size,
+        ];
+    }
+
+    public function count(): int
+    {
+        return count($this->nodes);
     }
 
     public function toJson(): string
     {
-        return json_encode(['version' => 1, 'format' => 'TCH-PKG-V1', 'nodes' => $this->nodes], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        return json_encode([
+            'version' => 2,
+            'format' => 'TCH-PKG-V2',
+            'nodes' => $this->nodes,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
 }

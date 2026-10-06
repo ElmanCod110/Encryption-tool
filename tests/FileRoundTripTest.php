@@ -15,7 +15,7 @@ $data = random_bytes(3 * 1024 * 1024 + 123);
 file_put_contents($source, $data);
 $key = random_bytes(KeyDerivation::MASTER_KEY_BYTES);
 CryptoEngine::encryptFile($source, $encrypted, $key, 'file|test');
-CryptoEngine::decryptFile($encrypted, $restored, $key, 'file|test');
+CryptoEngine::decryptFile($encrypted, $restored, $key, 'file|test', strlen($data));
 if (!hash_equals(hash_file('sha256', $source), hash_file('sha256', $restored))) {
     throw new RuntimeException('File round-trip failed.');
 }
