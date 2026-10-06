@@ -18,16 +18,21 @@ try {
     $packageId = (string) ($data['package_id'] ?? '');
     $record = (new PackageCatalog($config['storage']['catalog']))->get($packageId);
     if (($record['revoked_at'] ?? null) !== null || ($record['expires_at'] ?? null) !== null && (int) $record['expires_at'] < time()) throw new RuntimeException('Unavailable.');
-    $file = $config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId . '.spkg';
+    $file = $config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId . '.spkg14';
+    if (!is_file($file)) {
+        $legacy = $config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId . '.spkg';
+        if (is_file($legacy)) $file = $legacy;
+    }
     if (!is_file($file)) {
         $dir = $config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
-        $file = $dir . DIRECTORY_SEPARATOR . $packageId . '.spkg';
+        $file = $dir . DIRECTORY_SEPARATOR . $packageId . '.spkg14';
+        if (!is_file($file)) $file = $dir . DIRECTORY_SEPARATOR . $packageId . '.spkg';
     }
     if (!is_file($file)) throw new RuntimeException('Unavailable.');
     $size = filesize($file);
     if ($size === false) throw new RuntimeException('Unavailable.');
     header('Content-Type: application/octet-stream');
-    header('Content-Disposition: attachment; filename="' . $packageId . '.spkg"');
+    header('Content-Disposition: attachment; filename="' . $packageId . '.spkg14"');
     header('Content-Length: ' . $size);
     header('Content-Transfer-Encoding: binary');
     readfile($file);
