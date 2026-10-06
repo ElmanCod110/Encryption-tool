@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Archive;
+namespace SecurePackage\Archive;
 
 use RuntimeException;
 use ZipArchive;

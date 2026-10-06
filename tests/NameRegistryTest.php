@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use TCH\Security\FileProjectNameRegistry;
+use SecurePackage\Security\FileProjectNameRegistry;
 
-$file = sys_get_temp_dir() . '/tch-name-registry-' . bin2hex(random_bytes(6)) . '.db';
+$file = sys_get_temp_dir() . '/securepkg-name-registry-' . bin2hex(random_bytes(6)) . '.db';
 $registry = new FileProjectNameRegistry($file, 'test-server-pepper');
 $registry->reserve('My Project');
 try {

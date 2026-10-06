@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use TCH\Crypto\CryptoEngine;
-use TCH\Crypto\KeyDerivation;
+use SecurePackage\Crypto\CryptoEngine;
+use SecurePackage\Crypto\KeyDerivation;
 
 $salt = random_bytes(KeyDerivation::SALT_BYTES);
 $password = 'Strong!Password2026#';
@@ -18,7 +18,7 @@ $keyB = KeyDerivation::deriveMasterKey($password, $patternB, $salt);
 assert(hash_equals($keyA, $keyA2));
 assert(!hash_equals($keyA, $keyB));
 
-$payload = 'TCH cryptographic round-trip test';
+$payload = 'SecurePackage cryptographic round-trip test';
 $ciphertext = CryptoEngine::encryptString($payload, $keyA, 'test');
 assert(CryptoEngine::decryptString($ciphertext, $keyA, 'test') === $payload);
 

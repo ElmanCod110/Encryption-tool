@@ -1,0 +1,19 @@
+{
+  "name": "elmancod110/secure-package",
+  "description": "Open-source PHP system for authenticated encryption of complete directory structures and portable encrypted packages.",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "ElmanCod110"
+    }
+  ],
+  "require": {
+    "php": ">=8.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "SecurePackage\\": "app/"
+    }
+  }
+}

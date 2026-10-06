@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Storage;
+namespace SecurePackage\Storage;
 
 use RuntimeException;
 

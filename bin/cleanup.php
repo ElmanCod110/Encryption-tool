@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 $config = require dirname(__DIR__) . '/config/config.php';
-$maxAge = 24 * 3600;
+$maxAge = (int) ($config['limits']['job_ttl_seconds'] ?? 3600);
 $roots = [
     $config['storage']['temp'],
+    $config['storage']['rate_limits'],
 ];
 $now = time();
 $removed = 0;

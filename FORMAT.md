@@ -1,40 +1,82 @@
-# TCH-PKG-V2 Format
+# SECURE-PKG-V3 Format
+
+`SECURE-PKG-V3` is the portable package format used by Secure Package.
 
 ## Container
 
-A portable `.tchpkg` file is a ZIP container holding:
+A portable package is a ZIP container with the `.spkg` extension.
+
+The internal layout is intentionally small and opaque:
 
 ```text
 header.json
 manifest.enc
-blobs/<random-48-hex>.bin
+blobs/<48-hex-character-id>.bin
 ```
 
-`record.json` is never included in the portable container.
+No original filename or directory path is required to appear in plaintext.
 
 ## Header
 
-`header.json` contains public format parameters and a random per-package salt. It does not contain the password, pattern, filenames, paths, or file contents.
+`header.json` contains only package-format information needed to locate and interpret the encrypted package, including:
+
+- Format identifier
+- Format version
+- Random package identifier
+- Argon2id configuration identifier and fixed supported parameters
+- Payload algorithm identifiers
+- Package salt
+
+The portable header never contains the password or pattern.
+
+KDF parameters are validated against the implementation's approved V3 values. A modified package cannot request an arbitrary memory or time cost from the decryptor.
 
 ## Manifest
 
-The manifest contains the complete directory tree. It is encrypted and authenticated with a manifest-specific key.
+`manifest.enc` is an authenticated encrypted record.
 
-Each node contains a random ID, parent reference, node type, encrypted name, and for files an encrypted blob identifier and authenticated plaintext size.
+Its plaintext structure contains:
 
-## File blobs
+```text
+format
+version
+schema
+node_count
+nodes[]
+```
 
-Each blob uses a file-specific key derived from the master key and node ID. SecretStream is used for streaming authentication. Plaintext is padded to 1 MiB boundaries before encryption.
+Each node contains a random node identifier, parent relationship, node type, and encrypted name. File nodes additionally contain a random blob identifier and the original plaintext size required to remove encryption padding after authenticated decryption.
 
-## Key separation
+The manifest is never trusted before successful authenticated decryption and schema validation.
 
-The master key is never used directly for package data. Separate subkeys are derived for:
+## Blob encryption
 
-- Manifest encryption.
-- Filename encryption.
-- File encryption root.
-- Individual file encryption.
+Every file has its own derived file key.
 
-## Failure behavior
+The file key is derived from the package file-root key and the random manifest node identifier.
 
-Manifest authentication failure, filename authentication failure, file authentication failure, malformed metadata, and invalid credentials are intentionally mapped to generic package-open failures at the web layer.
+Large file content is encrypted using XChaCha20-Poly1305 SecretStream. The encrypted file contains its stream header followed by length-prefixed authenticated chunks.
+
+## Associated data
+
+Cryptographic operations use purpose-bound associated data such as:
+
+```text
+manifest|3
+name|<node-id>
+file|<node-id>|v3
+```
+
+This prevents ciphertext created for one logical purpose from being silently accepted in another context.
+
+## Randomness
+
+Package identifiers, node identifiers, blob identifiers, salts, nonces, and temporary names use cryptographically secure random generation.
+
+Re-encrypting identical plaintext with identical credentials therefore does not intentionally produce the same package contents.
+
+## Compatibility
+
+A V3 reader must reject unsupported versions instead of attempting heuristic decryption.
+
+Future versions should use an explicitly versioned format identifier and should not silently reinterpret V3 data.

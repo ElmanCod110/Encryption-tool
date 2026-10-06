@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Project;
+namespace SecurePackage\Project;
 
 final class ManifestBuilder
 {
@@ -37,8 +37,10 @@ final class ManifestBuilder
     public function toJson(): string
     {
         return json_encode([
-            'version' => 2,
-            'format' => 'TCH-PKG-V2',
+            'version' => 3,
+            'format' => 'SECURE-PKG-V3',
+            'schema' => 1,
+            'node_count' => count($this->nodes),
             'nodes' => $this->nodes,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }

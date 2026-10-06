@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace TCH\Crypto;
+namespace SecurePackage\Crypto;
 
 use RuntimeException;
 
@@ -9,13 +9,18 @@ final class KeyDerivation
 {
     public const MASTER_KEY_BYTES = SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES;
     public const SALT_BYTES = 32;
-    public const CONTEXT = 'TCH-PKG-V2';
+    public const CONTEXT = 'SECURE-PKG-V3';
+    public const DEFAULT_OPSLIMIT = SODIUM_CRYPTO_PWHASH_OPSLIMIT_MODERATE;
+    public const DEFAULT_MEMLIMIT = SODIUM_CRYPTO_PWHASH_MEMLIMIT_MODERATE;
 
-    public static function deriveMasterKey(string $password, string $pattern, string $salt, int $opslimit = SODIUM_CRYPTO_PWHASH_OPSLIMIT_MODERATE, int $memlimit = SODIUM_CRYPTO_PWHASH_MEMLIMIT_MODERATE): string
+    public static function deriveMasterKey(string $password, string $pattern, string $salt, int $opslimit = self::DEFAULT_OPSLIMIT, int $memlimit = self::DEFAULT_MEMLIMIT): string
     {
         self::assertRuntime();
         if ($password === '' || $pattern === '') {
             throw new RuntimeException('Credentials must not be empty.');
+        }
+        if ($opslimit !== self::DEFAULT_OPSLIMIT || $memlimit !== self::DEFAULT_MEMLIMIT) {
+            throw new RuntimeException('Unsupported KDF parameters.');
         }
         if (strlen($salt) !== self::SALT_BYTES) {
             throw new RuntimeException('Invalid KDF salt length.');
