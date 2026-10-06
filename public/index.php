@@ -135,7 +135,7 @@ $csrf = WebSecurity::csrfToken();
 </section>
 </main>
 
-<footer><span>Secure Package · Author: ElmanCod110</span><span>V14 server package engine · Browser Vault V13 remains a separate compatibility boundary.</span></footer>
+<footer><span>Secure Package · Author: ElmanCod110</span><span>V14 server package engine · PHP Zip extension required · Browser Vault V13 remains a separate compatibility boundary.</span></footer>
 </div>
 
 <div class="modal hidden" id="authModal">

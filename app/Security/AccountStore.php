@@ -100,10 +100,8 @@ final class AccountStore
 
     private function usernameHash(string $username): string
     {
-        $pepper = (string) (getenv('SPK_NAME_PEPPER') ?: '');
-        if ($pepper === '') {
-            throw new RuntimeException('SPK_NAME_PEPPER must be configured.');
-        }
+        $pepper = ApplicationSecrets::namePepper(dirname(dirname($this->file)));
+
         return hash_hmac('sha256', $username, $pepper);
     }
 

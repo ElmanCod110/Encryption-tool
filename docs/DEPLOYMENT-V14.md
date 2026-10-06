@@ -44,3 +44,15 @@ Use restrictive filesystem permissions for package, upload, temporary, catalog, 
 ## Recovery key handling
 
 The V14 recovery key is displayed once. Store it offline and separately from the encrypted package. Never place it in issue trackers, source control, server logs, or application telemetry.
+
+
+## Local secret bootstrap
+
+`SPK_NAME_PEPPER` is recommended for managed production deployments. If it is not set, the application generates a persistent 256-bit local secret at `storage/secrets/name-pepper.bin` with restrictive permissions. Keep the entire `storage/` directory private and backed up with the application data it protects.
+
+The server workspace requires PHP `ext-zip`; `/health.php` reports the deployment as degraded until it is available. `bin/self-check.php` also treats `ext-zip` as a required V14 runtime component.
+
+
+### Runtime preflight
+
+The main V14 workspace requires PHP `ext-zip` because incoming ZIP archives and portable `.spkg14` releases are processed server-side. The application health endpoint and web UI report this as a required runtime component.

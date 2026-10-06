@@ -49,7 +49,7 @@ ksort($files, SORT_STRING);
 $manifest = [
     'product' => 'Secure Package',
     'format' => 'SECURE-PKG-V14',
-    'version' => '14.0.0',
+    'version' => '14.1.0',
     'author' => 'ElmanCod110',
     'scope' => 'active-source',
     'hash' => 'sha256',

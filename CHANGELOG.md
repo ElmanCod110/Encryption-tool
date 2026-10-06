@@ -1,5 +1,15 @@
 # Changelog
 
+## 14.1.0 — Compatibility and Server Reliability Fixes
+
+- Fixed Browser Vault V13 self-produced package rejection caused by missing key-slot type/version metadata.
+- Fixed server account creation/build initialization when `SPK_NAME_PEPPER` is not exported by generating a persistent local application secret under `storage/secrets/`.
+- Fixed server build response so the one-time recovery key is returned correctly.
+- Added cleanup when portable `.spkg14` packaging fails to prevent orphaned package directories.
+- Server health now correctly reports the PHP Zip extension as required for the server workspace.
+- Added a clearer Browser Vault restore diagnostic for unsupported/non-secure browser contexts.
+- Added regression coverage for persistent application-secret bootstrap.
+
 ## 14.0.0 — V14 cryptographic package engine
 
 ### Security

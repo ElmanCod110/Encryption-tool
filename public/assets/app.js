@@ -297,10 +297,18 @@ $('logoutButton').onclick = async () => {
 
 (async () => {
   try {
-    const data = await api('me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    state.authenticated = !!data.authenticated;
+    const me = await api('me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    state.authenticated = !!me.authenticated;
     if (state.authenticated) { $('authButton').textContent = 'Account'; loadPackages(); }
     const status = await api('security-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     $('log').textContent = `Format: ${status.format}\nCrypto: ${status.crypto.kdf} + ${status.crypto.aead}\nControls: ${Object.entries(status.controls).filter(([, value]) => value).map(([name]) => name).join(', ')}`;
+
+    const healthResponse = await fetch('health.php', { credentials: 'same-origin', cache: 'no-store' });
+    const health = await healthResponse.json();
+    if (!health.ok) {
+      const missing = Object.entries(health.required || {}).filter(([, value]) => value === false).map(([name]) => name);
+      setStatus('Server setup incomplete');
+      log(`Server runtime is not ready. Missing/disabled required components: ${missing.join(', ') || 'see health.php'}`);
+    }
   } catch (_) {}
 })();

@@ -16,6 +16,7 @@ final class SecurityDiagnostics
             'sodium' => extension_loaded('sodium'),
             'random' => function_exists('random_bytes'),
             'zip' => extension_loaded('zip'),
+            'storage_writable' => self::storageWritable($projectRoot . '/storage'),
             'pdo_mysql' => extension_loaded('pdo_mysql'),
             'https' => $https,
             'csp' => true,
@@ -23,7 +24,7 @@ final class SecurityDiagnostics
             'env_not_in_public' => !is_file($projectRoot . '/public/.env'),
             'private_keys_absent' => self::privateKeyScan($projectRoot),
         ];
-        $critical = ['php_version', 'sodium', 'random', 'public_storage_separation', 'env_not_in_public', 'private_keys_absent'];
+        $critical = ['php_version', 'sodium', 'random', 'zip', 'storage_writable', 'public_storage_separation', 'env_not_in_public', 'private_keys_absent'];
         $secure = true;
         foreach ($critical as $name) if (($checks[$name] ?? false) !== true) $secure = false;
         return [
@@ -33,6 +34,12 @@ final class SecurityDiagnostics
             'secure' => $secure,
             'transport_warning' => !$https ? 'HTTPS is not enabled in this environment.' : null,
         ];
+    }
+
+    private static function storageWritable(string $path): bool
+    {
+        if (!is_dir($path) && !@mkdir($path, 0700, true) && !is_dir($path)) return false;
+        return is_writable($path);
     }
 
     private static function privateKeyScan(string $root): bool

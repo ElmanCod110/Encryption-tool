@@ -68,3 +68,6 @@ jobs:
 
       - name: Source security audit
         run: php bin/source-audit.php
+
+      - name: Browser V13 round-trip
+        run: node tests/BrowserV13RoundTripTest.mjs
