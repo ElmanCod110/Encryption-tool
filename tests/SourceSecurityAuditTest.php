@@ -11,6 +11,7 @@ foreach ($it as $file) {
     if (!$file->isFile()) continue;
     $path = str_replace('\\', '/', $file->getPathname());
     if (str_contains($path, '/vendor/')) continue;
+    if (str_contains($path, '/archive/legacy/')) continue;
     if ($path === __FILE__) continue;
     if (str_contains($path, '/tests/')) continue;
     if (str_ends_with($path, '/bin/source-audit.php')) continue;

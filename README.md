@@ -1,42 +1,41 @@
-# Secure Package V12
+# Secure Package V13
 
 **Author:** ElmanCod110
 
-Secure Package is an independent open-source browser-first encrypted package system focused on authenticated encryption, server-blind processing, resumable ciphertext transport, large-file streaming, and security testing.
+Secure Package is an open-source encryption project with two explicit cryptographic boundaries: an Argon2id-backed PHP package engine and a browser-first server-blind V13 vault.
 
-## What V12 adds
+## Current browser vault
 
-V12 is the security-hardening generation before final release. It combines the earlier encrypted package architecture with a dedicated attack-and-verification layer:
+The active browser format is `SECURE-BROWSER-V13` (`.spk13`). V13 hardens the package parser and restore path around the authenticated encryption layer:
 
-- V12 browser package format (`.spk12`)
-- Browser-side credential processing
-- Password + pattern derived access
-- AES-256-GCM content encryption
-- HKDF key separation
-- Content-defined chunking
+- AES-256-GCM for package records
+- HKDF-SHA-256 key separation
 - SHA-256 ciphertext addressing
-- Merkle integrity
-- Stream-oriented local processing
-- Resumable ciphertext-only upload
-- Owner-bound upload sessions
-- Replay protection
-- Encrypted build-state envelope
-- Deterministic canonical JSON
-- Runtime security diagnostics
-- Source-code security audit
-- Fuzz-style regression tests
-- Race-condition regression tests
-- Release integrity verification
-- PHPStan / PHP-CS-Fixer configuration
-- GitHub security CI
+- Content-defined streaming chunks
+- Full Merkle-root verification before restore output
+- Fail-closed header/footer/metadata parsing
+- Explicit package, manifest, file, path, and chunk limits
+- Cross-platform path validation and collision detection
+- Fail-on-existing-path restore policy
+- Dedicated Web Worker for credential/key operations
+- Optional independent recovery-key slot
+- Resumable ciphertext-only uploads
+- Owner-bound upload sessions and atomic rate limiting
+- Optional HTTPS enforcement and configured public-origin validation
 
-## Security position
+### KDF boundary
 
-The project does not rely on keeping its source code or algorithms secret. V12 uses standard cryptographic primitives and treats credentials as the main secret input.
+The PHP server-side package engine uses Argon2id through libsodium. The V13 browser vault uses PBKDF2-HMAC-SHA-256 through the standards-based Web Crypto API for broad offline browser compatibility. The two are documented separately; V13 does not claim that PBKDF2 is equivalent to Argon2id.
 
-The V12 browser workflow keeps password, pattern, and plaintext file content on the client side during package creation and restore. The server-side upload API handles opaque ciphertext only.
+## Layout
 
-This is not an absolute-security guarantee. A compromised browser origin, compromised endpoint, or compromised build pipeline remains a meaningful threat.
+The repository root contains only the active source and security tooling. Previous format generations are preserved under:
+
+```text
+archive/legacy/
+```
+
+Legacy code is not part of the active browser or API surface.
 
 ## Runtime requirements
 
@@ -44,71 +43,88 @@ This is not an absolute-security guarantee. A compromised browser origin, compro
 - Sodium extension
 - Zip extension for ZIP workflows
 - PDO MySQL is optional
-- A modern browser for the V12 Browser Vault
+- Modern browser with Web Crypto, Web Workers, and File System Access API for large streamed restore/build workflows
 
-## Local test
+## Local run
 
-Place the project below the XAMPP document root:
-
-```text
-C:\xampp\htdocs\secure-package-v12\
-```
-
-Open:
+Point XAMPP/Apache at the `public/` directory and open:
 
 ```text
-http://localhost/secure-package-v12/public/
+http://localhost/secure-package/public/
 ```
 
-V12 browser vault:
+Browser Vault V13:
 
 ```text
-http://localhost/secure-package-v12/public/client-vault-v12.html
+http://localhost/secure-package/public/client-vault.html
 ```
 
-V12 descriptor:
+V13 descriptor:
 
 ```text
-http://localhost/secure-package-v12/public/client-v12.php
+http://localhost/secure-package/public/client-v13.php
 ```
 
-Runtime diagnostics:
+V13 health check:
 
 ```text
-http://localhost/secure-package-v12/public/health-v12.php
+http://localhost/secure-package/public/health-v13.php
 ```
 
-## Test suite
+## Production settings
 
-Run the fast security gate:
+Set these environment variables on production:
+
+```text
+SPK_REQUIRE_HTTPS=1
+SPK_PUBLIC_ORIGIN=https://your-host.example
+```
+
+Expose only `public/` through the web server. Keep `.env`, `storage/`, package data, upload state, audit logs, and release-signing secrets outside the public web root.
+
+## Security tests
+
+Fast gate:
 
 ```bash
 php bin/security-test.php
 ```
 
-Run the complete historical regression suite (slower because of expensive KDF tests):
+Full regression suite:
 
 ```bash
 php bin/security-test.php --full
 ```
 
-Run source audit separately:
+Source audit:
 
 ```bash
 php bin/source-audit.php
 ```
 
-Run the benchmark:
+Release verification requires an independently trusted public key:
 
 ```bash
-php bin/benchmark.php
+php bin/verify-release.php .
 ```
 
-## Important deployment rules
+For high-assurance release verification, set `SECURE_PACKAGE_TRUSTED_RELEASE_KEY_HEX` instead of trusting a public key shipped with the package.
 
-Expose only the `public/` directory through the web server. Keep `.env`, package storage, upload state, logs, and private operational data outside the public web root.
+## Release signing
 
-For production, use HTTPS and a hardened PHP deployment. Do not place private release-signing keys in the application repository or on the web server.
+Release signatures are generated only from an external private key. Do not store a release private key in the repository or web server.
+
+```bash
+php bin/sign-release.php /secure/location/release-private-key.hex .
+```
+
+The signing workflow targets the current V13 browser assets.
+
+## Security position
+
+No software can provide an absolute security percentage. The project instead documents a concrete threat model, trust boundaries, cryptographic primitives, parser limits, authorization controls, test gates, and release-integrity procedures.
+
+A compromised browser origin, endpoint, operating system, build pipeline, or user secret remains outside the protections of the package cryptographic format.
 
 ## License
 

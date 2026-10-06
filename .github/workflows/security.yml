@@ -15,7 +15,11 @@ jobs:
           extensions: sodium, zip, pdo_mysql
       - name: PHP syntax check
         run: |
-          find . -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Composer validation
+        run: composer validate --strict --no-check-publish
+      - name: Dependency audit
+        run: composer audit --no-interaction
       - name: Core tests
         run: |
           php tests/CryptoRoundTripTest.php
@@ -26,7 +30,8 @@ jobs:
           php tests/ResumableUploadTest.php
           php tests/SecurityInvariantTest.php
           php tests/SignedStateTest.php
-          php tests/V9FormatTest.php
           php tests/ReleaseIntegrityTest.php
+          php tests/V13DescriptorTest.php
+          php tests/V13UploadTest.php
       - name: Self check
-        run: php bin/self-check.php || test "$?" = "0"
+        run: php bin/self-check.php

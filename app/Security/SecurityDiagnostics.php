@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace SecurePackage\Security;
 
 /**
- * Provides non-secret runtime checks for the V12 diagnostics endpoint and CLI.
+ * Provides non-secret runtime checks for the current V13 diagnostics endpoint and CLI.
  */
 final class SecurityDiagnostics
 {
@@ -27,7 +27,7 @@ final class SecurityDiagnostics
         $secure = true;
         foreach ($critical as $name) if (($checks[$name] ?? false) !== true) $secure = false;
         return [
-            'version' => 12,
+            'version' => 13,
             'author' => 'ElmanCod110',
             'checks' => $checks,
             'secure' => $secure,

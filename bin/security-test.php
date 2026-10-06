@@ -4,9 +4,8 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $fast = in_array('--full', $argv, true) === false;
 $fastTests = [
-    'CanonicalFuzzTest.php', 'CanonicalJsonTest.php', 'FuzzSecurityTest.php',
-    'FormatDescriptorTest.php', 'ReplayGuardTest.php', 'ReplayRaceTest.php',
-    'SecurityDiagnosticsTest.php', 'SourceSecurityAuditTest.php', 'V12BuildStateTest.php',
+    'CanonicalFuzzTest.php', 'CanonicalJsonTest.php', 'ReplayGuardTest.php', 'ReplayRaceTest.php',
+    'SecurityDiagnosticsTest.php', 'SourceSecurityAuditTest.php', 'V13DescriptorTest.php', 'V13UploadTest.php', 'ReleaseVerifierTrustRootTest.php',
     'ZipPolicyTest.php'
 ];
 $tests = $fast ? array_map(fn($n) => $root . '/tests/' . $n, $fastTests) : (glob($root . '/tests/*Test.php') ?: []);
@@ -25,4 +24,4 @@ if ($failures) {
     echo 'Failed tests: ' . implode(', ', $failures) . "\n";
     exit(1);
 }
-echo ($fast ? 'All V12 fast security tests' : 'All regression tests') . " passed.\n";
+echo ($fast ? 'All V13 fast security tests' : 'All regression tests') . " passed.\n";

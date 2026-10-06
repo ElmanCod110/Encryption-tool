@@ -8,6 +8,7 @@ $checks = [
     'Sodium extension' => extension_loaded('sodium'),
     'Zip extension' => extension_loaded('zip'),
     'Randomness API' => function_exists('random_bytes'),
+    'Argon2id support' => defined('SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13'),
 ];
 $failed = false;
 foreach ($checks as $name => $ok) {
