@@ -27,7 +27,7 @@ $csrf = WebSecurity::csrfToken();
     <span><b>Secure Package</b><small>Open-source encrypted package platform</small></span>
   </a>
   <div class="top-actions">
-    <span class="version-pill">V4</span>
+    <span class="version-pill">V11</span><a class="ghost-button" href="client-vault-v11.html">Browser Vault V11</a>
     <button class="ghost-button" id="authButton">Sign in</button>
   </div>
 </header>
@@ -39,7 +39,7 @@ $csrf = WebSecurity::csrfToken();
     <h1>Protect complete projects, not just files.</h1>
     <p>Build opaque encrypted packages from ZIP archives, keep filenames and directory relationships private, and restore only after authenticated credentials succeed.</p>
     <div class="hero-badges">
-      <span>Argon2id</span><span>XChaCha20-Poly1305</span><span>Encrypted manifest</span><span>Resumable upload</span>
+      <span>Argon2id</span><span>XChaCha20-Poly1305</span><span>Unified server-blind V11</span><span>Resumable upload</span>
     </div>
   </div>
   <div class="hero-orbit glass" aria-hidden="true">
@@ -86,8 +86,8 @@ $csrf = WebSecurity::csrfToken();
 </section>
 
 <section class="bottom-grid">
-  <div class="status-panel glass"><div class="status-title"><span class="live-dot"></span><strong id="statusPill">System ready</strong></div><pre id="log">Upload a ZIP to begin.</pre></div>
-  <div class="architecture-panel glass"><div class="architecture-title"><strong>Security pipeline</strong><span>V4</span></div><div class="pipeline"><span>ZIP</span><i></i><span>Staging</span><i></i><span>Argon2id</span><i></i><span>AEAD</span><i></i><span>.spkg</span></div><p>Source paths are normalized before encryption. Package manifests and file blobs are authenticated independently.</p></div>
+  <div class="status-panel glass"><div class="status-title"><span class="live-dot"></span><strong id="statusPill">System ready</strong><span class="status-caption">Authenticated controls • tamper-evident audit • resumable upload • browser crypto mode</span></div><pre id="log">Upload a ZIP to begin.</pre></div>
+  <div class="architecture-panel glass"><div class="architecture-title"><strong>Security pipeline</strong><span>SECURE-BROWSER-V11</span></div><div class="pipeline"><span>FILES</span><i></i><span>Worker</span><i></i><span>KDF</span><i></i><span>AEAD</span><i></i><span>.spk10</span></div><p>Source paths are normalized before encryption. Package manifests and file blobs are authenticated independently.</p></div>
 </section>
 </main>
 

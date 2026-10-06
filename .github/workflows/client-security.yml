@@ -1,0 +1,18 @@
+name: Client Security
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check public/client/v9/vault-v9.js
+          node --check public/client/v9/worker.js

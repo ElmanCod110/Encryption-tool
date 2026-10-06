@@ -35,7 +35,7 @@ $catalog = new PackageCatalog($config['storage']['catalog']);
 $accessTokens = new PackageAccessTokenStore($config['storage']['temp'] . DIRECTORY_SEPARATOR . 'download-tokens', $config['limits']['download_token_ttl_seconds']);
 $accounts = new AccountStore($config['storage']['accounts'] . DIRECTORY_SEPARATOR . 'users.json');
 $audit = new AuditLogger($config['storage']['audit'] . DIRECTORY_SEPARATOR . 'events.jsonl');
-$controller = new PackageController($config, $jobs, $limiter, $archives, $uploads, $catalog, $accessTokens, $accounts, $audit);
+$controller = new PackageController($config, $jobs, $limiter, $archives, $uploads, $catalog, $accessTokens, $accounts, $audit, new \SecurePackage\Security\AuthorizationService());
 
 try {
     switch ((string) ($_GET['action'] ?? '')) {
@@ -53,6 +53,8 @@ try {
         case 'access-token': $controller->accessToken();
         case 'set-expiry': $controller->setExpiry();
         case 'revoke': $controller->revoke();
+        case 'delete': $controller->delete();
+        case 'security-status': $controller->securityStatus();
         case 'csrf': JsonResponse::send(['ok' => true, 'csrf' => WebSecurity::csrfToken()]);
         default: JsonResponse::send(['ok' => false, 'error' => 'Unknown action.'], 404);
     }

@@ -5,3 +5,6 @@ storage/*
 *.partial.*
 .phpunit.result.cache
 vendor/
+
+storage/client-v8/*
+!storage/client-v8/.gitkeep

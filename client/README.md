@@ -1,14 +1,17 @@
-# Client-Side Decryption Adapter
+# Client-Side Cryptography Profile
 
-The package format is intentionally designed so a future browser-only decryptor can consume an opaque package without changing the encrypted data model.
+Version 6 introduces an isolated browser cryptography profile for operations that must not send the Password or Pattern to the server.
 
-A production browser decryptor should use an audited WebAssembly binding for the same sodium primitives used by the PHP implementation. The repository does not ship a hand-written browser cipher or a substitute algorithm.
+The client profile uses the browser Web Crypto API with:
 
-Required browser primitives:
+- PBKDF2-HMAC-SHA-256
+- 900,000 iterations by default
+- AES-256-GCM
+- Unique 256-bit salts
+- Unique 96-bit IVs
+- Authenticated additional data
+- Web Worker isolation
 
-- Argon2id
-- XChaCha20-Poly1305
-- XChaCha20-Poly1305 SecretStream
-- Streaming file handling
+This profile is intentionally separate from the server-native XChaCha20-Poly1305 package format. It is not safe to claim that the entire ZIP workflow is server-blind until the browser package builder/reader is used end-to-end.
 
-The server API can provide opaque package bytes without exposing plaintext. A browser adapter can then derive keys locally and rebuild the manifest and files locally.
+The server must never receive browser-side Password or Pattern values in a client-side workflow.

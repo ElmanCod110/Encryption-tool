@@ -27,6 +27,8 @@ final class WebSecurity
         header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
         header('Cross-Origin-Opener-Policy: same-origin');
         header('Cross-Origin-Resource-Policy: same-origin');
+        header('Cross-Origin-Embedder-Policy: require-corp');
+        header('Origin-Agent-Cluster: ?1');
         header('X-Permitted-Cross-Domain-Policies: none');
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         if ($html) {

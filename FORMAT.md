@@ -1,82 +1,50 @@
-# SECURE-PKG-V4 Format
+# Secure Package Format V6
 
-`SECURE-PKG-V4` is the portable package format used by Secure Package.
+## Identity
 
-## Container
+```text
+Format: SECURE-PKG-V6
+Version: 5
+Extension: .spkg
+Author: ElmanCod110
+```
 
-A portable package is a ZIP container with the `.spkg` extension.
-
-The internal layout is intentionally small and opaque:
+## Package components
 
 ```text
 header.json
 manifest.enc
-blobs/<48-hex-character-id>.bin
+blobs/
 ```
 
-No original filename or directory path is required to appear in plaintext.
+Only a fixed allow-list of top-level entries is accepted.
 
 ## Header
 
-`header.json` contains only package-format information needed to locate and interpret the encrypted package, including:
+The header contains non-secret format parameters required to interpret the package, including the package identifier, KDF algorithm/parameters, payload algorithms, and public salt.
 
-- Format identifier
-- Format version
-- Random package identifier
-- Argon2id configuration identifier and fixed supported parameters
-- Payload algorithm identifiers
-- Package salt
-
-The portable header never contains the password or pattern.
-
-KDF parameters are validated against the implementation's approved V4 values. A modified package cannot request an arbitrary memory or time cost from the decryptor.
+Password, pattern, filenames, directory names, and plaintext content are not stored in the header.
 
 ## Manifest
 
-`manifest.enc` is an authenticated encrypted record.
+The manifest is authenticated encrypted data. It contains the logical directory tree and encrypted filenames.
 
-Its plaintext structure contains:
+For files it also references:
 
-```text
-format
-version
-schema
-node_count
-nodes[]
-```
+- node identifier
+- parent identifier
+- encrypted filename
+- randomized blob identifier
+- original plaintext size
 
-Each node contains a random node identifier, parent relationship, node type, and encrypted name. File nodes additionally contain a random blob identifier and the original plaintext size required to remove encryption padding after authenticated decryption.
+## Blob policy
 
-The manifest is never trusted before successful authenticated decryption and schema validation.
+Every blob must use the package's expected random-name format. The verifier compares the physical blob inventory against manifest references so unreferenced or missing blobs are rejected.
 
-## Blob encryption
+## KDF policy
 
-Every file has its own derived file key.
+V6 pins its supported KDF parameters. Package-controlled values are not allowed to arbitrarily increase or decrease the configured Argon2id workload.
 
-The file key is derived from the package file-root key and the random manifest node identifier.
+## Evolution
 
-Large file content is encrypted using XChaCha20-Poly1305 SecretStream. The encrypted file contains its stream header followed by length-prefixed authenticated chunks.
-
-## Associated data
-
-Cryptographic operations use purpose-bound associated data such as:
-
-```text
-manifest|4
-name|<node-id>
-file|<node-id>|v4
-```
-
-This prevents ciphertext created for one logical purpose from being silently accepted in another context.
-
-## Randomness
-
-Package identifiers, node identifiers, blob identifiers, salts, nonces, and temporary names use cryptographically secure random generation.
-
-Re-encrypting identical plaintext with identical credentials therefore does not intentionally produce the same package contents.
-
-## Compatibility
-
-A V4 reader must reject unsupported versions instead of attempting heuristic decryption.
-
-Future versions should use an explicitly versioned format identifier and should not silently reinterpret V4 data.
+Future versions must use a new package version and explicit compatibility rules rather than silently changing the interpretation of existing packages.

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Secure Package — Local Vault</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self';">
+<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/client-vault.css">
+</head>
+<body>
+<div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+<div class="app-shell"><div class="vault-wrap">
+<div class="vault-head"><div><div class="eyebrow"><span class="status-dot"></span> Local cryptography mode</div><h1 class="vault-title">Browser Vault</h1><p class="vault-subtitle">Encrypt or decrypt selected files entirely in your browser. Passwords, patterns and file contents are not sent to the server by this page.</p></div><a href="./">Back to dashboard</a></div>
+<div class="pill-row"><span class="pill">PBKDF2-HMAC-SHA-256</span><span class="pill">AES-256-GCM</span><span class="pill">HKDF key separation</span><span class="pill">Web Worker</span><span class="pill">No server plaintext</span></div>
+<div class="vault-grid">
+<section class="vault-card glass"><h2>Encrypt locally</h2><p>Select files or a directory. The complete operation stays in this browser.</p><div class="filebox"><input id="files" type="file" multiple webkitdirectory directory></div><label>Password<div class="secret"><input id="password" class="text-input" type="password" autocomplete="new-password"><button id="toggle1" type="button">Show</button></div></label><label>Pattern<div class="secret"><input id="pattern" class="text-input" type="password" autocomplete="new-password"><button id="toggle2" type="button">Show</button></div></label><button id="encrypt" class="primary-button full" type="button">Encrypt locally</button><div id="result" class="vault-result"></div></section>
+<section class="vault-card glass"><h2>Decrypt locally</h2><p>Open a browser package created by this V6 local mode. Wrong credentials reveal no package contents.</p><div class="filebox"><input id="package" type="file" accept=".spc6,application/octet-stream"></div><label>Password<div class="secret"><input id="password2" class="text-input" type="password" autocomplete="off"><button id="toggle3" type="button">Show</button></div></label><label>Pattern<div class="secret"><input id="pattern2" class="text-input" type="password" autocomplete="off"><button id="toggle4" type="button">Show</button></div></label><button id="decrypt" class="primary-button full" type="button">Decrypt locally</button><div id="result2" class="vault-result"></div></section>
+<div class="vault-note glass"><strong>Security boundary</strong><p class="vault-note-copy">This browser profile is intentionally separate from the server-native XChaCha20-Poly1305 package format. It provides a practical server-blind local workflow without putting a handwritten cipher in application JavaScript.</p></div>
+</div>
+<div class="vault-log"><strong>Local activity</strong><pre id="log">Ready. No network request is required for browser encryption or decryption.</pre></div>
+</div></div>
+<script src="client/client-vault.js" defer></script>
+</body></html>

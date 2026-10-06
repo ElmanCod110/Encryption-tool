@@ -17,12 +17,21 @@ final class AccountStore
         if (!is_file($file)) {
             AtomicFile::write($file, "[]\n");
         }
+        @chmod($file, 0600);
+        @touch($file . '.lock');
+        @chmod($file . '.lock', 0600);
     }
 
     public function register(string $username, string $password): string
     {
         $username = $this->normalizeUsername($username);
         Validator::validatePassword($password);
+        $lock = fopen($this->file . '.lock', 'c+b');
+        if ($lock === false || !flock($lock, LOCK_EX)) {
+            if (is_resource($lock)) fclose($lock);
+            throw new RuntimeException('Unable to lock account store.');
+        }
+        try {
         $accounts = $this->read();
         foreach ($accounts as $account) {
             if (hash_equals((string) $account['username_hash'], $this->usernameHash($username))) {
@@ -39,6 +48,10 @@ final class AccountStore
         ];
         $this->write($accounts);
         return $id;
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
     }
 
     public function verify(string $username, string $password): ?string

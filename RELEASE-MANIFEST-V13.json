@@ -1,0 +1,1058 @@
+{
+  "format": "SECURE-PACKAGE-RELEASE-MANIFEST-V13",
+  "version": "13.0.0",
+  "author": "ElmanCod110",
+  "status": "final",
+  "files": [
+    {
+      "path": ".env.example",
+      "size": 63,
+      "sha256": "6bb2416f120f910679dffc6d9125a67e54351c9f17a9db087219517b47eb81af"
+    },
+    {
+      "path": ".gitattributes",
+      "size": 91,
+      "sha256": "70f5fa713082097bae6f933835af39f542db46bb79ec26d8b4cc6b3b6f4a90df"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "size": 662,
+      "sha256": "11030d007d68b4b20ba2b94d67b2ae7d2ccfb887ed9feae7d67e8875afa0a769"
+    },
+    {
+      "path": ".github/workflows/client-security.yml",
+      "size": 368,
+      "sha256": "8d80bbd1ff50dea82e3ca8a9c1c64aded352a61f889214442efe295f287b138a"
+    },
+    {
+      "path": ".github/workflows/security-v12.yml",
+      "size": 765,
+      "sha256": "4fec6fe465340058eeb1c465e7ef4ad51604ede0432fd3b50ca07a3536a91ac8"
+    },
+    {
+      "path": ".github/workflows/security.yml",
+      "size": 952,
+      "sha256": "14014d17d1cd527c49377a3e23218b5204cff4acf714d184304bb7b9d5ac2751"
+    },
+    {
+      "path": ".gitignore",
+      "size": 131,
+      "sha256": "79494408c8d31c6642a9433c604d7c0bc76a9f35b55371d69b4264f9b8d26a19"
+    },
+    {
+      "path": ".htaccess",
+      "size": 345,
+      "sha256": "d56ea099465cfb3385f130f667d85a5464dc3faed7b4c69924cffc21fae446af"
+    },
+    {
+      "path": ".php-cs-fixer.php",
+      "size": 279,
+      "sha256": "986c34dbde18cb56b9a1abcaf3245aa6d84354e4370843edd83a73cac83544a8"
+    },
+    {
+      "path": "AUTHOR",
+      "size": 12,
+      "sha256": "c4c7946f451f7e9d80964b1f2b4765e5e3033ecc6c750bab19ea64660908573e"
+    },
+    {
+      "path": "AUTHORS",
+      "size": 12,
+      "sha256": "c4c7946f451f7e9d80964b1f2b4765e5e3033ecc6c750bab19ea64660908573e"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "size": 695,
+      "sha256": "e5acff72b0099c699931f73c0dbf671cf5bc8a16f0fdb67feff3912184665ac0"
+    },
+    {
+      "path": "DEPLOYMENT-V13.md",
+      "size": 697,
+      "sha256": "fa9302d770ad57f9c9787734909c291bb84c9939b931a232b8bcc96f13302768"
+    },
+    {
+      "path": "FORMAT-V10.md",
+      "size": 1850,
+      "sha256": "b7533a74b678f724d867c0dccfda6df3fb6588f0a6bc21ab7e3905474538f485"
+    },
+    {
+      "path": "FORMAT-V11.md",
+      "size": 2035,
+      "sha256": "96292da66b0ef671d9a8ac7aea3959e01e5720fff870c09bde53c77f1ccdb6d0"
+    },
+    {
+      "path": "FORMAT-V12.md",
+      "size": 2308,
+      "sha256": "714cec086c2a7271ee85866b2250bcde69707e9d3a116c466a060d5b07589c9f"
+    },
+    {
+      "path": "FORMAT-V7.md",
+      "size": 894,
+      "sha256": "b7f1422bee6787a2c582598d0c58abad4e26248f64b75095ec64ea6db2c06644"
+    },
+    {
+      "path": "FORMAT-V8.md",
+      "size": 1621,
+      "sha256": "5c66f736a34c0b1eef1ea9d0b68792ef149f9274926ae2103f595896a34d9265"
+    },
+    {
+      "path": "FORMAT-V9.md",
+      "size": 1846,
+      "sha256": "f3ef6e17aadc5e8d576f803d05ad0f19510ffe670d8b38363c5df631510557f4"
+    },
+    {
+      "path": "FORMAT.md",
+      "size": 1350,
+      "sha256": "743ff425932a4e5c78fa466b02ba0914e7b7f0303c7d903177bdf7d81dd7efa8"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1068,
+      "sha256": "e5ed88d58c4e60f932ac9ce0ce6ddf5635613fc4e500dc9ee11121cb7a753957"
+    },
+    {
+      "path": "MIGRATION-V10-TO-V11.md",
+      "size": 443,
+      "sha256": "ca0fa35e84424067798c0a33508df6717e6883dcebeb3cb5a31c723183edf686"
+    },
+    {
+      "path": "MIGRATION-V11-TO-V12.md",
+      "size": 879,
+      "sha256": "f242f10d15b7fb78f007280c8ae46512fcc8d149b1e5230f9916b7248f39aa6a"
+    },
+    {
+      "path": "MIGRATION-V13.md",
+      "size": 793,
+      "sha256": "f17715ef4126af7fc0340c4bcdf6c3ea78b1e161c1402add42ff4f7d61ac1d27"
+    },
+    {
+      "path": "MIGRATION-V5-TO-V6.md",
+      "size": 696,
+      "sha256": "0bdf379b24855b8fe4c91e8c05cecd55eb46ae1960db98a33c39aa5264e16000"
+    },
+    {
+      "path": "MIGRATION-V9-TO-V10.md",
+      "size": 833,
+      "sha256": "b70c600b5dd944eb341fcefb2e4f44c3ae05e2700c4fd0e1a4818175384ce97d"
+    },
+    {
+      "path": "README.md",
+      "size": 2981,
+      "sha256": "ead95cdaca942805cc06de472c05ea94e2a566176fd4766c99f8e4a7bcd5f768"
+    },
+    {
+      "path": "RELEASE-V13.md",
+      "size": 1227,
+      "sha256": "5ae7bb550d1665d0f0f6cb00aa083afe4fb5ece6a9db2f7219149b69a95e67a7"
+    },
+    {
+      "path": "RELEASE.json",
+      "size": 282,
+      "sha256": "edd26ffd1b7419d039f7e0c535f6565f2b694182b00ec0f77f5abbe35968327c"
+    },
+    {
+      "path": "SECURITY-ENGINEERING.md",
+      "size": 1020,
+      "sha256": "e601a6c7d6ccee8d2b748c52ce17705ecfa2e7b1383e846e772e9147a6a5b06d"
+    },
+    {
+      "path": "SECURITY-TESTING.md",
+      "size": 1334,
+      "sha256": "ee1d8c2d0fbd1394b4c134c8980b5146645ae2a4fc5bf484d1ae3420e11cecf9"
+    },
+    {
+      "path": "SECURITY.md",
+      "size": 716,
+      "sha256": "651c7bfad5cec48ba8c390726cea2a16fb072027d478463f59675bdc596f3b0f"
+    },
+    {
+      "path": "THREAT_MODEL-V11.md",
+      "size": 1209,
+      "sha256": "04f14b8aa921e231bbcaf0654953a2209ed2b32a34fbbee963fbe4d394e22394"
+    },
+    {
+      "path": "THREAT_MODEL-V12.md",
+      "size": 1959,
+      "sha256": "c272423f7c871bbcb4acb11fef850c3a3779fbe0d6305f123167db053923fd29"
+    },
+    {
+      "path": "THREAT_MODEL-V7.md",
+      "size": 835,
+      "sha256": "8e0a3b5cb12a40d8cfa593fa189908580509e6473dbc508398a5fcc649808a4c"
+    },
+    {
+      "path": "THREAT_MODEL-V8.md",
+      "size": 959,
+      "sha256": "36a1f78bc5056c78fa1426bbd2b5417ded2bc07ad22160155a13966f12f4f2b2"
+    },
+    {
+      "path": "THREAT_MODEL-V9.md",
+      "size": 2009,
+      "sha256": "22c53737bf23fa275d649b7c25309abf84cf40770ad5be767a36e2f71e6c3c81"
+    },
+    {
+      "path": "THREAT_MODEL.md",
+      "size": 1190,
+      "sha256": "adbcdf3eeefbc19ccee1b72d067368eb7f95e52002cda584deae39a2a287e4b6"
+    },
+    {
+      "path": "VERSION",
+      "size": 7,
+      "sha256": "50b85a67451145545a65cea370dab8d3444fbfe07e9c34cef560c5b7da9d3eef"
+    },
+    {
+      "path": "app/Api/JsonResponse.php",
+      "size": 481,
+      "sha256": "a258aa690adc06ce7a7283115a8bb687ef226ece9072b7b1e0cb5fe9aed16204"
+    },
+    {
+      "path": "app/Api/PackageController.php",
+      "size": 18107,
+      "sha256": "3bf8196edb328941e693a0a9b3943d6f6da5284af4a7f077a172257c3b595a42"
+    },
+    {
+      "path": "app/Api/Request.php",
+      "size": 608,
+      "sha256": "ae57f7d2444016298bc1ec6a0f5251c5e5334658942585dca46addba04d6fc03"
+    },
+    {
+      "path": "app/Archive/ArchivePasswordProvider.php",
+      "size": 178,
+      "sha256": "1647219a4e4a00e993b22b64a62cb10d78808541ad29ec0a8d03b96be56e56a2"
+    },
+    {
+      "path": "app/Archive/ArchivePolicy.php",
+      "size": 1453,
+      "sha256": "060db8efd79d728bdcef211ca1a7a679db10d09cfb6318733f9eb72af2bde0b2"
+    },
+    {
+      "path": "app/Archive/ArchiveScanner.php",
+      "size": 3136,
+      "sha256": "664d42a356e09e773460264b7b0020d7476e4a5501ccffc97892e9e18eb5502c"
+    },
+    {
+      "path": "app/Archive/ArchiveWorkflow.php",
+      "size": 10920,
+      "sha256": "b4972eb442fe52a33b13e2c60f8602ed5be43fa7b150d27c6961338c3f5ebd26"
+    },
+    {
+      "path": "app/Archive/CallbackArchivePasswordProvider.php",
+      "size": 555,
+      "sha256": "db11bbc372efbf26da429645af0ce762869fbf3c77dcef9c2b9bdb5de202b1ee"
+    },
+    {
+      "path": "app/Archive/SafeZipExtractor.php",
+      "size": 9012,
+      "sha256": "587fb973d5b2d4ef367d379c780ef2d93087944d9aca8f6a531158e2d0b7bb64"
+    },
+    {
+      "path": "app/Client/BrowserEnvelope.php",
+      "size": 1182,
+      "sha256": "456fefd5c19389428399b1c9fc0675efbc00e7f0884e8e2a23ada84047f7926f"
+    },
+    {
+      "path": "app/Client/BrowserV8.php",
+      "size": 1177,
+      "sha256": "0c52b2c4b3a01544ce8caa408efba5e068210d7ab786ce8911313113b8af6cdb"
+    },
+    {
+      "path": "app/Client/BrowserV9.php",
+      "size": 1554,
+      "sha256": "9de8b3d4ea566d4a115f4bd049c7be92b20754d5e229c36a0ed32d3a77a9cac1"
+    },
+    {
+      "path": "app/Client/ContentDefinedChunker.php",
+      "size": 1220,
+      "sha256": "2dba83230998e7500f4806beb8d331d3bb0ecf36e1d602641971eb4974e9003a"
+    },
+    {
+      "path": "app/Client/MerkleAccumulator.php",
+      "size": 1170,
+      "sha256": "ddf00b9b64760d792b0de0ff0b7372f706bee564c2a36a13873098fe3d7682d8"
+    },
+    {
+      "path": "app/Client/UnifiedBrowserPackage.php",
+      "size": 1174,
+      "sha256": "335181b66230089f4aeba091ed15dfe5a4771ee8db89f957c1ba9a982564be6d"
+    },
+    {
+      "path": "app/Client/V10Descriptor.php",
+      "size": 1191,
+      "sha256": "31902c5e2c7097f8d3158cb3e8201b228d503986ac10e9b2e6c7a1b9d70f2015"
+    },
+    {
+      "path": "app/Client/V11Descriptor.php",
+      "size": 883,
+      "sha256": "a2d99b35d0f9d40e6871d97078a29df36d5941ef3b08c92e3e4b89ab05cb3cc6"
+    },
+    {
+      "path": "app/Client/V12Descriptor.php",
+      "size": 1814,
+      "sha256": "aa84d9f4ae32f5111cb7b2b2186a494d9e6cf271c3cb106c6786a3800cae0cd2"
+    },
+    {
+      "path": "app/Crypto/CryptoEngine.php",
+      "size": 8998,
+      "sha256": "a809dac92f5ef6224f30abf9cd59df8a83152f85e476cb36a0529a02df74a7b3"
+    },
+    {
+      "path": "app/Crypto/KeyDerivation.php",
+      "size": 2905,
+      "sha256": "347d2d4a4ed65ace1f3b249aff240e91a7e2c128e5298fa0fc657f03d111a1fe"
+    },
+    {
+      "path": "app/Crypto/KeyDerivationV10.php",
+      "size": 4131,
+      "sha256": "ac1672e3d72c0af6284ba2b869e53a57c9ba348e0f98a5e0bb0ef861201d33af"
+    },
+    {
+      "path": "app/Crypto/KeyEnvelope.php",
+      "size": 3866,
+      "sha256": "87600436a4e7828fd2567bfc31db927e34bd0be90b095712d20f61f2fff4ddb2"
+    },
+    {
+      "path": "app/Crypto/MerkleTree.php",
+      "size": 2788,
+      "sha256": "ee092395a38f6475dc518235af21ab22e09271e45fff752a5ac0adcd27aa83c3"
+    },
+    {
+      "path": "app/Project/ManifestBuilder.php",
+      "size": 1038,
+      "sha256": "fc2a009450b859b10956cace73aeffc0aeeffed3c2c9a79cec9f5f4c2700e6cd"
+    },
+    {
+      "path": "app/Project/PackageArchive.php",
+      "size": 5755,
+      "sha256": "ec9013d49dd4b51419697c53987ac9e90b8f61247fb593d83f2d99e849e58eb2"
+    },
+    {
+      "path": "app/Project/PackageBuilder.php",
+      "size": 7730,
+      "sha256": "2061b08c53d45e1642fa77beac954f3b3ce21a7852ba4f70023b37868a53adbd"
+    },
+    {
+      "path": "app/Project/PackageCatalog.php",
+      "size": 3863,
+      "sha256": "ca2514dc3da151f95d015484458dba87ccd5fc41df2812087e08ca18b2cebc07"
+    },
+    {
+      "path": "app/Project/PackageId.php",
+      "size": 391,
+      "sha256": "93f918991dbaa07114a249c2c45698a70ff6d1766efb9ead636516b7bd9ebb0a"
+    },
+    {
+      "path": "app/Project/PackageReader.php",
+      "size": 8459,
+      "sha256": "3f3ca4f7364ee1b40d1fb365ce2e03ac6498ee907c3253654ef38c024dd82dda"
+    },
+    {
+      "path": "app/Project/PackageService.php",
+      "size": 1808,
+      "sha256": "38118880bcb342c654ac76961a4200e20b964f41b6e1faa766fdcf17a340ffae"
+    },
+    {
+      "path": "app/Project/PackageVerifier.php",
+      "size": 2489,
+      "sha256": "bc69c064a8fed2a21513604e5fd67e647b2d4e4bc8391ce2a16c61ce45dc73a1"
+    },
+    {
+      "path": "app/Project/RestoreArchive.php",
+      "size": 2494,
+      "sha256": "c024f982d908bcf15c2c5272180378450c8a64182cd16f166936a66d725f4fb0"
+    },
+    {
+      "path": "app/Security/AccessContext.php",
+      "size": 850,
+      "sha256": "5eb10bf3a53802be82fa9300f41fd7b265b65e60369c3cab5725c346cf449b66"
+    },
+    {
+      "path": "app/Security/AccountStore.php",
+      "size": 4244,
+      "sha256": "a21201ff63f2c2650e0f0f90ee7b561c10b8eab1f4127752dcc3894b47ee7457"
+    },
+    {
+      "path": "app/Security/AuthorizationService.php",
+      "size": 697,
+      "sha256": "d8edf454d2643655f5f1fbc66b19315caeca663070a72a0575b00fbcfba8c8da"
+    },
+    {
+      "path": "app/Security/CanonicalJson.php",
+      "size": 1056,
+      "sha256": "ed8e1915bc46f361e8ee367830e75be53b10ab8d088a2e546a29b82ec97b40c4"
+    },
+    {
+      "path": "app/Security/DeviceBinding.php",
+      "size": 1069,
+      "sha256": "d084bf05efc51ad2a1caca27b9c5ab537b4adae1e615740eba6a42e623025c6d"
+    },
+    {
+      "path": "app/Security/FileProjectNameRegistry.php",
+      "size": 1961,
+      "sha256": "a3836c12adf12c9a5f4ed9334e55cfa35e7fa5085b72a438d4996582b0669f7e"
+    },
+    {
+      "path": "app/Security/PackageAccessTokenStore.php",
+      "size": 2584,
+      "sha256": "df06223e52298770d54455db955d43fc16b1d862b5970a602d581f819c3ba831"
+    },
+    {
+      "path": "app/Security/ProjectNameRegistry.php",
+      "size": 1443,
+      "sha256": "d546181f32644e791e3d1d67690d2bc5c62b4b7da8604ebc17455d63ec5aa3e7"
+    },
+    {
+      "path": "app/Security/ProjectNameRegistryInterface.php",
+      "size": 159,
+      "sha256": "d5112c85330ecb1cc8af1663984fcfa3969ac08b299f9d2cf96ffa2889cb8353"
+    },
+    {
+      "path": "app/Security/RateLimiter.php",
+      "size": 2686,
+      "sha256": "d4ea53eb79cdbe7257328464a3edca33715838c22bde726237db56765a29048b"
+    },
+    {
+      "path": "app/Security/RecoveryKey.php",
+      "size": 418,
+      "sha256": "84a0c9d108dbf84a746f140ffd08c2804cb42348033bdab155956637b1d39023"
+    },
+    {
+      "path": "app/Security/ReplayGuard.php",
+      "size": 1873,
+      "sha256": "5a155b35c1827a09fa773583f01c6573bc0f6a4cb5848fd4494929c5e78695ee"
+    },
+    {
+      "path": "app/Security/RestoreTokenStore.php",
+      "size": 3026,
+      "sha256": "a2ab9a2187e164b920f4a1cbd1f0494df75e948f2e2c4a9172eebef784f69ab8"
+    },
+    {
+      "path": "app/Security/SecureToken.php",
+      "size": 412,
+      "sha256": "648889a2e2459a18acda3de375ce4956837400c48a2885d7dd052f0a73cf1afb"
+    },
+    {
+      "path": "app/Security/SecurityDiagnostics.php",
+      "size": 2498,
+      "sha256": "17f580d37967b360b484f0f66df2546d72ea60909295af8263104d1dfda2b61d"
+    },
+    {
+      "path": "app/Security/SecurityPolicy.php",
+      "size": 333,
+      "sha256": "45733fa84adea5b348249c53ca0b6aa4f4359baaa96d81110cf454d8ff280d2f"
+    },
+    {
+      "path": "app/Security/SignedState.php",
+      "size": 1840,
+      "sha256": "c7a7cb4234a12af68d8b447dc98be1c22abee9758dccec81c66b7016ce576562"
+    },
+    {
+      "path": "app/Security/V12BuildState.php",
+      "size": 3858,
+      "sha256": "2c75b67cc8370d4baeecb599a50fecf44a2dde509cd18287a818beee99672d8b"
+    },
+    {
+      "path": "app/Security/Validator.php",
+      "size": 3153,
+      "sha256": "ec7bf38bd493505029a456cec9792c31e71ba42435c3c5f0c808b8cfc074ffc4"
+    },
+    {
+      "path": "app/Security/WebSecurity.php",
+      "size": 3743,
+      "sha256": "47db3a873c95aaa2c72ff35a3397c621104fd87b449686c70c01563c4b835e3d"
+    },
+    {
+      "path": "app/Storage/AtomicFile.php",
+      "size": 895,
+      "sha256": "3fb0520c5f45473fc2d60d5208212334811738d0a85602ccd845f2cc12976276"
+    },
+    {
+      "path": "app/Storage/AuditLogger.php",
+      "size": 4450,
+      "sha256": "b8ce02e123bf6a2a573e84e36cb225997e9deedbf1ce691312288d1092d5ddff"
+    },
+    {
+      "path": "app/Storage/ChunkStore.php",
+      "size": 1970,
+      "sha256": "1ec3dbd809ee78d54bc956c3ebd1d8f1119f37e1cd216a54c01e2c70ac8679d7"
+    },
+    {
+      "path": "app/Storage/FileStore.php",
+      "size": 743,
+      "sha256": "811317977431b003740925b9197c5b0c9e7715afa4fcd575106dca2d1cf2b3e6"
+    },
+    {
+      "path": "app/Storage/JobStore.php",
+      "size": 2590,
+      "sha256": "1b621664e66f8e874cd7d02d858bac54e2b268f3cb9889612e3f64c9eee33919"
+    },
+    {
+      "path": "app/Storage/ResumableUploadStore.php",
+      "size": 6241,
+      "sha256": "1046104b11cdc1d4170716f362f75149ce5e7d0b0b152ae7d71f22097233ab53"
+    },
+    {
+      "path": "app/Storage/ResumableUploadV12.php",
+      "size": 6646,
+      "sha256": "8f978cea81cee29d64b3720fc13c6ed0bff389e909f1b1fd9f27c9317a63ae9f"
+    },
+    {
+      "path": "app/Storage/UploadInventory.php",
+      "size": 3909,
+      "sha256": "5ef54934a02426e9015085a2c7ddb924be082b385431386312dadd524221c059"
+    },
+    {
+      "path": "bin/benchmark.php",
+      "size": 708,
+      "sha256": "7cde7cfc15190b237c0acda7ce1e2c30fcd7c60138b26250144840158aa9f415"
+    },
+    {
+      "path": "bin/cleanup.php",
+      "size": 1139,
+      "sha256": "7f74b3f52d529299eab39d35fbfbc37127e72bc82b59ac9f1c8accd722dc4dde"
+    },
+    {
+      "path": "bin/decrypt-package.php",
+      "size": 1419,
+      "sha256": "5390220b0351c274d7f1b53013854d1090e4aa1ae4fe141998365f8a8e687d17"
+    },
+    {
+      "path": "bin/encrypt-directory.php",
+      "size": 1071,
+      "sha256": "1024503ccc6b746e3dc591f6929d5b6e3e374adeca7df137cae247e29d55a608"
+    },
+    {
+      "path": "bin/generate-release-key.php",
+      "size": 439,
+      "sha256": "ba76ff4e9a87584ef88a6d5e5f721c5478d89deaf9c5230e1c4c142f5c50a650"
+    },
+    {
+      "path": "bin/generate-secret.php",
+      "size": 849,
+      "sha256": "4a78c1bde744ee6768819d0485ef60c31399d701886400a52a619d05405b803c"
+    },
+    {
+      "path": "bin/security-test.php",
+      "size": 1176,
+      "sha256": "54c18857bc96a382db3a581163b6bf61cd04e15f494a84514baef16948563ef8"
+    },
+    {
+      "path": "bin/self-check.php",
+      "size": 484,
+      "sha256": "dd4beba9f4a5876d72c42fc5fc61a361c2c5ee8fd7af8abcbbf8497e9125bc19"
+    },
+    {
+      "path": "bin/sign-release.php",
+      "size": 1924,
+      "sha256": "8affd6c9fa5e3533425370b61e14968748ab1122f67106b3e0222bcb01e29419"
+    },
+    {
+      "path": "bin/source-audit.php",
+      "size": 1275,
+      "sha256": "bf21e21f954f6c194d458bfbc622f15c85dad70a7fcc05cf81090972c29d5d1a"
+    },
+    {
+      "path": "bin/source-inventory.php",
+      "size": 806,
+      "sha256": "5b130ee3a2c98b971a51cf4a170040dd5e2ae6a23617d6bce3e488fda9555f48"
+    },
+    {
+      "path": "bin/verify-release.php",
+      "size": 1392,
+      "sha256": "cdc1058d694372c7e39dbc9c320c7f2a03493168941500aa28aeffd015a9e9df"
+    },
+    {
+      "path": "bootstrap.php",
+      "size": 378,
+      "sha256": "dbe4e13783a19481897367efddc0d0a7ec1d08fd788eb5cf3a0ae01da1a78b12"
+    },
+    {
+      "path": "client/README.md",
+      "size": 722,
+      "sha256": "26dd1c2dda17dc9f3a98bcee06881aff70318b372a3d81a335657028229df444"
+    },
+    {
+      "path": "client/client-vault.js",
+      "size": 11123,
+      "sha256": "319c7362a8cf649b8c9c7a731be0d0143d204a24ef7c627b27befa412aaa80c7"
+    },
+    {
+      "path": "client/workers/crypto-worker.js",
+      "size": 3523,
+      "sha256": "fa58e5eca66407d43eecc0f9c7fc7673694b6096a68e64a762167f6728fd0139"
+    },
+    {
+      "path": "composer.json",
+      "size": 518,
+      "sha256": "109b3357643c81493944d403aa3603aecd371ae9675ad039c29ba643200ab441"
+    },
+    {
+      "path": "config/config.php",
+      "size": 1564,
+      "sha256": "f905767ca314c2c05f9229c80fdbbaf63270345292d7f7b081db15a18a131742"
+    },
+    {
+      "path": "config/database.sql",
+      "size": 962,
+      "sha256": "14c3e9f1ab2367568bd7757f4ad3ae143cd8c36f801622944e7b9f7672436e65"
+    },
+    {
+      "path": "phpstan.neon.dist",
+      "size": 113,
+      "sha256": "fbf39cdb1b8c1b0129c108bb04891c06d77188fd6ad77d39e25c5f724487f126"
+    },
+    {
+      "path": "public/.htaccess",
+      "size": 421,
+      "sha256": "8ddb5768ca4b30d9da5c98915aed7eb33970f51245313da46985a75bd8e5c9a3"
+    },
+    {
+      "path": "public/.user.ini",
+      "size": 269,
+      "sha256": "afe1580100426ef22ce2435fae266a141bfb6409af1d8d98f7b08b18774c0776"
+    },
+    {
+      "path": "public/api-v11.php",
+      "size": 2832,
+      "sha256": "6f20461b35f5d3ffc1f2d87ece3e7b0345d5e65fd95a61483af2f14d62f4af14"
+    },
+    {
+      "path": "public/api-v12.php",
+      "size": 3564,
+      "sha256": "2ff1bc905c4677f3d942ede3871c1e3a45eb6602234a07238dfcadb6b899cadf"
+    },
+    {
+      "path": "public/api-v8.php",
+      "size": 6277,
+      "sha256": "ac55885ac1b0d6d5e4abfe33463ed8e0f9bd6124acc9b334ba45806769f127dc"
+    },
+    {
+      "path": "public/api-v9.php",
+      "size": 6197,
+      "sha256": "2cc794062648e10a63cd69f81cba054c60ca2ccb90cef249c5cced5f1e34e51e"
+    },
+    {
+      "path": "public/api.php",
+      "size": 3120,
+      "sha256": "256c717ad55bafac2cb4ff269e4832ea192fc1c1181b2cc337e763ababe9441f"
+    },
+    {
+      "path": "public/assets/app.css",
+      "size": 11551,
+      "sha256": "0b63e8ce345d73619a5b7f74a7957f551d0eabcc2cf573092ad98c297862f22d"
+    },
+    {
+      "path": "public/assets/app.js",
+      "size": 11056,
+      "sha256": "b882a9772a277593aa974632361ddd8be93f42ab0ff098420d686510d6aab177"
+    },
+    {
+      "path": "public/assets/client-vault.css",
+      "size": 1665,
+      "sha256": "556f00416a7938cf8f08428d58f6a4235468c07f508d3512ce5eb3333387cfc7"
+    },
+    {
+      "path": "public/assets/v6-meta.json",
+      "size": 228,
+      "sha256": "e007b6abb20cac01c33f69cde005aa47f2f0ca355bdf5c979e34353d5c0cea73"
+    },
+    {
+      "path": "public/client/assets-integrity.json",
+      "size": 397,
+      "sha256": "8aa1dd81b6a20a25e4fa89855879aeaa67f68e603664cec1927f0220ec23eab2"
+    },
+    {
+      "path": "public/client/client-vault.js",
+      "size": 11123,
+      "sha256": "319c7362a8cf649b8c9c7a731be0d0143d204a24ef7c627b27befa412aaa80c7"
+    },
+    {
+      "path": "public/client/v11/vault-v11.css",
+      "size": 5204,
+      "sha256": "967f8c4d8f3892d2948c9e22491335fe97ff84d5ced59060468c04aa16270ab8"
+    },
+    {
+      "path": "public/client/v11/vault-v11.js",
+      "size": 16932,
+      "sha256": "9990e8ba204396f1bcbf8466035252e417bc236e08db99e333229e872977b24c"
+    },
+    {
+      "path": "public/client/v11/worker.js",
+      "size": 5729,
+      "sha256": "7b4ce666d3acee5314131066d0c140d20d88f652de04ef85f80391f12a46c188"
+    },
+    {
+      "path": "public/client/v11-worker.js",
+      "size": 7268,
+      "sha256": "0beb274e1004a9c0ad50f030d8d6bee0cb6ba02db640982b2f553f0ccd79f5e2"
+    },
+    {
+      "path": "public/client/v12/vault-v12.css",
+      "size": 5204,
+      "sha256": "967f8c4d8f3892d2948c9e22491335fe97ff84d5ced59060468c04aa16270ab8"
+    },
+    {
+      "path": "public/client/v12/vault-v12.js",
+      "size": 16932,
+      "sha256": "0135d03e03bfa72a4aaf5729b0984adb02eecbfc53ea0f881cd21c1609a94781"
+    },
+    {
+      "path": "public/client/v12/worker.js",
+      "size": 5729,
+      "sha256": "2a8e2d49bf664f4c9cdeed87ee1fe3c935fca771c08214b963d4aa0ebf07205b"
+    },
+    {
+      "path": "public/client/v7/vault-v7.css",
+      "size": 5416,
+      "sha256": "f4592de834857c7585839306f0c6868f082f64b6938f0085ba64c4ba105ea091"
+    },
+    {
+      "path": "public/client/v7/vault-v7.js",
+      "size": 10733,
+      "sha256": "b5f12a0140d690f5ceab67c7a4c403cea5f2e5909c223bebc0fe01ee2d574424"
+    },
+    {
+      "path": "public/client/v8/assets-integrity.json",
+      "size": 277,
+      "sha256": "4ab43ecb2d5a8a5aae980dcd2032ff18bbde46a3ac69c3bda7423d06834a1be5"
+    },
+    {
+      "path": "public/client/v8/vault-v8.css",
+      "size": 4542,
+      "sha256": "a454ca7639594e42f72ce09c6012abf5e5cd4120cc8b7a9375500fa353939a79"
+    },
+    {
+      "path": "public/client/v8/vault-v8.js",
+      "size": 15565,
+      "sha256": "5224e3fe8d49fc39f9ba42cc688414f5a8c39dbc880e8a16d8f5b308530d7bc2"
+    },
+    {
+      "path": "public/client/v8/worker.js",
+      "size": 3126,
+      "sha256": "cbe6c02ebbd30a62c88ae528c9a58045e7d8be4fd9bb4f6d281ee4899efcbf0c"
+    },
+    {
+      "path": "public/client/v9/vault-v9.css",
+      "size": 7193,
+      "sha256": "208d1cd1e47f53db7dd345319d4a3859d1ee96991ccd544eeba55e8eb71ecef8"
+    },
+    {
+      "path": "public/client/v9/vault-v9.js",
+      "size": 13623,
+      "sha256": "764b132bbbc87024fb6830dfd747a257590bfd57414d45d7583bf78fcde330d8"
+    },
+    {
+      "path": "public/client/v9/worker.js",
+      "size": 3399,
+      "sha256": "4ee8771e5c8363a68f11212ca491516ce436ef7e6268db3b23d52fe286043715"
+    },
+    {
+      "path": "public/client/workers/crypto-worker.js",
+      "size": 3523,
+      "sha256": "fa58e5eca66407d43eecc0f9c7fc7673694b6096a68e64a762167f6728fd0139"
+    },
+    {
+      "path": "public/client/workers/v7-worker.js",
+      "size": 1927,
+      "sha256": "5eb52e931025aa521377c3dfc82711f36a4186b0ad7d201c9561464a30a5da49"
+    },
+    {
+      "path": "public/client-crypto.php",
+      "size": 628,
+      "sha256": "6480d84e482f48eb00a1a6732b9a1eb71038b643619c0f727ce6712441c4c6f1"
+    },
+    {
+      "path": "public/client-v10.php",
+      "size": 442,
+      "sha256": "ef2e33ccb98634005ee24f0b394cf7976fc81eb3ef93f65384389fbee845c75e"
+    },
+    {
+      "path": "public/client-v11.php",
+      "size": 388,
+      "sha256": "b297b357e44309e513253b8f8fd5c24deb3e538dce1cd5666c55226c8a6e0840"
+    },
+    {
+      "path": "public/client-v12.php",
+      "size": 391,
+      "sha256": "782800014dc73fa0469bddf1fb522a32ba6ddd3fca1b140697b5a9f82d403353"
+    },
+    {
+      "path": "public/client-v7-meta.json",
+      "size": 272,
+      "sha256": "9e9bc778c192768a390d87cc3d0f1d7d9675f7ba47d4afe6228c78fa16b4db33"
+    },
+    {
+      "path": "public/client-v7.php",
+      "size": 431,
+      "sha256": "2ef28a24214083c8079dc15319305f4700472ee07f03eec337cea1f548ff5cb3"
+    },
+    {
+      "path": "public/client-v8.php",
+      "size": 352,
+      "sha256": "690669bb4fab7b26a8279bd06fe9d1357a9049764d854db8b68d4a180d8c15c9"
+    },
+    {
+      "path": "public/client-v9.php",
+      "size": 383,
+      "sha256": "b77667b28c8893b8b27940ead128231e2772e770020d488306161d8de016bf7b"
+    },
+    {
+      "path": "public/client-vault-v10.html",
+      "size": 4700,
+      "sha256": "6c752d2682887a0b0b44f8593661673cef83430ca0f71e210bcfd356b1082ac1"
+    },
+    {
+      "path": "public/client-vault-v11.html",
+      "size": 4962,
+      "sha256": "b0bd36a626b8bb0d6c77f70db86fdf10fb6000d00330600c4dc43cb59e5fc01c"
+    },
+    {
+      "path": "public/client-vault-v12.html",
+      "size": 4962,
+      "sha256": "62f820031cbab4f6c69d2a1e662da2d40d0292a049b75337c71dae723ea69ad4"
+    },
+    {
+      "path": "public/client-vault-v7.html",
+      "size": 5106,
+      "sha256": "ee4c38d7db5ae3902e2580b7f2d34459bb8633edfce2121a05d8b1ff51500677"
+    },
+    {
+      "path": "public/client-vault-v8.html",
+      "size": 4517,
+      "sha256": "a30fefc45b20a2fb44ce2462711fa7c6572d3001aec2eed8b9f9d602192cddda"
+    },
+    {
+      "path": "public/client-vault-v9.html",
+      "size": 4934,
+      "sha256": "800ad9eae3aca89bf7a7b03091dfc21ea98e0f30f35ee40f55f636852e85ac2f"
+    },
+    {
+      "path": "public/client-vault.html",
+      "size": 3328,
+      "sha256": "2e0840564203a0a11e9cd4bf2494aae9d55efbee24673aa3f80b2e29bb671406"
+    },
+    {
+      "path": "public/download-restored.php",
+      "size": 1200,
+      "sha256": "aba8c2cb4ff154b9897ab7438d91bd9b7577456df373d5a524c344e012d0b29b"
+    },
+    {
+      "path": "public/download.php",
+      "size": 1672,
+      "sha256": "2c3ebd52b97ff26ca305996b388a9aaf3fcc1ec9373eef9e7497db43727f49d6"
+    },
+    {
+      "path": "public/health-v12.php",
+      "size": 449,
+      "sha256": "2b7e5e42f3b567002aa2bf17dd1862ad8a5b2c8cfc1b09dcf37781592137cf77"
+    },
+    {
+      "path": "public/health.php",
+      "size": 1139,
+      "sha256": "9d8526b2326f4ab06e239f38eb0dfeae9d87b8f9df39d9a889dc8f1bc092f381"
+    },
+    {
+      "path": "public/index.php",
+      "size": 8390,
+      "sha256": "e84d96ebdd766cad084766a2281faf45fdbe8b3be5742fd42e9b193a419b5cf1"
+    },
+    {
+      "path": "public/release/manifest.json",
+      "size": 743,
+      "sha256": "1ebc93f6d1153883f3554733f1db5ed9675e425b5a823a4dc83b4625039332ba"
+    },
+    {
+      "path": "public/release/manifest.sig",
+      "size": 89,
+      "sha256": "1e6feb977d92fadefb8309f408b76d69568af168bf751843d87a6a6e1c7f3ef5"
+    },
+    {
+      "path": "public/release/public-key.hex",
+      "size": 65,
+      "sha256": "d7232bfaad7caf090f4e4a3392f3d4d800766e3c374086d3226e67de9d594260"
+    },
+    {
+      "path": "tests/AuditIntegrityTest.php",
+      "size": 747,
+      "sha256": "b5109cc6ae444a0c5b58a306f0237358e1b388d1e0ba9097df38161aec32c7f2"
+    },
+    {
+      "path": "tests/CanonicalFuzzTest.php",
+      "size": 790,
+      "sha256": "71b5c01418a9169a1616d0d1eb52c597bee8dc50adba7d65e63ae902ff94199a"
+    },
+    {
+      "path": "tests/CanonicalJsonTest.php",
+      "size": 435,
+      "sha256": "4f0d76cd036d4ab7bd9a64730bb3bc167aa90ac4fe5930617c237d97f701bfc9"
+    },
+    {
+      "path": "tests/ClientEnvelopeTest.php",
+      "size": 452,
+      "sha256": "74f7562df76f3b2f31e33db143b30248f6b00b668505a05c11ef526378e33b18"
+    },
+    {
+      "path": "tests/ContentDefinedChunkerTest.php",
+      "size": 575,
+      "sha256": "7da756f792b34b77a747e783e95f3a63a94fd804defbff83882a879035200156"
+    },
+    {
+      "path": "tests/CryptoRoundTripTest.php",
+      "size": 970,
+      "sha256": "4f34ce2a05b148d305eeaf8f8aa406d4b75b2ccf3eb6e8077205ff2cf04d39ee"
+    },
+    {
+      "path": "tests/FileRoundTripTest.php",
+      "size": 910,
+      "sha256": "fcbbdbee75711f1a1471e52e8993ddac4e2235c3bdbc69517d1e3491c633fbbe"
+    },
+    {
+      "path": "tests/FormatDescriptorTest.php",
+      "size": 731,
+      "sha256": "4deae5737297a39d670d255a7cd2cec353f50a451a8985cd38452918a07772cd"
+    },
+    {
+      "path": "tests/FuzzSecurityTest.php",
+      "size": 1417,
+      "sha256": "29b9eb3250bf3e1e4cc9198c14491228c08d5491ca5b5ed787cefb39aa1b50fa"
+    },
+    {
+      "path": "tests/KdfParameterTest.php",
+      "size": 685,
+      "sha256": "082c29f4cc646bfa862c957e14a49c976c77cac41f968d8ef452d49d98824cd0"
+    },
+    {
+      "path": "tests/MerkleProofTest.php",
+      "size": 555,
+      "sha256": "3fd02ae3a7014ee82e6c0c811b61afdb2f83a9a0e16883c83e970e4d03dafebf"
+    },
+    {
+      "path": "tests/NameRegistryTest.php",
+      "size": 723,
+      "sha256": "e7f955f9124d9689f03e9fb3cd62f8dc02df2b9301c1c799699c0f8d49ebab04"
+    },
+    {
+      "path": "tests/PackageAuthorizationTest.php",
+      "size": 844,
+      "sha256": "9a509283da4db07e26f1fee93a24eb176608068918e3792a0b01f89bba14ea3e"
+    },
+    {
+      "path": "tests/PackageCatalogTest.php",
+      "size": 746,
+      "sha256": "b78944a7202e112efa8fa02e50abf75c909d7381ccdbad11dbe03f0d416327c6"
+    },
+    {
+      "path": "tests/PackageIdTest.php",
+      "size": 466,
+      "sha256": "87b8aef3fbf513b6da4cbb6c8358fcc747507740fda9f655f46b798a2bb1f1b1"
+    },
+    {
+      "path": "tests/PackageRoundTripTest.php",
+      "size": 1693,
+      "sha256": "b8376132ace75be8ddd7daa16cb99e05015e89e7619cc5b0718e7d4c8e73d76a"
+    },
+    {
+      "path": "tests/ReleaseIntegrityTest.php",
+      "size": 838,
+      "sha256": "65f9b0709410442389be39778b88f7bf4615cf812f2c2d5816c6164a39bebeb4"
+    },
+    {
+      "path": "tests/ReplayGuardTest.php",
+      "size": 558,
+      "sha256": "690566b21d44a8628f33417996aba93ca75b5a806fcc8c120bc9b92212a7272f"
+    },
+    {
+      "path": "tests/ReplayRaceTest.php",
+      "size": 644,
+      "sha256": "402758ec871d895403a90053f85e14202de2bcd2a0b1ecff49616f9f63dd5e94"
+    },
+    {
+      "path": "tests/RestoreTokenTest.php",
+      "size": 1044,
+      "sha256": "c531c00e66aad6a258e3b1962219f943b2a7bc4c43ab90f6c28c4c6e66b3e522"
+    },
+    {
+      "path": "tests/ResumableUploadTest.php",
+      "size": 832,
+      "sha256": "6e1575db4e1b364bd04001d30fd64c4213407c4a6cd6bb4969686c0e180ba7c9"
+    },
+    {
+      "path": "tests/SecurityDiagnosticsTest.php",
+      "size": 589,
+      "sha256": "74b2f3267e15d5268e6853afc6eeac34726213370f8be95ba859b3a9909c01ac"
+    },
+    {
+      "path": "tests/SecurityInvariantTest.php",
+      "size": 819,
+      "sha256": "ee90d6cd4da8405944cb5ad971d819db0d47114a0070e92d76bed950195b7ce2"
+    },
+    {
+      "path": "tests/SignedStateTest.php",
+      "size": 677,
+      "sha256": "84996291cc895d3729bf0cbf69307a9bdb3cafebe2431eb74f5ff5526de51ff8"
+    },
+    {
+      "path": "tests/SourceSecurityAuditTest.php",
+      "size": 1893,
+      "sha256": "5d2f6bbe6af53e752aeacd2abb7f8effefcb7723803920e14b16c2cbce0a8c5b"
+    },
+    {
+      "path": "tests/TamperDetectionTest.php",
+      "size": 1293,
+      "sha256": "d964732fcc42f24f7c8b5b60fd3053b3e64860fc113f92382f238ecd07f4c896"
+    },
+    {
+      "path": "tests/UploadChecksumTest.php",
+      "size": 676,
+      "sha256": "de8626d09159fa49abdcb65ac3409e4dd35476226e3635841a8f8571561c66bd"
+    },
+    {
+      "path": "tests/V10KeyEnvelopeTest.php",
+      "size": 1177,
+      "sha256": "9f66782d9020084650a383c0c66ec617e3764453c00dbb04b6a7a954daa90bcc"
+    },
+    {
+      "path": "tests/V10SmokeTest.php",
+      "size": 637,
+      "sha256": "a440d42c36a21894133d148f702a24749e0e57212a9d9e11b69bc0ab97b6b0a0"
+    },
+    {
+      "path": "tests/V11ReliabilityTest.php",
+      "size": 1591,
+      "sha256": "5d33bfddd36f72b5a459ba333d56257277dd9ea96e76af4802da2d5ceabd365f"
+    },
+    {
+      "path": "tests/V12BuildStateTest.php",
+      "size": 1298,
+      "sha256": "82bf5a48f98bdeb36dd9d325c5faa53b7e7b26441a24b2e053b47f804c711123"
+    },
+    {
+      "path": "tests/V12KeyEnvelopeTest.php",
+      "size": 1132,
+      "sha256": "897341327309466a50bc9ac9ffbd01cdce8ac0bf4c5fff523272601e04f58395"
+    },
+    {
+      "path": "tests/V7FormatTest.php",
+      "size": 993,
+      "sha256": "5729b04f2a2ccc70b5ba332ef6a945d015a37b558cb49ec6700ec8ea762df1c3"
+    },
+    {
+      "path": "tests/V8FormatTest.php",
+      "size": 499,
+      "sha256": "884fc8745a437220259ebd69fb802291d434426103535b51afe531a3ffbc31a2"
+    },
+    {
+      "path": "tests/V9FormatTest.php",
+      "size": 626,
+      "sha256": "181ac2d3c9a1f0dfa38e0ae15585e0c6ff4a87711c510ed966166b88f4f679c5"
+    },
+    {
+      "path": "tests/ZipPolicyTest.php",
+      "size": 659,
+      "sha256": "4debd28dbf395185fa2255c475033d9f016bff9c41803399cbfc9f8aec771f69"
+    },
+    {
+      "path": "tools/phpstan.neon.dist",
+      "size": 67,
+      "sha256": "ab7fc6d81ed192fc3cb962ef816c9c07341f5589cbac9d9cdfd4157226d05145"
+    }
+  ]
+}

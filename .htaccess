@@ -1,12 +1,12 @@
 Options -Indexes
 
-<FilesMatch "^(composer\.json|composer\.lock|\.env.*|.*\.log|.*\.sql|.*\.md)$">
+<FilesMatch "\.(env|ini|log|sql|md|phar|bak|dist)$">
     Require all denied
 </FilesMatch>
 
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
-    Header always set Referrer-Policy "no-referrer"
     Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "no-referrer"
     Header always set Cache-Control "no-store"
 </IfModule>

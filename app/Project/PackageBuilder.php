@@ -69,17 +69,17 @@ final class PackageBuilder
                 $blobId = bin2hex(random_bytes(24)) . '.bin';
                 $fileKey = KeyDerivation::deriveFileKey($fileKeyRoot, $id);
                 $destination = $packageDir . DIRECTORY_SEPARATOR . 'blobs' . DIRECTORY_SEPARATOR . $blobId;
-                CryptoEngine::encryptFile($entry->getPathname(), $destination, $fileKey, 'file|' . $id . '|v4', (int) $entry->getSize());
+                CryptoEngine::encryptFile($entry->getPathname(), $destination, $fileKey, 'file|' . $id . '|v6', (int) $entry->getSize());
                 $manifest->addFile($id, $parentId, $encryptedName, $blobId, (int) $entry->getSize());
                 sodium_memzero($fileKey);
             }
 
-            $manifestPayload = CryptoEngine::encryptString($manifest->toJson(), $manifestKey, 'manifest|4');
+            $manifestPayload = CryptoEngine::encryptString($manifest->toJson(), $manifestKey, 'manifest|6');
             $this->writeAtomic($packageDir . DIRECTORY_SEPARATOR . 'manifest.enc', $manifestPayload);
 
             $header = [
-                'format' => 'SECURE-PKG-V4',
-                'version' => 4,
+                'format' => 'SECURE-PKG-V6',
+                'version' => 6,
                 'package_id' => $packageId,
                 'kdf' => [
                     'name' => 'argon2id',
@@ -99,7 +99,7 @@ final class PackageBuilder
             );
 
             return [
-                'format' => 'SECURE-PKG-V4',
+                'format' => 'SECURE-PKG-V6',
                 'package_id' => $packageId,
                 'nodes' => $manifest->count(),
                 'salt' => base64_encode($salt),

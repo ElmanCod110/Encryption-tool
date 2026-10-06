@@ -25,8 +25,8 @@ final class ManifestBuilder
     public function toJson(): string
     {
         return json_encode([
-            'format' => 'SECURE-PKG-V4',
-            'version' => 4,
+            'format' => 'SECURE-PKG-V6',
+            'version' => 6,
             'schema' => 2,
             'node_count' => count($this->nodes),
             'nodes' => $this->nodes,

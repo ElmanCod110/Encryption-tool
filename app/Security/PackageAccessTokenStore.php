@@ -69,6 +69,6 @@ final class PackageAccessTokenStore
 
     private function file(string $token): string
     {
-        return $this->directory . DIRECTORY_SEPARATOR . $token . '.json';
+        return $this->directory . DIRECTORY_SEPARATOR . hash('sha256', $token) . '.json';
     }
 }

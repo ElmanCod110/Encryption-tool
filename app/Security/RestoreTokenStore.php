@@ -42,10 +42,22 @@ final class RestoreTokenStore
         if (!is_file($file)) {
             throw new RuntimeException('Restore token is invalid or expired.');
         }
-        $record = json_decode((string) file_get_contents($file), true);
-        @unlink($file);
-        if (!is_array($record) || (int) ($record['expires_at'] ?? 0) < time()) {
+        $handle = fopen($file, 'c+b');
+        if ($handle === false || !flock($handle, LOCK_EX)) {
+            if (is_resource($handle)) fclose($handle);
             throw new RuntimeException('Restore token is invalid or expired.');
+        }
+        try {
+            rewind($handle);
+            $record = json_decode((string) stream_get_contents($handle), true, 16, JSON_THROW_ON_ERROR);
+            if (!is_array($record) || (int) ($record['expires_at'] ?? 0) < time()) {
+                @unlink($file);
+                throw new RuntimeException('Restore token is invalid or expired.');
+            }
+            @unlink($file);
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
         }
         $directory = (string) ($record['directory'] ?? '');
         if ($directory === '' || !is_dir($directory) || is_link($directory)) {

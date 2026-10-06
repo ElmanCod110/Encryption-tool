@@ -1,0 +1,10 @@
+{
+  "product": "Secure Package",
+  "version": "11.0.0",
+  "format": "SECURE-BROWSER-V11",
+  "author": "ElmanCod110",
+  "released": "2026-09-08",
+  "release_channel": "development",
+  "signed": false,
+  "note": "Release signing is reserved for the V12 release-candidate pipeline."
+}
