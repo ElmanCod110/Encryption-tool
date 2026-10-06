@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
+$config = require dirname(__DIR__) . '/config/config.php';
 
 use SecurePackage\Security\WebSecurity;
 
@@ -26,8 +27,8 @@ $csrf = WebSecurity::csrfToken();
     <span><b>Secure Package</b><small>High-assurance encrypted package platform</small></span>
   </a>
   <div class="top-actions">
-    <span class="version-pill">V14</span>
-    <a class="ghost-button" href="client-vault.html">Browser Vault V13</a>
+    <span class="version-pill">V<?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?></span>
+    <a class="ghost-button" href="client-vault.html">Legacy Browser Vault V13</a>
     <button class="ghost-button" id="authButton" type="button">Sign in</button>
   </div>
 </header>
@@ -35,7 +36,7 @@ $csrf = WebSecurity::csrfToken();
 <main>
 <section class="hero">
   <div class="hero-copy">
-    <span class="eyebrow"><span class="status-dot"></span> V14 cryptographic package engine</span>
+    <span class="eyebrow"><span class="status-dot"></span> V<?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> cryptographic package engine</span>
     <h1>Encrypt the project. Authenticate the package. Restore safely.</h1>
     <p>V14 separates credential wrapping from the package root key, authenticates metadata and ciphertext, verifies the complete blob inventory and Merkle root, and refuses unsafe restore paths.</p>
     <div class="hero-badges">
@@ -135,7 +136,7 @@ $csrf = WebSecurity::csrfToken();
 </section>
 </main>
 
-<footer><span>Secure Package · Author: ElmanCod110</span><span>V14 server package engine · PHP Zip extension required · Browser Vault V13 remains a separate compatibility boundary.</span></footer>
+<footer><span>Secure Package · Author: ElmanCod110</span><span>V<?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> server package engine · PHP Zip extension required · V13 browser compatibility remains isolated as legacy.</span></footer>
 </div>
 
 <div class="modal hidden" id="authModal">

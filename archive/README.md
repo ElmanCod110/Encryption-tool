@@ -1,7 +1,5 @@
 # Legacy archive
 
-This directory contains superseded format generations, migration notes, compatibility source, and historical release material.
+Superseded Secure Package generations are bundled in [`secure-package-legacy.zip`](./secure-package-legacy.zip) instead of being kept as dozens of loose files.
 
-Nothing under `archive/legacy/` is part of the active V14 runtime surface. Historical source is retained for reproducibility and migration analysis, not for direct web serving.
-
-Do not point the production web server at this directory.
+The bundle is historical material only and is not part of the active V14 runtime. The production web root must point at `public/`, never at `archive/`.

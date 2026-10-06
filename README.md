@@ -32,10 +32,10 @@ The browser implementation uses the standards-based Web Crypto API and PBKDF2-HM
 
 ## Repository layout
 
-The repository root contains active V14 source and security tooling. Historical source and superseded generation material live under:
+The repository root contains active V14 source and security tooling. Historical source and superseded generation material is bundled under:
 
 ```text
-archive/legacy/
+archive/secure-package-legacy.zip
 ```
 
 The archive is not part of the active application surface.

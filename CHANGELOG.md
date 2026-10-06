@@ -28,10 +28,10 @@
 
 ### Project maintenance
 
-- Moved superseded V6–V13 generation material into `archive/legacy/` where it is not part of the active V14 runtime.
+- Bundled superseded V6–V13 generation material into `archive/secure-package-legacy.zip` so the active tree stays compact and uncluttered.
 - Added V14 UI for recovery-key creation and restore.
 - Added V14 adversarial tests for header tampering, blob tampering, recovery, and restore safety.
 
 ### Compatibility
 
-`SECURE-BROWSER-V13` remains available as a separate browser compatibility boundary.
+`SECURE-BROWSER-V13` remains available only as a separate legacy browser compatibility boundary.

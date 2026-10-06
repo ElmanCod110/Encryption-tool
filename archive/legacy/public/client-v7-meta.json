@@ -1,1 +1,0 @@
-{"format":"SECURE-BROWSER-V7","version":7,"author":"ElmanCod110","server_plaintext":false,"extension":"spk7","crypto":{"kdf":"PBKDF2-HMAC-SHA-256","iterations":900000,"key_separation":"HKDF-SHA-256","aead":"AES-256-GCM","integrity":"SHA-256-Merkle"},"chunk_size":4194304}

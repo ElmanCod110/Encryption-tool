@@ -36,7 +36,7 @@ if (!sodium_crypto_sign_verify_detached($signature, $m, $public)) {
     fwrite(STDERR, "Release signature: FAILED\n"); exit(2);
 }
 $data = json_decode($m, true, 512, JSON_THROW_ON_ERROR);
-if (($data['format'] ?? null) !== 'SECURE-PKG-V14' || ($data['version'] ?? null) !== '14.1.0' || ($data['scope'] ?? null) !== 'active-source' || ($data['hash'] ?? null) !== 'sha256' || !is_array($data['files'] ?? null) || $data['files'] === []) {
+if (($data['format'] ?? null) !== 'SECURE-PKG-V14' || ($data['version'] ?? null) !== SECURE_PACKAGE_VERSION || ($data['scope'] ?? null) !== 'active-source' || ($data['hash'] ?? null) !== 'sha256' || !is_array($data['files'] ?? null) || $data['files'] === []) {
     fwrite(STDERR, "Release manifest identity is invalid.\n"); exit(2);
 }
 $canonical = CanonicalJson::encode($data);
