@@ -5,7 +5,7 @@ namespace SecurePackage\Security;
 
 use RuntimeException;
 
-final class FileProjectNameRegistry
+final class FileProjectNameRegistry implements ProjectNameRegistryInterface
 {
     public function __construct(private readonly string $file, private readonly string $serverPepper)
     {

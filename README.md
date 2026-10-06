@@ -1,227 +1,226 @@
-# Secure Package V3
-
-Secure Package is an open-source PHP system for turning complete directory trees into portable encrypted packages.
+# Secure Package V4
 
 **Author:** ElmanCod110  
-**Current format:** `SECURE-PKG-V3`  
-**Package extension:** `.spkg`
+**Format:** `SECURE-PKG-V4`  
+**Extension:** `.spkg`
 
-## What it does
+Secure Package is an open-source PHP package protection system for turning complete directory trees into opaque, authenticated encrypted packages.
 
-Secure Package accepts a source directory or ZIP-driven workflow and produces a package whose file contents, filenames, and logical directory relationships are protected by authenticated encryption.
+The project is designed so security does not depend on hiding the source code or inventing a secret cipher.
 
-The V3 workflow adds stronger package validation, bounded KDF parameters, one-time restore tokens, staged archive handling, atomic package creation, safer web headers, improved rate limiting, and additional security regression tests.
+## V4 Highlights
 
-## Architecture
+- Password + pattern based key derivation with Argon2id
+- XChaCha20-Poly1305 authenticated encryption
+- XChaCha20-Poly1305 SecretStream for large files
+- Independent purpose-derived keys
+- Encrypted filenames
+- Encrypted directory relationships
+- Encrypted and authenticated manifest
+- Randomized file blob identifiers
+- Per-file derived encryption keys
+- Padding to reduce exact file-size leakage
+- Resumable uploads with owner binding
+- Recursive and password-aware ZIP processing
+- ZIP traversal and resource-abuse protections
+- Permanent project-name reservation
+- Account registration, login, logout, and session rotation
+- Package ownership management
+- Package expiration
+- Package revocation
+- Time-limited package access tokens
+- One-time restore tokens
+- Generic credential failure responses
+- Rate limiting
+- CSRF protection
+- Same-origin validation
+- Strict session cookies
+- CSP and modern security headers
+- Append-only style audit logging with secret-field filtering
+- Atomic filesystem writes and staged operations
+- Runtime self-checks
+- CI workflow and security regression tests
+
+## Security Model
+
+The attacker may know the complete source code, package format, algorithms, and public application behavior.
+
+The security boundary is the user's encryption password and pattern plus the authenticated cryptographic construction.
+
+The package itself does not contain the password or pattern.
+
+Changing a single pattern character produces unrelated derived key material through the KDF pipeline and does not create a small or predictable ciphertext change.
+
+## Cryptographic Pipeline
 
 ```text
-Source ZIP
-    |
-    v
-Archive Scanner
-    |
-    +--> Protected archive? --> Password step
-    |
-    v
-Safe staged extraction
-    |
-    v
-Project validation
-    |
-    +--> Password ----> Argon2id --+
-    |                               |
-    +--> Pattern ----> Argon2id ----+--> Master key
-                                    |
-                 +------------------+------------------+
-                 |                  |                  |
-                 v                  v                  v
-          Manifest key       Filename key        File root key
-                 |                  |                  |
-                 v                  v                  v
-          Encrypted map      Encrypted names      Per-file keys
-                 |                                     |
-                 +----------------------+--------------+
-                                        v
-                                  Encrypted blobs
-                                        |
-                                        v
-                                  Encrypted manifest
-                                        |
-                                        v
-                                   Portable .spkg
+Password ──► Argon2id ──► Password Key ──┐
+                                         ├─► Master Key ─► Purpose Subkeys
+Pattern  ──► Argon2id ──► Pattern Key  ──┘              ├─ Manifest
+                                                        ├─ Filenames
+                                                        └─ File Root
+                                                                  │
+                                                                  └─ Per-file keys
 ```
 
-## Cryptographic design
+The package format uses authenticated encryption. Modified ciphertext, corrupted manifests, invalid keys, and structurally invalid packages are rejected.
 
-The project deliberately uses public, standard cryptographic primitives. The security model does not depend on hiding the implementation.
+## Package Layout
 
-### Key derivation
-
-Password and pattern are independently processed with Argon2id using package-specific salts. The derived material is combined and expanded into purpose-specific subkeys.
-
-A one-character pattern change results in a different cryptographic key stream rather than a small modification of the previous key.
-
-### Authenticated encryption
-
-- XChaCha20-Poly1305 for encrypted metadata and compact records.
-- XChaCha20-Poly1305 SecretStream for large file content.
-- Independent file keys derived from the per-package file key root.
-- Fresh cryptographic randomness for package and file encryption operations.
-- Authentication failures never produce trusted plaintext.
-
-### Key separation
-
-Separate key material is derived for:
-
-- Manifest encryption
-- Filename encryption
-- File encryption
-
-This prevents one primitive's role from becoming another primitive's key source.
-
-## Package privacy
-
-A portable `.spkg` package does not store original directory names or paths in plaintext.
-
-The package contains an opaque structure built from:
+A portable package is intentionally opaque:
 
 ```text
 header.json
 manifest.enc
-blobs/<random-id>.bin
+blobs/
+    <random-id>.bin
+    <random-id>.bin
+    ...
 ```
 
-The manifest is encrypted and authenticated, while blob names are random identifiers.
+The original project name is not stored inside the portable package.
 
-The project name used by the management layer is not embedded into the portable package.
+Original filenames and paths are represented only inside the encrypted manifest.
 
-## File size handling
+## Web Workflow
 
-Large files are processed as streams instead of being loaded into memory as a whole.
+```text
+ZIP upload
+   │
+   ├─ resumable chunks
+   │
+   ▼
+archive inspection
+   │
+   ├─ protected archive ─► password step ─┐
+   │                                      │
+   └──────────────────────────────────────┘
+                     │
+                     ▼
+              staged extraction
+                     │
+                     ▼
+              project validation
+                     │
+                     ▼
+                package build
+                     │
+                     ▼
+                  .spkg
+```
 
-Plaintext data is padded to configurable block boundaries before streaming encryption to reduce exact file-size leakage. Padding reduces leakage but does not hide the total package size.
-
-## Archive security
-
-The archive workflow is bounded and staged.
-
-It protects against common archive abuse such as:
-
-- Path traversal
-- Absolute paths
-- NUL bytes and unsafe entry names
-- Symbolic-link based escapes
-- Excessive entry count
-- Excessive decompressed output
-- Oversized individual files
-- Excessive nested archive depth
-- Excessive nested archive count
-- Partial extraction left behind after failure
-
-Nested password-protected archives are processed independently.
-
-## Web security
-
-The web layer includes:
-
-- Strict session cookies
-- CSRF tokens for state-changing requests
-- SameSite protection
-- Strict session mode
-- Security response headers
-- Content Security Policy
-- Generic package-open failures
-- File-backed rate limiting with locking
-- One-time, expiring restore tokens
-- No-store caching for sensitive responses
-
-## Restore flow
-
-A successful server-side decryption creates a short-lived private restore directory and issues a random restore token.
-
-The token is one-time and expires automatically. Downloading the restored result creates a ZIP and streams it to the client.
-
-> V3 still performs decryption on the server. It is not a zero-knowledge or server-blind design.
-
-## Project-name reservation
-
-Project names are normalized for Unicode and case handling before being hashed with a server-side pepper.
-
-Names can be reserved through either:
-
-- A file-backed registry for simple deployments
-- A MySQL-backed registry for multi-process deployments
-
-A reserved name is intended to remain unavailable even if its associated package is later removed.
-
-## Requirements
-
-- PHP 8.2 or newer
-- `sodium` extension
-- `zip` extension for ZIP input and `.spkg` creation
-- PDO MySQL is optional
-- UTF-8 capable filesystem and database settings are recommended
+Restoration is similarly staged and never trusts the manifest before authenticated decryption and schema validation.
 
 ## Installation
 
-Clone or copy the repository and expose only `public/` through the web server.
+Requirements:
 
-For XAMPP, a local layout can be:
+- PHP 8.2+
+- Sodium extension
+- Zip extension
+- Apache, Nginx, PHP built-in server, or another PHP-compatible web server
+- PDO MySQL is optional for deployments that prefer a database-backed registry
 
-```text
-C:\xampp\htdocs\secure-package-v3\
-    app\
-    bin\
-    config\
-    public\
-    storage\
-    tests\
+Clone the repository:
+
+```bash
+git clone https://github.com/ElmanCod110/secure-package.git
+cd secure-package
 ```
 
-Then open:
-
-```text
-http://localhost/secure-package-v3/public/
-```
-
-Do not expose `app/`, `config/`, or `storage/` directly to the browser.
-
-## Configuration
-
-Copy `.env.example` to `.env` and set a strong registry pepper.
-
-Generate one with:
+Create `.env` from `.env.example` and generate a strong server-side registry secret:
 
 ```bash
 php bin/generate-secret.php 32
 ```
 
-Example:
+Set the value as:
 
 ```env
-SPK_NAME_PEPPER=replace-with-generated-random-secret
-SPK_DB_DSN=mysql:host=127.0.0.1;dbname=secure_package;charset=utf8mb4
-SPK_DB_USER=secure_package
-SPK_DB_PASS=replace-with-a-strong-database-password
+SPK_NAME_PEPPER=YOUR_GENERATED_SECRET
 ```
 
-The `.env` file must never be committed.
+Do not commit `.env`.
 
-## CLI usage
+## Local XAMPP Setup
 
-Encrypt a directory:
+Place the repository under:
+
+```text
+C:\xampp\htdocs\secure-package-v4\
+```
+
+The intended document root is:
+
+```text
+C:\xampp\htdocs\secure-package-v4\public\
+```
+
+For a simple local installation, the application can also be opened through:
+
+```text
+http://localhost/secure-package-v4/public/
+```
+
+V4 includes a lightweight runtime check at:
+
+```text
+http://localhost/secure-package-v4/public/health.php
+```
+
+This shows the PHP version and required extension state without exposing application secrets.
+
+## Important Apache Note
+
+The V3 root `.htaccess` contained a `<DirectoryMatch>` directive in a context where that directive can be invalid. On Apache configurations that reject the directive, this results in HTTP 500 before PHP is reached.
+
+V4 removes that invalid directory-context rule and keeps the root `.htaccess` compatible with normal Apache per-directory configuration.
+
+## Testing
+
+Run all tests:
+
+```bash
+for test in tests/*.php; do php "$test"; done
+```
+
+Or run them individually on Windows:
+
+```bat
+php tests\CryptoRoundTripTest.php
+php tests\FileRoundTripTest.php
+php tests\KdfParameterTest.php
+php tests\NameRegistryTest.php
+php tests\PackageCatalogTest.php
+php tests\PackageIdTest.php
+php tests\PackageRoundTripTest.php
+php tests\RestoreTokenTest.php
+php tests\ResumableUploadTest.php
+php tests\SecurityInvariantTest.php
+php tests\TamperDetectionTest.php
+```
+
+Run the environment self-check:
+
+```bash
+php bin/self-check.php
+```
+
+## CLI
+
+Encrypt a source directory:
 
 ```bash
 SPK_PATTERN='gG7!xY2_Ab9#Qp' php bin/encrypt-directory.php ./source ./output 'Strong!Password2026'
 ```
 
-Decrypt a package directory or `.spkg` file:
+Decrypt an extracted package directory or `.spkg` file:
 
 ```bash
-SPK_PATTERN='gG7!xY2_Ab9#Qp' php bin/decrypt-package.php ./output/<package-id> ./restored 'Strong!Password2026'
+SPK_PATTERN='gG7!xY2_Ab9#Qp' php bin/decrypt-package.php ./output/<package-id>.spkg ./restored 'Strong!Password2026'
 ```
 
-Generate a secret:
+Generate a deployment secret:
 
 ```bash
 php bin/generate-secret.php 32
@@ -233,72 +232,104 @@ Clean stale temporary data:
 php bin/cleanup.php
 ```
 
-## Web API
+## Account Management
 
-The initial web API supports:
+V4 includes an optional application identity layer for management actions.
+
+Accounts use PHP's Argon2id password hashing, session regeneration, strict cookies, CSRF protection, and login rate limiting.
+
+Encryption credentials remain separate from account credentials.
+
+## Package Lifecycle
+
+Packages can be:
+
+- Created
+- Listed for their owner
+- Shared using short-lived access tokens
+- Expired
+- Revoked
+- Restored using one-time restore tokens
+
+Revoking a package invalidates issued package access tokens.
+
+## Archive Security
+
+ZIP input is treated as hostile.
+
+The archive layer validates:
+
+- Relative paths
+- NUL bytes
+- Absolute paths
+- Drive-qualified paths
+- Parent traversal
+- Symbolic-link metadata
+- Entry counts
+- Single-file expansion limits
+- Total decompressed size
+- Nested archive depth
+- Nested archive count
+
+Extraction is staged so invalid archive passwords or malformed input do not leave a partially committed project tree.
+
+## Source Layout
 
 ```text
-POST api.php?action=upload
-POST api.php?action=archive-step
-POST api.php?action=build
-POST api.php?action=decrypt
-GET  api.php?action=csrf
+app/
+    Api/
+    Archive/
+    Crypto/
+    Project/
+    Security/
+    Storage/
+
+bin/
+client/
+config/
+public/
+storage/
+tests/
+tools/
 ```
 
-All state-changing actions require the current session CSRF token.
+The cryptographic layer is intentionally separated from the HTTP controllers and presentation layer.
 
-## Tests
+## Client-Side Decryption Direction
 
-Run the full lightweight regression set:
+The package format is designed so a future browser-only decryptor can consume opaque package bytes without changing the encrypted format.
 
-```bash
-php tests/CryptoRoundTripTest.php
-php tests/FileRoundTripTest.php
-php tests/KdfParameterTest.php
-php tests/NameRegistryTest.php
-php tests/PackageIdTest.php
-php tests/PackageRoundTripTest.php
-php tests/RestoreTokenTest.php
-php tests/SecurityInvariantTest.php
-php tests/TamperDetectionTest.php
-```
+A real browser decryptor should use an audited WebAssembly binding of the same sodium primitives. The project intentionally does not implement a hand-written JavaScript cipher or silently downgrade to a different algorithm.
 
-The tests cover:
+Therefore, V4 is **not** marketed as zero-knowledge or server-blind storage.
 
-- String and file round trips
-- Large streaming files
-- Pattern avalanche behavior
-- KDF parameter restrictions
-- Package round trips
-- Wrong-pattern rejection
-- Ciphertext and manifest tamper detection
-- Project-name uniqueness
-- Package identifier validation
-- One-time restore tokens
-- Core security invariants
+## Production Guidance
 
-The local build environment used for this release has `sodium` enabled. The PHP `zip` extension may need to be enabled separately before running ZIP-specific integration tests or the web upload workflow.
+For production deployments:
 
-## Threat model
+- Expose only `public/` through the web server.
+- Prefer storing `storage/` outside the document root.
+- Use HTTPS.
+- Keep the application secret in a protected environment file or environment provider.
+- Keep PHP and the host operating system updated.
+- Schedule cleanup of temporary data.
+- Use strong, unique encryption credentials.
+- Use a persistent database registry when multiple application workers share the deployment.
+- Restrict filesystem permissions.
+- Monitor audit events without logging secrets.
 
-See `THREAT_MODEL.md` for the detailed assumptions and limitations.
+## Limitations
 
-The system assumes an attacker may know the source code and package format. It does not attempt to make the algorithm secret.
+No system can guarantee absolute security.
 
-## Format
+V4 still performs server-side decryption during restore. Plaintext can therefore exist transiently on the server during extraction and restoration.
 
-See `FORMAT.md` for the current `SECURE-PKG-V3` package structure and compatibility rules.
+The package size and other transport characteristics can still leak coarse information even when content and names are encrypted.
 
-## Security
-
-See `SECURITY.md` for security expectations, operational guidance, and disclosure instructions.
-
-## Author
-
-ElmanCod110
+Deletion from flash storage should not be described as guaranteed cryptographic erasure.
 
 ## License
 
-MIT License.
+MIT License
 
-See `LICENSE` for the full text.
+Copyright (c) 2026 ElmanCod110

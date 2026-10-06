@@ -1,11 +1,5 @@
 Options -Indexes
 
-<IfModule mod_authz_core.c>
-    <DirectoryMatch ".*/(app|config|storage|tests|bin)(/|$)">
-        Require all denied
-    </DirectoryMatch>
-</IfModule>
-
 <FilesMatch "^(composer\.json|composer\.lock|\.env.*|.*\.log|.*\.sql|.*\.md)$">
     Require all denied
 </FilesMatch>

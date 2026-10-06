@@ -6,19 +6,22 @@ namespace SecurePackage\Api;
 use RuntimeException;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
-use SecurePackage\Crypto\KeyDerivation;
-use SecurePackage\Project\PackageReader;
 use SecurePackage\Project\PackageArchive;
+use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\PackageReader;
 use SecurePackage\Project\PackageService;
-use SecurePackage\Security\ProjectNameRegistry;
+use SecurePackage\Security\AccessContext;
+use SecurePackage\Security\AccountStore;
 use SecurePackage\Security\FileProjectNameRegistry;
+use SecurePackage\Security\PackageAccessTokenStore;
 use SecurePackage\Security\RateLimiter;
 use SecurePackage\Security\RestoreTokenStore;
-use SecurePackage\Project\RestoreArchive;
 use SecurePackage\Security\Validator;
 use SecurePackage\Security\WebSecurity;
+use SecurePackage\Storage\AuditLogger;
 use SecurePackage\Storage\FileStore;
 use SecurePackage\Storage\JobStore;
+use SecurePackage\Storage\ResumableUploadStore;
 
 final class PackageController
 {
@@ -26,35 +29,121 @@ final class PackageController
         private readonly array $config,
         private readonly JobStore $jobs,
         private readonly RateLimiter $rateLimiter,
-        private readonly ArchiveWorkflow $archives
+        private readonly ArchiveWorkflow $archives,
+        private readonly ResumableUploadStore $uploads,
+        private readonly PackageCatalog $catalog,
+        private readonly PackageAccessTokenStore $accessTokens,
+        private readonly AccountStore $accounts,
+        private readonly AuditLogger $audit
     ) {}
 
-    public function upload(): never
+    public function me(): never
+    {
+        JsonResponse::send([
+            'ok' => true,
+            'authenticated' => AccessContext::isAuthenticated(),
+            'account_id' => AccessContext::accountId(),
+        ]);
+    }
+
+    public function register(): never
     {
         WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
-        if (!isset($_FILES['archive']) || !is_array($_FILES['archive'])) {
-            JsonResponse::send(['ok' => false, 'error' => 'Archive upload is required.'], 400);
-        }
-        $file = $_FILES['archive'];
-        if ((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            JsonResponse::send(['ok' => false, 'error' => 'Archive upload failed.'], 400);
-        }
-        $max = (int) $this->config['limits']['max_upload_bytes'];
-        if ((int) ($file['size'] ?? 0) <= 0 || (int) $file['size'] > $max) {
-            JsonResponse::send(['ok' => false, 'error' => 'Archive exceeds upload limits.'], 400);
-        }
-        $temp = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'upload-' . bin2hex(random_bytes(16)) . '.zip';
-        if (!move_uploaded_file((string) $file['tmp_name'], $temp)) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to store uploaded archive.'], 500);
-        }
+        $input = Request::json();
+        $username = (string) ($input['username'] ?? '');
+        $password = (string) ($input['password'] ?? '');
         try {
-            $job = $this->archives->initialize($temp);
-            $state = $this->jobs->readState($job['job_id']);
-            $state['owner_hash'] = hash('sha256', WebSecurity::ownerToken());
-            $this->jobs->writeState($job['job_id'], $state);
-            JsonResponse::send(['ok' => true, 'job_id' => $job['job_id'], 'state' => $this->archives->publicState($state)], 201);
-        } finally {
-            @unlink($temp);
+            $id = $this->accounts->register($username, $password);
+            WebSecurity::login($id);
+            $this->audit->event('account.registered', ['account_id' => $id]);
+            sodium_memzero($password);
+            JsonResponse::send(['ok' => true, 'authenticated' => true, 'account_id' => $id, 'csrf' => WebSecurity::csrfToken()], 201);
+        } catch (\Throwable) {
+            sodium_memzero($password);
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to create account.'], 422);
+        }
+    }
+
+    public function login(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $input = Request::json();
+        $username = (string) ($input['username'] ?? '');
+        $password = (string) ($input['password'] ?? '');
+        $key = 'login:' . hash('sha256', strtolower(trim($username)) . '|' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        if (!$this->rateLimiter->check($key)) {
+            sodium_memzero($password);
+            JsonResponse::send(['ok' => false, 'error' => 'Too many login attempts.'], 429);
+        }
+        $id = $this->accounts->verify($username, $password);
+        sodium_memzero($password);
+        if ($id === null) {
+            $this->rateLimiter->failure($key);
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to sign in.'], 401);
+        }
+        $this->rateLimiter->success($key);
+        WebSecurity::login($id);
+        $this->audit->event('account.logged_in', ['account_id' => $id]);
+        JsonResponse::send(['ok' => true, 'authenticated' => true, 'account_id' => $id, 'csrf' => WebSecurity::csrfToken()]);
+    }
+
+    public function logout(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $id = AccessContext::accountId();
+        WebSecurity::logout();
+        $this->audit->event('account.logged_out', ['account_id' => $id]);
+        JsonResponse::send(['ok' => true, 'authenticated' => false, 'csrf' => WebSecurity::csrfToken()]);
+    }
+
+    public function uploadInit(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $input = Request::json();
+        $total = (int) ($input['total_bytes'] ?? 0);
+        try {
+            $result = $this->uploads->initialize($total, AccessContext::ownerId());
+            JsonResponse::send(['ok' => true, 'upload' => $result], 201);
+        } catch (\Throwable) {
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to initialize upload.'], 422);
+        }
+    }
+
+    public function uploadChunk(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $id = (string) ($_SERVER['HTTP_X_UPLOAD_ID'] ?? '');
+        $offset = (int) ($_SERVER['HTTP_X_UPLOAD_OFFSET'] ?? -1);
+        $chunk = file_get_contents('php://input');
+        if ($chunk === false) JsonResponse::send(['ok' => false, 'error' => 'Unable to read upload chunk.'], 400);
+        try {
+            $state = $this->uploads->append($id, $offset, $chunk, AccessContext::ownerId());
+            JsonResponse::send(['ok' => true, 'upload' => $state]);
+        } catch (\Throwable) {
+            JsonResponse::send(['ok' => false, 'error' => 'Upload chunk rejected.'], 409);
+        }
+    }
+
+    public function uploadComplete(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $input = Request::json();
+        $uploadId = (string) ($input['upload_id'] ?? '');
+        try {
+            $zip = $this->uploads->finalize($uploadId, AccessContext::ownerId());
+            try {
+                $job = $this->archives->initialize($zip);
+                $state = $this->jobs->readState($job['job_id']);
+                $this->jobs->writeState($job['job_id'], array_merge($state, ['owner_hash' => hash('sha256', AccessContext::ownerId())]));
+                $public = $this->archives->publicState($this->jobs->readState($job['job_id']));
+                $this->audit->event('upload.completed', ['job_id' => $job['job_id'], 'account_id' => AccessContext::accountId()]);
+                JsonResponse::send(['ok' => true, 'job_id' => $job['job_id'], 'state' => $public]);
+            } finally {
+                $this->uploads->remove($uploadId);
+            }
+        } catch (\Throwable) {
+            $this->uploads->remove($uploadId);
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to finalize upload.'], 422);
         }
     }
 
@@ -65,25 +154,25 @@ final class PackageController
         $jobId = (string) ($input['job_id'] ?? '');
         $archiveId = (string) ($input['archive_id'] ?? '');
         $password = (string) ($input['password'] ?? '');
-        if ($jobId === '' || $archiveId === '') {
-            JsonResponse::send(['ok' => false, 'error' => 'Invalid archive request.'], 400);
-        }
         try {
-            $this->jobs->assertOwner($jobId, WebSecurity::ownerToken());
-            $state = $this->jobs->readState($jobId);
-            $rateKey = 'archive:' . $jobId . ':' . $archiveId . ':' . hash('sha256', WebSecurity::ownerToken());
+            $this->jobs->assertOwner($jobId, AccessContext::ownerId());
+            $rateKey = 'archive:' . $jobId . ':' . $archiveId . ':' . hash('sha256', AccessContext::ownerId());
             if (!$this->rateLimiter->check($rateKey)) {
-                JsonResponse::send(['ok' => false, 'error' => 'Too many failed archive password attempts.'], 429);
+                sodium_memzero($password);
+                JsonResponse::send(['ok' => false, 'error' => 'Too many archive password attempts.'], 429);
             }
             try {
-                $newState = $this->archives->process($jobId, $archiveId, $password);
+                $state = $this->archives->process($jobId, $archiveId, $password);
                 $this->rateLimiter->success($rateKey);
-                JsonResponse::send(['ok' => true, 'state' => $newState]);
-            } catch (\Throwable $e) {
+                sodium_memzero($password);
+                JsonResponse::send(['ok' => true, 'state' => $state]);
+            } catch (\Throwable) {
                 $this->rateLimiter->failure($rateKey);
+                sodium_memzero($password);
                 JsonResponse::send(['ok' => false, 'error' => 'Unable to open archive with the supplied password.'], 422);
             }
         } catch (\Throwable) {
+            sodium_memzero($password);
             JsonResponse::send(['ok' => false, 'error' => 'Archive job was not found.'], 404);
         }
     }
@@ -97,26 +186,27 @@ final class PackageController
         $password = (string) ($input['password'] ?? '');
         $pattern = (string) ($input['pattern'] ?? '');
         try {
-            $this->jobs->assertOwner($jobId, WebSecurity::ownerToken());
+            $this->jobs->assertOwner($jobId, AccessContext::ownerId());
             $state = $this->jobs->readState($jobId);
-            if (($state['status'] ?? '') !== 'ready_to_build') {
-                JsonResponse::send(['ok' => false, 'error' => 'Archive extraction is not complete.'], 409);
-            }
-            Validator::validateProjectName($name);
-            Validator::validatePassword($password);
-            Validator::validatePattern($pattern);
-
+            if (($state['status'] ?? '') !== 'ready_to_build') JsonResponse::send(['ok' => false, 'error' => 'Archive extraction is not complete.'], 409);
+            Validator::validateProjectName($name); Validator::validatePassword($password); Validator::validatePattern($pattern);
             $service = $this->makePackageService();
             $result = $service->build($this->archives->sourceDirectory($jobId), $name, $password, $pattern);
-            $portableFile = $result['package_dir'] . '.spkg';
-            (new PackageArchive())->create($result['package_dir'], $portableFile);
-            $this->writePackageRecord($result['package_id'], $name, $portableFile);
-            sodium_memzero($password);
-            sodium_memzero($pattern);
-            JsonResponse::send(['ok' => true, 'package_id' => $result['package_id'], 'download' => 'download.php?id=' . rawurlencode($result['package_id']), 'stats' => $result['stats']], 201);
-        } catch (\Throwable $e) {
-            sodium_memzero($password);
-            sodium_memzero($pattern);
+            $portable = $result['package_dir'] . '.spkg';
+            (new PackageArchive())->create($result['package_dir'], $portable);
+            $this->catalog->create($result['package_id'], AccessContext::ownerId(), $name);
+            $token = $this->accessTokens->issue($result['package_id'], AccessContext::ownerId(), false);
+            $this->audit->event('package.created', ['package_id' => $result['package_id'], 'account_id' => AccessContext::accountId(), 'nodes' => $result['stats']['nodes'] ?? null]);
+            sodium_memzero($password); sodium_memzero($pattern);
+            JsonResponse::send([
+                'ok' => true,
+                'package_id' => $result['package_id'],
+                'download_token' => $token,
+                'download' => 'download.php?token=' . rawurlencode($token),
+                'stats' => $result['stats'],
+            ], 201);
+        } catch (\Throwable) {
+            sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
         }
     }
@@ -128,68 +218,93 @@ final class PackageController
         $packageId = (string) ($input['package_id'] ?? '');
         $password = (string) ($input['password'] ?? '');
         $pattern = (string) ($input['pattern'] ?? '');
-        if (!preg_match('/^[a-f0-9]{48}$/', $packageId)) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 404);
-        }
-        $rateKey = 'package:' . $packageId . ':' . hash('sha256', WebSecurity::ownerToken());
+        $rateKey = 'package:' . $packageId . ':' . hash('sha256', AccessContext::ownerId());
         if (!$this->rateLimiter->check($rateKey)) {
-            sodium_memzero($password);
-            sodium_memzero($pattern);
+            sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Too many failed attempts.'], 429);
         }
         try {
-            Validator::validatePassword($password);
-            Validator::validatePattern($pattern);
+            Validator::validatePassword($password); Validator::validatePattern($pattern);
+            $record = $this->catalog->get($packageId);
+            if (($record['revoked_at'] ?? null) !== null || ($record['expires_at'] ?? null) !== null && (int) $record['expires_at'] < time()) throw new RuntimeException('Unavailable.');
             $packageDir = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
             $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
             $result = (new PackageReader())->restore($packageDir, $outputDir, $password, $pattern);
             $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
             $restoreToken = $tokenStore->issue($outputDir);
             $this->rateLimiter->success($rateKey);
-            sodium_memzero($password);
-            sodium_memzero($pattern);
-            JsonResponse::send(['ok' => true, 'restore_token' => $restoreToken, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
+            $this->audit->event('package.restored', ['package_id' => $packageId, 'account_id' => AccessContext::accountId(), 'files' => $result['files'] ?? null]);
+            sodium_memzero($password); sodium_memzero($pattern);
+            JsonResponse::send(['ok' => true, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
         } catch (\Throwable) {
             $this->rateLimiter->failure($rateKey);
-            sodium_memzero($password);
-            sodium_memzero($pattern);
+            sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 422);
         }
     }
 
-
-    private function writePackageRecord(string $packageId, string $name, string $portableFile): void
+    public function listPackages(): never
     {
-        $root = $this->config['storage']['packages'];
-        $record = [
-            'package_id' => $packageId,
-            'name_hash' => hash_hmac('sha256', trim($name), (string) (getenv('SPK_NAME_PEPPER') ?: 'record-key')),
-            'file' => basename($portableFile),
-        ];
-        file_put_contents($root . DIRECTORY_SEPARATOR . $packageId . DIRECTORY_SEPARATOR . 'record.json', json_encode($record, JSON_THROW_ON_ERROR), LOCK_EX);
-        @chmod($root . DIRECTORY_SEPARATOR . $packageId . DIRECTORY_SEPARATOR . 'record.json', 0600);
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $items = $this->catalog->listForOwner(AccessContext::ownerId());
+        JsonResponse::send(['ok' => true, 'packages' => array_map(static function (array $item): array {
+            return [
+                'package_id' => $item['package_id'],
+                'created_at' => $item['created_at'],
+                'revoked' => $item['revoked_at'] !== null,
+                'expires_at' => $item['expires_at'],
+            ];
+        }, $items)]);
+    }
+
+    public function accessToken(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $input = Request::json();
+        $packageId = (string) ($input['package_id'] ?? '');
+        try {
+            $record = $this->catalog->assertOwner($packageId, AccessContext::ownerId());
+            if (($record['revoked_at'] ?? null) !== null) throw new RuntimeException('Package revoked.');
+            $token = $this->accessTokens->issue($packageId, AccessContext::ownerId(), false);
+            JsonResponse::send(['ok' => true, 'download' => 'download.php?token=' . rawurlencode($token)]);
+        } catch (\Throwable) {
+            JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
+        }
+    }
+
+    public function setExpiry(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $input = Request::json(); $packageId = (string) ($input['package_id'] ?? ''); $expiresIn = (int) ($input['expires_in'] ?? 0);
+        try {
+            $expiresAt = $expiresIn === 0 ? null : time() + max(300, min($expiresIn, 31536000));
+            $this->catalog->setExpiry($packageId, AccessContext::ownerId(), $expiresAt);
+            $this->audit->event('package.expiry_changed', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
+            JsonResponse::send(['ok' => true]);
+        } catch (\Throwable) {
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to update package expiration.'], 404);
+        }
+    }
+
+    public function revoke(): never
+    {
+        WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        $input = Request::json(); $packageId = (string) ($input['package_id'] ?? '');
+        try {
+            $this->catalog->revoke($packageId, AccessContext::ownerId());
+            $this->accessTokens->revokeForPackage($packageId);
+            $this->audit->event('package.revoked', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
+            JsonResponse::send(['ok' => true]);
+        } catch (\Throwable) {
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to revoke package.'], 404);
+        }
     }
 
     private function makePackageService(): PackageService
     {
-        $registry = null;
-        $dsn = getenv('SPK_DB_DSN') ?: '';
-        if ($dsn !== '') {
-            $pdo = new \PDO($dsn, getenv('SPK_DB_USER') ?: null, getenv('SPK_DB_PASS') ?: null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
-            $pepper = getenv('SPK_NAME_PEPPER') ?: '';
-            if ($pepper === '') {
-                throw new RuntimeException('SPK_NAME_PEPPER is required when database name reservations are enabled.');
-            }
-            $registry = new ProjectNameRegistry($pdo, $pepper);
-        }
-        if ($registry === null) {
-            $pepper = getenv('SPK_NAME_PEPPER') ?: '';
-            if ($pepper === '') {
-                throw new RuntimeException('SPK_NAME_PEPPER must be configured.');
-            }
-            $registry = new FileProjectNameRegistry($this->config['storage']['root'] . DIRECTORY_SEPARATOR . 'reserved-names.db', $pepper);
-        }
-        $store = new FileStore($this->config['storage']['packages']);
-        return new PackageService(new \SecurePackage\Project\PackageBuilder(), $store, $registry);
+        $pepper = (string) (getenv('SPK_NAME_PEPPER') ?: '');
+        if ($pepper === '') throw new RuntimeException('SPK_NAME_PEPPER must be configured.');
+        $registry = new FileProjectNameRegistry($this->config['storage']['root'] . DIRECTORY_SEPARATOR . 'reserved-names.db', $pepper);
+        return new PackageService(new \SecurePackage\Project\PackageBuilder(), new FileStore($this->config['storage']['packages']), $registry);
     }
 }

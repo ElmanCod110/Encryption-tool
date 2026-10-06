@@ -20,7 +20,7 @@ final class PackageReader
         }
 
         $header = json_decode((string) file_get_contents($headerPath), true, 64, JSON_THROW_ON_ERROR);
-        if (($header['format'] ?? null) !== 'SECURE-PKG-V3' || (int) ($header['version'] ?? 0) !== 3 || !preg_match('/^[a-f0-9]{48}$/', (string) ($header['package_id'] ?? ''))) {
+        if (($header['format'] ?? null) !== 'SECURE-PKG-V4' || (int) ($header['version'] ?? 0) !== 4 || !preg_match('/^[a-f0-9]{48}$/', (string) ($header['package_id'] ?? ''))) {
             throw new RuntimeException('Unable to open package.');
         }
         $salt = base64_decode((string) ($header['salt'] ?? ''), true);
@@ -41,9 +41,9 @@ final class PackageReader
         $seenPaths = [];
         $referencedBlobs = [];
         try {
-            $manifestJson = CryptoEngine::decryptString((string) file_get_contents($manifestPath), $manifestKey, 'manifest|3');
+            $manifestJson = CryptoEngine::decryptString((string) file_get_contents($manifestPath), $manifestKey, 'manifest|4');
             $manifest = json_decode($manifestJson, true, 64, JSON_THROW_ON_ERROR);
-            if (($manifest['version'] ?? null) !== 3 || ($manifest['format'] ?? null) !== 'SECURE-PKG-V3' || ($manifest['schema'] ?? null) !== 1 || !isset($manifest['nodes']) || !is_array($manifest['nodes'])) {
+            if (($manifest['version'] ?? null) !== 4 || ($manifest['format'] ?? null) !== 'SECURE-PKG-V4' || ($manifest['schema'] ?? null) !== 2 || !isset($manifest['nodes']) || !is_array($manifest['nodes'])) {
                 throw new RuntimeException('Unable to open package.');
             }
             if (count($manifest['nodes']) > 100000 || (int) ($manifest['node_count'] ?? -1) !== count($manifest['nodes'])) {
@@ -104,7 +104,7 @@ final class PackageReader
                     throw new RuntimeException('Unable to open package.');
                 }
                 $fileKey = KeyDerivation::deriveFileKey($fileKeyRoot, $id);
-                CryptoEngine::decryptFile($blobPath, $target, $fileKey, 'file|' . $id . '|v3', (int) ($node['size'] ?? -1));
+                CryptoEngine::decryptFile($blobPath, $target, $fileKey, 'file|' . $id . '|v4', (int) ($node['size'] ?? -1));
                 sodium_memzero($fileKey);
                 $paths[$id] = $target;
             }

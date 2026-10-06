@@ -6,7 +6,7 @@ namespace SecurePackage\Security;
 use PDO;
 use RuntimeException;
 
-final class ProjectNameRegistry
+final class ProjectNameRegistry implements ProjectNameRegistryInterface
 {
     public function __construct(private readonly PDO $pdo, private readonly string $serverPepper) {}
 

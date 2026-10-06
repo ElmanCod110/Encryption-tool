@@ -1,6 +1,6 @@
-# SECURE-PKG-V3 Format
+# SECURE-PKG-V4 Format
 
-`SECURE-PKG-V3` is the portable package format used by Secure Package.
+`SECURE-PKG-V4` is the portable package format used by Secure Package.
 
 ## Container
 
@@ -29,7 +29,7 @@ No original filename or directory path is required to appear in plaintext.
 
 The portable header never contains the password or pattern.
 
-KDF parameters are validated against the implementation's approved V3 values. A modified package cannot request an arbitrary memory or time cost from the decryptor.
+KDF parameters are validated against the implementation's approved V4 values. A modified package cannot request an arbitrary memory or time cost from the decryptor.
 
 ## Manifest
 
@@ -62,9 +62,9 @@ Large file content is encrypted using XChaCha20-Poly1305 SecretStream. The encry
 Cryptographic operations use purpose-bound associated data such as:
 
 ```text
-manifest|3
+manifest|4
 name|<node-id>
-file|<node-id>|v3
+file|<node-id>|v4
 ```
 
 This prevents ciphertext created for one logical purpose from being silently accepted in another context.
@@ -77,6 +77,6 @@ Re-encrypting identical plaintext with identical credentials therefore does not 
 
 ## Compatibility
 
-A V3 reader must reject unsupported versions instead of attempting heuristic decryption.
+A V4 reader must reject unsupported versions instead of attempting heuristic decryption.
 
-Future versions should use an explicitly versioned format identifier and should not silently reinterpret V3 data.
+Future versions should use an explicitly versioned format identifier and should not silently reinterpret V4 data.
