@@ -4,7 +4,7 @@ require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Security\ReplayGuard;
 
-$dir = sys_get_temp_dir() . '/sp-v13-replay-' . bin2hex(random_bytes(5));
+$dir = sys_get_temp_dir() . '/sp-v12-replay-' . bin2hex(random_bytes(5));
 $guard = new ReplayGuard($dir);
 $id = 'one-time-' . bin2hex(random_bytes(12));
 if (!$guard->consume($id, 60)) throw new RuntimeException('First replay consume failed.');

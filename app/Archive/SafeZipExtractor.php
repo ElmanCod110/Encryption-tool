@@ -38,7 +38,6 @@ final class SafeZipExtractor
         }
 
         try {
-            $seenPaths = [];
             if ($zip->numFiles > $this->policy->maxEntries) {
                 throw new RuntimeException('Archive entry limit exceeded.');
             }
@@ -62,16 +61,15 @@ final class SafeZipExtractor
                 }
 
                 $isDir = str_ends_with($name, '/');
-                $collisionKey = strtolower(rtrim($name, '/'));
-                if ($collisionKey !== '' && isset($seenPaths[$collisionKey])) {
-                    throw new RuntimeException('Archive contains a case-insensitive path collision.');
-                }
-                if ($collisionKey !== '') {
-                    $seenPaths[$collisionKey] = true;
-                }
                 $declaredSize = max(0, (int) ($stat['size'] ?? 0));
-                if (!$isDir && $declaredSize > $this->policy->maxSingleFileBytes) {
-                    throw new RuntimeException('Single file extraction limit exceeded.');
+                if (!$isDir) {
+                    if ($declaredSize > $this->policy->maxSingleFileBytes) {
+                        throw new RuntimeException('Single file extraction limit exceeded.');
+                    }
+                    $state['bytes'] += $declaredSize;
+                    if ($state['bytes'] > $this->policy->maxTotalUncompressedBytes) {
+                        throw new RuntimeException('Total extraction limit exceeded.');
+                    }
                 }
 
                 $target = $destinationDir . DIRECTORY_SEPARATOR . $name;
@@ -100,32 +98,9 @@ final class SafeZipExtractor
                     throw new RuntimeException('Unable to create extracted file.');
                 }
                 try {
-                    $copied = 0;
-                    while (!feof($stream)) {
-                        $buffer = fread($stream, 1024 * 1024);
-                        if ($buffer === false) {
-                            throw new RuntimeException('Unable to extract archive entry.');
-                        }
-                        if ($buffer === '') {
-                            continue;
-                        }
-                        $length = strlen($buffer);
-                        $copied += $length;
-                        if ($copied > $this->policy->maxSingleFileBytes) {
-                            throw new RuntimeException('Single file extraction limit exceeded.');
-                        }
-                        $newTotal = $state['bytes'] + $length;
-                        if ($newTotal > $this->policy->maxTotalUncompressedBytes) {
-                            throw new RuntimeException('Total extraction limit exceeded.');
-                        }
-                        $written = fwrite($out, $buffer);
-                        if ($written !== $length) {
-                            throw new RuntimeException('Unable to extract archive entry.');
-                        }
-                        $state['bytes'] = $newTotal;
-                    }
-                    if ($copied !== $declaredSize) {
-                        throw new RuntimeException('Archive entry size mismatch.');
+                    $copied = stream_copy_to_stream($stream, $out);
+                    if ($copied === false) {
+                        throw new RuntimeException('Unable to extract archive entry.');
                     }
                     $state['files']++;
                 } finally {
@@ -168,7 +143,16 @@ final class SafeZipExtractor
 
     private function validateEntryPath(string $path): void
     {
-        $this->policy->assertSafePath($path);
+        if ($path === '' || str_starts_with($path, '/') || preg_match('/^[A-Za-z]:\//', $path) === 1 || str_contains($path, "\0")) {
+            throw new RuntimeException('Archive contains an unsafe path.');
+        }
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.' || $part === '..') {
+                if ($part !== '' && $part !== null) {
+                    throw new RuntimeException('Archive contains an unsafe path.');
+                }
+            }
+        }
     }
 
     private function isSymbolicLink(ZipArchive $zip, int $index): bool
@@ -212,20 +196,12 @@ final class SafeZipExtractor
         if (!is_dir($target) && !mkdir($target, 0700, true)) {
             throw new RuntimeException('Unable to merge nested archive contents.');
         }
-        $existing = [];
-        $targetIterator = new \FilesystemIterator($target, \FilesystemIterator::SKIP_DOTS);
-        foreach ($targetIterator as $item) {
-            $existing[strtolower($item->getFilename())] = true;
-        }
         $iterator = new \FilesystemIterator($source, \FilesystemIterator::SKIP_DOTS);
         foreach ($iterator as $item) {
-            $name = $item->getFilename();
-            $collision = strtolower($name);
-            $destination = $target . DIRECTORY_SEPARATOR . $name;
-            if (isset($existing[$collision]) || file_exists($destination)) {
+            $destination = $target . DIRECTORY_SEPARATOR . $item->getFilename();
+            if (file_exists($destination)) {
                 throw new RuntimeException('Nested archive path collision detected.');
             }
-            $existing[$collision] = true;
             if ($item->isDir()) {
                 rename($item->getPathname(), $destination);
             } else {

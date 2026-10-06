@@ -1,19 +1,39 @@
-# Secure Package V13 Release Notes
+# Secure Package V13.0.0
 
-V13 is the current browser-vault generation.
+## Final Release
 
-## Security hardening
+Secure Package V13 is the final consolidated release of the Secure Package
+encryption platform.
 
-- Fail-closed browser package parsing with explicit size and count bounds.
-- Authenticated AES-256-GCM records with domain-separated HKDF keys.
-- SHA-256 ciphertext addressing.
-- Full Merkle-root verification before any restore output is created.
-- Restore rejects existing destination paths instead of overwriting them.
-- Windows-portable path validation and case-insensitive collision checks.
-- Owner-bound resumable ciphertext uploads with atomic rate limits.
-- Optional HTTPS enforcement and explicit public-origin configuration.
-- Release signing is external-key based; application packages do not carry a self-trusted release root.
+V13 is a stabilization and release-hardening version. It does not introduce
+a new cryptographic primitive. It consolidates the V10-V12 architecture,
+preserves compatibility where explicitly supported, and focuses on:
 
-## KDF note
+- final repository hygiene
+- deterministic release metadata
+- security regression gates
+- migration documentation
+- deployment documentation
+- release verification
+- explicit security limitations
+- removal of development-only artifacts
 
-The PHP server-side package engine uses Argon2id through libsodium. The browser vault uses PBKDF2-HMAC-SHA-256 through the standards-based Web Crypto API for portable offline operation. V13 does not claim that PBKDF2 is equivalent to Argon2id; an Argon2id/WASM browser backend is a separate future format capability and must be introduced with independent test vectors before changing the format.
+## Security Model
+
+The browser-first package workflow keeps passwords, patterns, plaintext files,
+and plaintext paths in the client-side trust boundary.
+
+The server stores and transports encrypted package material and operational
+metadata required by the selected workflow.
+
+Cryptographic security depends on the strength and secrecy of the supplied
+credentials, the correctness of the client runtime, the browser security
+boundary, and the integrity of the released software.
+
+No cryptographic system can honestly be described as absolutely unbreakable.
+
+## Final Status
+
+Release: 13.0.0
+Author: ElmanCod110
+Status: Final Release

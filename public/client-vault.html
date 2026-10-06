@@ -3,89 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self';base-uri 'none';frame-ancestors 'none';object-src 'none';form-action 'self';style-src 'self';script-src 'self';worker-src 'self';connect-src 'self';img-src 'self' data:;font-src 'self';media-src 'none'">
-<meta name="referrer" content="no-referrer">
-<title>Secure Package · Browser Vault V13</title>
-<link rel="stylesheet" href="client/v13/vault-v13.css">
+<title>Secure Package — Local Vault</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self';">
+<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/client-vault.css">
 </head>
 <body>
-<main class="shell">
-<header class="nav surface">
-  <a class="brand" href="./">
-    <span class="mark" aria-hidden="true">SP</span>
-    <span><b>Secure Package</b><small>Hardened Browser Vault V13</small></span>
-  </a>
-  <div class="badges"><span>SERVER-BLIND</span><span>MERKLE VERIFIED</span><span>V13</span></div>
-</header>
-
-<section class="hero">
-  <div>
-    <span class="eyebrow">LOCAL-FIRST ENCRYPTION WORKSPACE</span>
-    <h1>Encrypt the package.<br><em>Keep the plaintext local.</em></h1>
-    <p>V13 adds fail-closed package parsing, bounded metadata, authenticated chunk records, full Merkle verification before restore, and a no-overwrite restore policy.</p>
-    <div class="chips"><i>AES-256-GCM</i><i>HKDF-SHA-256</i><i>SHA-256</i><i>MERKLE</i><i>RESUMABLE</i><i>PBKDF2 / WEB CRYPTO</i></div>
-  </div>
-  <div class="stat surface"><strong>13</strong><span>FORMAT</span><small>SPK13</small></div>
-</section>
-
-<section class="grid">
-  <article class="panel surface">
-    <div class="head"><div><span class="num">01</span><h2>Build a V13 package</h2><p>Encryption runs in a dedicated Web Worker. Package output is streamed to disk when the browser supports it.</p></div><span id="state" class="state">READY</span></div>
-    <div id="drop" class="drop">
-      <input id="files" type="file" multiple webkitdirectory directory hidden>
-      <div class="dropicon" aria-hidden="true">↥</div>
-      <h3>Drop files or a directory</h3>
-      <p>or <button id="browse" type="button">choose from this device</button></p>
-      <small>1–8 MiB content-defined chunks · encrypted path components · authenticated records</small>
-    </div>
-    <div class="stats">
-      <div><span>FILES</span><b id="fileCount">0</b></div>
-      <div><span>INPUT</span><b id="totalSize">0 B</b></div>
-      <div id="selection">Nothing selected.</div>
-    </div>
-    <div class="form">
-      <label>Password<input id="password" type="password" autocomplete="new-password" placeholder="14+ characters"></label>
-      <label>Pattern<input id="pattern" type="password" autocomplete="new-password" placeholder="14+ characters"></label>
-    </div>
-    <label class="check"><input id="recovery" type="checkbox"> Create an independent recovery key</label>
-    <button id="build" class="primaryBtn" type="button" disabled>Build .spk13 locally</button>
-    <div class="progress"><div><span>Streaming progress</span><b id="progressText">0%</b></div><div class="bar"><span id="progressBar"></span></div></div>
-    <div id="result" class="result"></div>
-  </article>
-
-  <aside class="side">
-    <article class="panel surface">
-      <div class="head"><div><span class="num">02</span><h2>Verify & restore</h2><p>The package inventory and Merkle root are checked before any file is written.</p></div></div>
-      <label>Encrypted package<input id="package" type="file" accept=".spk13,application/octet-stream"></label>
-      <label>Password<input id="decryptPassword" type="password" autocomplete="off"></label>
-      <label>Pattern<input id="decryptPattern" type="password" autocomplete="off"></label>
-      <label>Recovery key<input id="recoveryKey" type="password" autocomplete="off" placeholder="Optional alternate unlock"></label>
-      <button id="decrypt" class="primaryBtn" type="button">Verify & restore</button>
-      <div id="decryptResult" class="result"></div>
-    </article>
-
-    <article class="panel surface">
-      <div class="head"><div><span class="num">03</span><h2>Resumable ciphertext upload</h2><p>Only opaque encrypted chunk bytes are sent to the server.</p></div></div>
-      <label>Local .spk13 package<input id="uploadPackage" type="file" accept=".spk13,application/octet-stream"></label>
-      <button id="upload" class="primaryBtn" type="button">Resume encrypted upload</button>
-      <div id="uploadResult" class="result"></div>
-    </article>
-
-    <article class="panel surface">
-      <div class="head"><div><span class="num">04</span><h2>Security posture</h2></div></div>
-      <div class="metric"><b>Fail-closed parser</b><span>Header, footer, metadata, sizes and identifiers have explicit bounds.</span></div>
-      <div class="metric"><b>Integrity before restore</b><span>Every ciphertext digest and the authenticated Merkle root are verified before output begins.</span></div>
-      <div class="metric"><b>No clobber</b><span>Existing restore targets are rejected instead of silently overwritten.</span></div>
-      <div class="metric"><b>Credential isolation</b><span>Password, pattern and package root stay in the worker session.</span></div>
-    </article>
-  </aside>
-</section>
-
-<section class="flow surface"><span class="eyebrow">SPK13BIN1</span><div><b>FILES</b><i></i><b>CDC</b><i></i><b>AEAD</b><i></i><b>CHUNK HASH</b><i></i><b>MERKLE</b><i></i><b>FOOTER</b></div></section>
-<section class="console surface"><div><b>Security console</b><button id="clear" type="button">Clear</button></div><pre id="log">V13 initialized.</pre></section>
-<footer><span>Secure Package · ElmanCod110</span><span>Open-source · cryptographic format is documented, not secret</span></footer>
-</main>
-<script src="client/v13/vault-v13.js" defer></script>
-</body>
-</html>
+<div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+<div class="app-shell"><div class="vault-wrap">
+<div class="vault-head"><div><div class="eyebrow"><span class="status-dot"></span> Local cryptography mode</div><h1 class="vault-title">Browser Vault</h1><p class="vault-subtitle">Encrypt or decrypt selected files entirely in your browser. Passwords, patterns and file contents are not sent to the server by this page.</p></div><a href="./">Back to dashboard</a></div>
+<div class="pill-row"><span class="pill">PBKDF2-HMAC-SHA-256</span><span class="pill">AES-256-GCM</span><span class="pill">HKDF key separation</span><span class="pill">Web Worker</span><span class="pill">No server plaintext</span></div>
+<div class="vault-grid">
+<section class="vault-card glass"><h2>Encrypt locally</h2><p>Select files or a directory. The complete operation stays in this browser.</p><div class="filebox"><input id="files" type="file" multiple webkitdirectory directory></div><label>Password<div class="secret"><input id="password" class="text-input" type="password" autocomplete="new-password"><button id="toggle1" type="button">Show</button></div></label><label>Pattern<div class="secret"><input id="pattern" class="text-input" type="password" autocomplete="new-password"><button id="toggle2" type="button">Show</button></div></label><button id="encrypt" class="primary-button full" type="button">Encrypt locally</button><div id="result" class="vault-result"></div></section>
+<section class="vault-card glass"><h2>Decrypt locally</h2><p>Open a browser package created by this V6 local mode. Wrong credentials reveal no package contents.</p><div class="filebox"><input id="package" type="file" accept=".spc6,application/octet-stream"></div><label>Password<div class="secret"><input id="password2" class="text-input" type="password" autocomplete="off"><button id="toggle3" type="button">Show</button></div></label><label>Pattern<div class="secret"><input id="pattern2" class="text-input" type="password" autocomplete="off"><button id="toggle4" type="button">Show</button></div></label><button id="decrypt" class="primary-button full" type="button">Decrypt locally</button><div id="result2" class="vault-result"></div></section>
+<div class="vault-note glass"><strong>Security boundary</strong><p class="vault-note-copy">This browser profile is intentionally separate from the server-native XChaCha20-Poly1305 package format. It provides a practical server-blind local workflow without putting a handwritten cipher in application JavaScript.</p></div>
+</div>
+<div class="vault-log"><strong>Local activity</strong><pre id="log">Ready. No network request is required for browser encryption or decryption.</pre></div>
+</div></div>
+<script src="client/client-vault.js" defer></script>
+</body></html>
