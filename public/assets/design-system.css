@@ -72,3 +72,11 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .panel-heading p { color: #738198; font-size: 11px; line-height: 1.65; }
 .step-index { width: 30px; height: 30px; border-color: #e0e7f1; border-radius: 10px; background: #f7f9fd; color: #5d75a5; }
 .mini-state { border-color: #d7eee4; background: #f3faf6; color: #267459; font-weight: 750; }
+
+
+/* 09 — Clear upload affordance and drag state. */
+.dropzone { min-height: 250px; border-color: #cbd6e6; border-radius: 16px; background: linear-gradient(180deg,#fbfcff,#f7f9fd); }
+.dropzone:hover, .dropzone.drag { border-color: #7896df; background: #f1f5ff; }
+.upload-icon { width: 50px; height: 50px; border-radius: 14px; border-color: #e0e7f2; background: #fff; box-shadow: 0 4px 12px rgba(31,52,94,.04); }
+.dropzone h3 { font-size: 15px; letter-spacing: -.02em; }
+.dropzone p { color: #687991; }
