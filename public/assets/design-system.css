@@ -116,3 +116,20 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .modal { background: rgba(16,28,48,.36); backdrop-filter: blur(5px); }
 .modal-card { border: 1px solid rgba(255,255,255,.75); border-radius: 20px; box-shadow: 0 24px 80px rgba(13,27,52,.2); }
 .result-card { border-color: #dcebe4; background: #f6fbf8; }
+
+
+/* 14 — Tablet layout and intermediate widths. */
+@media (max-width: 1050px) {
+  .app-shell { width: min(calc(100% - 36px), 900px); }
+  .hero { padding-top: 48px; }
+  .workspace-grid { gap: 13px; }
+  .panel { padding: 20px; }
+}
+@media (max-width: 760px) {
+  .app-shell { width: calc(100% - 28px); padding-top: 14px; }
+  .topbar { gap: 12px; border-radius: 14px; }
+  .hero { padding: 42px 4px 32px; }
+  .hero h1 { font-size: clamp(38px, 8vw, 52px); }
+  .hero-copy p { font-size: 14px; }
+  .workspace-grid, .bottom-grid { gap: 12px; }
+}
