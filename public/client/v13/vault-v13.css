@@ -119,3 +119,10 @@ footer { display: flex; justify-content: space-between; gap: 18px; padding: 18px
 @media (max-width: 650px) { .shell { width: calc(100% - 24px); padding-top: 12px; } .nav { align-items: flex-start; padding: 12px; } .badges { display: none; } .hero { padding: 52px 5px 34px; } .hero::before { left: 5px; top: 25px; } .hero h1 { font-size: clamp(40px,10vw,58px); } .hero p { font-size: 12px; } .grid, .side { grid-template-columns: 1fr; } .side .panel:last-child { grid-column: auto; } .panel { padding: 16px; } .form { grid-template-columns: 1fr; gap: 0; } .stats { grid-template-columns: 62px 82px minmax(0,1fr); gap: 8px; padding: 11px 9px; } .stats b { font-size: 10px; } .flow { align-items: flex-start; flex-direction: column; padding: 15px; } .flow > div { justify-content: flex-start; } footer { flex-direction: column; gap: 5px; } }
 @media (max-width: 390px) { .brand small { max-width: 185px; font-size: 9px; } .head { gap: 8px; } .head h2 { font-size: 15px; } .state { padding: 5px 6px; font-size: 7px; } .stats { grid-template-columns: 52px 70px minmax(0,1fr); } .stats span { font-size: 7px; } .stats > div:last-child { font-size: 9px; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+/* Interaction pass: visible, consistent feedback without decorative motion. */
+.nav:hover, .panel:hover, .flow:hover, .console:hover { border-color: #30454e; }
+.surface:focus-within { border-color: #425b4c; }
+.brand:hover .mark { background: #203124; border-color: #789b5e; }
+.drop:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(183,243,107,.06); }
+.check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
