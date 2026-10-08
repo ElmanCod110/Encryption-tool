@@ -88,3 +88,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .field-card strong { color: #293951; font-size: 12px; }
 .text-input { min-height: 42px; padding: 10px 12px; border-color: #dfe6f0; border-radius: 10px; background: #fff; color: var(--text); font-size: 12px; transition: border-color .16s ease, box-shadow .16s ease; }
 .text-input:focus { border-color: #7c98e0; box-shadow: var(--shadow-focus); }
+
+
+/* 11 — One clear primary action and restrained secondary controls. */
+.ghost-button, .refresh-button, .small-button, .icon-button, .pkg-actions button { transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .16s ease; }
+.ghost-button, .refresh-button { border-color: #e0e6ef; border-radius: 10px; background: #fff; color: #53647d; font-size: 11px; font-weight: 750; }
+.ghost-button:hover, .refresh-button:hover, .small-button:hover, .icon-button:hover { border-color: #c7d4eb; background: #f7f9ff; color: #315fce; }
+.primary-button { min-height: 43px; border-color: #315fce; border-radius: 11px; background: #315fce; box-shadow: 0 5px 12px rgba(49,95,206,.14); font-size: 12px; font-weight: 750; }
+.primary-button:hover { transform: translateY(-1px); background: #294fb0; box-shadow: 0 7px 16px rgba(49,95,206,.19); }
+.primary-button:active { transform: translateY(0); }
