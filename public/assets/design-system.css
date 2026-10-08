@@ -57,3 +57,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .security-pill { border-color: #d7eee4; background: #f1faf6; color: #267459; }
 .hero-badges { gap: 7px; margin-top: 26px; }
 .hero-badges span { padding: 8px 11px; border-color: #e2e8f2; background: rgba(255,255,255,.75); color: #52637b; font-size: 10px; font-weight: 700; }
+
+
+/* 07 — Understated security illustration. */
+.hero-orbit { width: min(300px,100%); height: 300px; border-radius: 28px; background: linear-gradient(145deg,#fbfcff,#f0f4fc); border-color: #e4eaf4; }
+.orbit-ring { border-color: #dce4f0; }
+.core-shield { width: 96px; height: 96px; border-radius: 25px; border-color: #dce5f3; box-shadow: 0 12px 28px rgba(44,79,146,.08); }
