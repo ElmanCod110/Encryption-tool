@@ -107,3 +107,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .pkg-actions button { padding: 7px 8px; border-radius: 8px; color: #5b6d85; font-size: 9px; }
 .package-list.empty { gap: 8px; }
 .package-list.empty strong { font-size: 12px; color: #4c5f79; }
+
+
+/* 13 — Diagnostics, architecture flow, and modal surfaces. */
+.status-panel, .architecture-panel { padding: 19px; }
+.status-panel pre { border: 1px solid #1c2a3e; border-radius: 12px; background: #101b2b; color: #d7e2f2; font-size: 11px; }
+.pipeline span { border-color: #e3e9f2; border-radius: 8px; background: #fafbfe; color: #596b83; }
+.modal { background: rgba(16,28,48,.36); backdrop-filter: blur(5px); }
+.modal-card { border: 1px solid rgba(255,255,255,.75); border-radius: 20px; box-shadow: 0 24px 80px rgba(13,27,52,.2); }
+.result-card { border-color: #dcebe4; background: #f6fbf8; }
