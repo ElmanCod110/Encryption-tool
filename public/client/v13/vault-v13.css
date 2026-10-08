@@ -126,3 +126,10 @@ footer { display: flex; justify-content: space-between; gap: 18px; padding: 18px
 .brand:hover .mark { background: #203124; border-color: #789b5e; }
 .drop:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(183,243,107,.06); }
 .check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* Status hierarchy: metrics and outcomes read like a compact technical console. */
+.stats > div:not(:last-child) { padding-right: 9px; border-right: 1px solid #263842; }
+.stats > div:last-child { line-height: 1.55; }
+.result:empty { display: none; }
+.result:not(:empty) { padding: 11px 12px; border: 1px solid #2e5744; border-radius: 4px; background: #11231a; }
+#decryptResult:not(:empty), #uploadResult:not(:empty) { overflow-wrap: anywhere; }
