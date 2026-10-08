@@ -25,3 +25,10 @@ body { background: radial-gradient(ellipse at 50% -20%, #eaf0ff 0, transparent 4
 ::selection { background: #dbe6ff; color: #18366f; }
 button, a, input { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid rgba(49, 95, 206, .35); outline-offset: 3px; }
+
+
+/* 03 — Main shell and shared surfaces. */
+.app-shell { width: min(1380px, calc(100% - 48px)); padding: 24px 0 44px; }
+.glass { background: rgba(255,255,255,.9); border-color: var(--line); box-shadow: var(--shadow-soft); backdrop-filter: blur(14px); }
+.panel, .status-panel, .architecture-panel { border-radius: 18px; box-shadow: var(--shadow-soft); }
+.panel { padding: 24px; }
