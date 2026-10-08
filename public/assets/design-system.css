@@ -63,3 +63,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .hero-orbit { width: min(300px,100%); height: 300px; border-radius: 28px; background: linear-gradient(145deg,#fbfcff,#f0f4fc); border-color: #e4eaf4; }
 .orbit-ring { border-color: #dce4f0; }
 .core-shield { width: 96px; height: 96px; border-radius: 25px; border-color: #dce5f3; box-shadow: 0 12px 28px rgba(44,79,146,.08); }
+
+
+/* 08 — Workspace cards and section headings. */
+.workspace-grid { gap: 16px; }
+.panel-heading { margin-bottom: 20px; }
+.panel h2 { font-size: 17px; font-weight: 720; letter-spacing: -.025em; }
+.panel-heading p { color: #738198; font-size: 11px; line-height: 1.65; }
+.step-index { width: 30px; height: 30px; border-color: #e0e7f1; border-radius: 10px; background: #f7f9fd; color: #5d75a5; }
+.mini-state { border-color: #d7eee4; background: #f3faf6; color: #267459; font-weight: 750; }
