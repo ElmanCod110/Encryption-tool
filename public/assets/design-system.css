@@ -1,0 +1,161 @@
+/* 01 — Design tokens: restrained ink, cool surfaces, and a precise blue accent. */
+:root {
+  color-scheme: light;
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-soft: #f8faff;
+  --line: #e4e9f1;
+  --line-strong: #cbd5e3;
+  --text: #152238;
+  --muted: #68778d;
+  --faint: #8e9bb0;
+  --primary: #315fce;
+  --primary-soft: #edf2ff;
+  --success: #187a5a;
+  --danger: #b5474b;
+  --radius: 18px;
+  --shadow-soft: 0 12px 34px rgba(26, 43, 76, .045);
+  --shadow-focus: 0 0 0 4px rgba(49, 95, 206, .12);
+}
+
+
+/* 02 — Consistent rendering and accessible interaction defaults. */
+html { scroll-behavior: smooth; background: var(--bg); }
+body { background: radial-gradient(ellipse at 50% -20%, #eaf0ff 0, transparent 43%), var(--bg); -webkit-font-smoothing: antialiased; }
+::selection { background: #dbe6ff; color: #18366f; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid rgba(49, 95, 206, .35); outline-offset: 3px; }
+
+
+/* 03 — Main shell and shared surfaces. */
+.app-shell { width: min(1380px, calc(100% - 48px)); padding: 24px 0 44px; }
+.glass { background: rgba(255,255,255,.9); border-color: var(--line); box-shadow: var(--shadow-soft); backdrop-filter: blur(14px); }
+.panel, .status-panel, .architecture-panel { border-radius: 18px; box-shadow: var(--shadow-soft); }
+.panel { padding: 24px; }
+
+
+/* 04 — Navigation: quiet, aligned, and compact. */
+.topbar { min-height: 70px; padding: 0 18px; border-radius: 17px; box-shadow: 0 5px 22px rgba(24,39,68,.035); }
+.brand { gap: 11px; }
+.brand-mark { width: 42px; height: 42px; border-radius: 13px; border-color: #dbe4f5; background: linear-gradient(145deg,#f7f9ff,#edf2ff); }
+.brand-mark svg { width: 24px; }
+.brand b { font-size: 14px; letter-spacing: -.025em; }
+.brand small { font-size: 10px; color: #78869b; }
+.top-actions { gap: 9px; }
+
+
+/* 05 — Typography and hero hierarchy. */
+.hero { gap: clamp(24px,4vw,58px); padding: clamp(48px,6vw,78px) 18px 54px; }
+.eyebrow { display: inline-flex; align-items: center; gap: 9px; color: #5f7396; font-size: 10px; letter-spacing: .13em; }
+.hero h1 { max-width: 780px; margin: 18px 0 19px; font-size: clamp(40px,5.2vw,68px); line-height: 1.02; letter-spacing: -.065em; font-weight: 740; }
+.hero-copy p { max-width: 720px; font-size: 15px; line-height: 1.85; color: #64738a; }
+
+
+/* 06 — Status labels and feature chips. */
+.version-pill, .security-pill { padding: 7px 10px; font-size: 9px; letter-spacing: .07em; }
+.version-pill { border-color: #d9e3ff; background: #f0f4ff; color: #3e5fa7; }
+.security-pill { border-color: #d7eee4; background: #f1faf6; color: #267459; }
+.hero-badges { gap: 7px; margin-top: 26px; }
+.hero-badges span { padding: 8px 11px; border-color: #e2e8f2; background: rgba(255,255,255,.75); color: #52637b; font-size: 10px; font-weight: 700; }
+
+
+/* 07 — Understated security illustration. */
+.hero-orbit { width: min(300px,100%); height: 300px; border-radius: 28px; background: linear-gradient(145deg,#fbfcff,#f0f4fc); border-color: #e4eaf4; }
+.orbit-ring { border-color: #dce4f0; }
+.core-shield { width: 96px; height: 96px; border-radius: 25px; border-color: #dce5f3; box-shadow: 0 12px 28px rgba(44,79,146,.08); }
+
+
+/* 08 — Workspace cards and section headings. */
+.workspace-grid { gap: 16px; }
+.panel-heading { margin-bottom: 20px; }
+.panel h2 { font-size: 17px; font-weight: 720; letter-spacing: -.025em; }
+.panel-heading p { color: #738198; font-size: 11px; line-height: 1.65; }
+.step-index { width: 30px; height: 30px; border-color: #e0e7f1; border-radius: 10px; background: #f7f9fd; color: #5d75a5; }
+.mini-state { border-color: #d7eee4; background: #f3faf6; color: #267459; font-weight: 750; }
+
+
+/* 09 — Clear upload affordance and drag state. */
+.dropzone { min-height: 250px; border-color: #cbd6e6; border-radius: 16px; background: linear-gradient(180deg,#fbfcff,#f7f9fd); }
+.dropzone:hover, .dropzone.drag { border-color: #7896df; background: #f1f5ff; }
+.upload-icon { width: 50px; height: 50px; border-radius: 14px; border-color: #e0e7f2; background: #fff; box-shadow: 0 4px 12px rgba(31,52,94,.04); }
+.dropzone h3 { font-size: 15px; letter-spacing: -.02em; }
+.dropzone p { color: #687991; }
+
+
+/* 10 — Configuration fields and input focus. */
+.field-card { padding: 15px; border-color: #e5eaf2; border-radius: 14px; background: #fafbfe; }
+.field-card span { color: #8491a5; letter-spacing: .09em; }
+.field-card strong { color: #293951; font-size: 12px; }
+.text-input { min-height: 42px; padding: 10px 12px; border-color: #dfe6f0; border-radius: 10px; background: #fff; color: var(--text); font-size: 12px; transition: border-color .16s ease, box-shadow .16s ease; }
+.text-input:focus { border-color: #7c98e0; box-shadow: var(--shadow-focus); }
+
+
+/* 11 — One clear primary action and restrained secondary controls. */
+.ghost-button, .refresh-button, .small-button, .icon-button, .pkg-actions button { transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .16s ease; }
+.ghost-button, .refresh-button { border-color: #e0e6ef; border-radius: 10px; background: #fff; color: #53647d; font-size: 11px; font-weight: 750; }
+.ghost-button:hover, .refresh-button:hover, .small-button:hover, .icon-button:hover { border-color: #c7d4eb; background: #f7f9ff; color: #315fce; }
+.primary-button { min-height: 43px; border-color: #315fce; border-radius: 11px; background: #315fce; box-shadow: 0 5px 12px rgba(49,95,206,.14); font-size: 12px; font-weight: 750; }
+.primary-button:hover { transform: translateY(-1px); background: #294fb0; box-shadow: 0 7px 16px rgba(49,95,206,.19); }
+.primary-button:active { transform: translateY(0); }
+
+
+/* 12 — Package list and empty-state readability. */
+.pkg-row { padding: 11px; border-color: #e5eaf2; border-radius: 12px; }
+.pkg-row:hover { border-color: #cbd8ef; background: #fbfcff; }
+.pkg-meta strong { font-size: 10px; color: #283951; }
+.pkg-meta span { color: #8290a4; }
+.pkg-actions button { padding: 7px 8px; border-radius: 8px; color: #5b6d85; font-size: 9px; }
+.package-list.empty { gap: 8px; }
+.package-list.empty strong { font-size: 12px; color: #4c5f79; }
+
+
+/* 13 — Diagnostics, architecture flow, and modal surfaces. */
+.status-panel, .architecture-panel { padding: 19px; }
+.status-panel pre { border: 1px solid #1c2a3e; border-radius: 12px; background: #101b2b; color: #d7e2f2; font-size: 11px; }
+.pipeline span { border-color: #e3e9f2; border-radius: 8px; background: #fafbfe; color: #596b83; }
+.modal { background: rgba(16,28,48,.36); backdrop-filter: blur(5px); }
+.modal-card { border: 1px solid rgba(255,255,255,.75); border-radius: 20px; box-shadow: 0 24px 80px rgba(13,27,52,.2); }
+.result-card { border-color: #dcebe4; background: #f6fbf8; }
+
+
+/* 14 — Tablet layout and intermediate widths. */
+@media (max-width: 1050px) {
+  .app-shell { width: min(calc(100% - 36px), 900px); }
+  .hero { padding-top: 48px; }
+  .workspace-grid { gap: 13px; }
+  .panel { padding: 20px; }
+}
+@media (max-width: 760px) {
+  .app-shell { width: calc(100% - 28px); padding-top: 14px; }
+  .topbar { gap: 12px; border-radius: 14px; }
+  .hero { padding: 42px 4px 32px; }
+  .hero h1 { font-size: clamp(38px, 8vw, 52px); }
+  .hero-copy p { font-size: 14px; }
+  .workspace-grid, .bottom-grid { gap: 12px; }
+}
+
+
+/* 15 — Mobile spacing and reduced-motion accessibility. */
+@media (max-width: 520px) {
+  .app-shell { width: calc(100% - 22px); padding-top: 11px; }
+  .topbar { align-items: center; padding: 11px; }
+  .brand { gap: 8px; }
+  .brand-mark { width: 36px; height: 36px; border-radius: 11px; }
+  .brand b { font-size: 12px; }
+  .top-actions { gap: 6px; }
+  .version-pill, .security-pill { padding: 6px 7px; font-size: 8px; }
+  .hero { padding-top: 35px; }
+  .hero h1 { font-size: 39px; }
+  .hero-badges span { font-size: 9px; }
+  .panel { padding: 16px; }
+  .panel-heading { gap: 8px; }
+  .panel h2 { font-size: 15px; }
+  .panel-heading p { font-size: 10px; }
+  .dropzone { min-height: 220px; padding: 18px; }
+  .panel-footer { gap: 10px; }
+  footer { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
