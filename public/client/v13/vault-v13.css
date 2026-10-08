@@ -154,3 +154,12 @@ input[type="password"]:hover, input[type="file"]:hover { border-color: #4a6069; 
   .panel { padding: 13px; }
   .stats { grid-template-columns: 48px 64px minmax(0,1fr); }
 }
+
+/* Final accessibility and contrast pass. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+@media (forced-colors: active) {
+  .surface, .drop, .primaryBtn, input[type="password"], input[type="file"] { border: 1px solid CanvasText; }
+  .primaryBtn { forced-color-adjust: auto; }
+}
