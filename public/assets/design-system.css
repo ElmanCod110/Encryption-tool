@@ -1,0 +1,19 @@
+/* 01 — Design tokens: restrained ink, cool surfaces, and a precise blue accent. */
+:root {
+  color-scheme: light;
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-soft: #f8faff;
+  --line: #e4e9f1;
+  --line-strong: #cbd5e3;
+  --text: #152238;
+  --muted: #68778d;
+  --faint: #8e9bb0;
+  --primary: #315fce;
+  --primary-soft: #edf2ff;
+  --success: #187a5a;
+  --danger: #b5474b;
+  --radius: 18px;
+  --shadow-soft: 0 12px 34px rgba(26, 43, 76, .045);
+  --shadow-focus: 0 0 0 4px rgba(49, 95, 206, .12);
+}

@@ -18,6 +18,7 @@ $csrf = WebSecurity::csrfToken();
 <meta name="description" content="Secure Package V14 — high-assurance encrypted project packages with authenticated integrity and recovery. ">
 <title>Secure Package V14</title>
 <link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/design-system.css">
 </head>
 <body>
 <div class="app-shell">
