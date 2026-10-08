@@ -220,7 +220,7 @@ footer { display: flex; justify-content: space-between; gap: 18px; padding: 18px
 
 @media (min-width: 1400px) { .workspace-grid > .panel:first-child { grid-column: span 1; } }
 @media (max-width: 1120px) {
-  .app-shell { width: min(100% - 40px, 1000px); }
+  .app-shell { width: min(calc(100% - 40px), 1000px); }
   .hero { grid-template-columns: minmax(0, 1fr) 240px; gap: 30px; padding: 70px 16px 52px; }
   .hero-orbit { width: 230px; height: 230px; }
   .ring-1 { width: 180px; height: 180px; } .ring-2 { width: 128px; height: 128px; }
