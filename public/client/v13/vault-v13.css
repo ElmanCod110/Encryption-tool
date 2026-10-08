@@ -133,3 +133,9 @@ footer { display: flex; justify-content: space-between; gap: 18px; padding: 18px
 .result:empty { display: none; }
 .result:not(:empty) { padding: 11px 12px; border: 1px solid #2e5744; border-radius: 4px; background: #11231a; }
 #decryptResult:not(:empty), #uploadResult:not(:empty) { overflow-wrap: anywhere; }
+
+/* Native file controls stay legible across supported desktop browsers. */
+input[type="file"] { min-height: 42px; line-height: 1.4; }
+input[type="file"]::file-selector-button:hover { border-color: var(--accent); background: #223527; }
+input[type="password"]:hover, input[type="file"]:hover { border-color: #4a6069; }
+::placeholder { opacity: 1; }
