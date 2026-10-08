@@ -133,3 +133,29 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   .hero-copy p { font-size: 14px; }
   .workspace-grid, .bottom-grid { gap: 12px; }
 }
+
+
+/* 15 — Mobile spacing and reduced-motion accessibility. */
+@media (max-width: 520px) {
+  .app-shell { width: calc(100% - 22px); padding-top: 11px; }
+  .topbar { align-items: center; padding: 11px; }
+  .brand { gap: 8px; }
+  .brand-mark { width: 36px; height: 36px; border-radius: 11px; }
+  .brand b { font-size: 12px; }
+  .top-actions { gap: 6px; }
+  .version-pill, .security-pill { padding: 6px 7px; font-size: 8px; }
+  .hero { padding-top: 35px; }
+  .hero h1 { font-size: 39px; }
+  .hero-badges span { font-size: 9px; }
+  .panel { padding: 16px; }
+  .panel-heading { gap: 8px; }
+  .panel h2 { font-size: 15px; }
+  .panel-heading p { font-size: 10px; }
+  .dropzone { min-height: 220px; padding: 18px; }
+  .panel-footer { gap: 10px; }
+  footer { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
