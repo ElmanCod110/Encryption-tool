@@ -32,3 +32,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .glass { background: rgba(255,255,255,.9); border-color: var(--line); box-shadow: var(--shadow-soft); backdrop-filter: blur(14px); }
 .panel, .status-panel, .architecture-panel { border-radius: 18px; box-shadow: var(--shadow-soft); }
 .panel { padding: 24px; }
+
+
+/* 04 — Navigation: quiet, aligned, and compact. */
+.topbar { min-height: 70px; padding: 0 18px; border-radius: 17px; box-shadow: 0 5px 22px rgba(24,39,68,.035); }
+.brand { gap: 11px; }
+.brand-mark { width: 42px; height: 42px; border-radius: 13px; border-color: #dbe4f5; background: linear-gradient(145deg,#f7f9ff,#edf2ff); }
+.brand-mark svg { width: 24px; }
+.brand b { font-size: 14px; letter-spacing: -.025em; }
+.brand small { font-size: 10px; color: #78869b; }
+.top-actions { gap: 9px; }
