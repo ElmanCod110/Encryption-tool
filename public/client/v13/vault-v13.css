@@ -139,3 +139,18 @@ input[type="file"] { min-height: 42px; line-height: 1.4; }
 input[type="file"]::file-selector-button:hover { border-color: var(--accent); background: #223527; }
 input[type="password"]:hover, input[type="file"]:hover { border-color: #4a6069; }
 ::placeholder { opacity: 1; }
+
+/* Narrow viewport refinements for touch and long file names. */
+@media (max-width: 650px) {
+  .drop { min-height: 210px; padding: 20px 14px; }
+  .chips { gap: 6px; margin-top: 19px; }
+  .chips i { padding: 7px 8px; }
+  .primaryBtn { min-height: 45px; }
+  .console pre { min-height: 100px; font-size: 9px; }
+}
+@media (max-width: 360px) {
+  .shell { width: calc(100% - 18px); }
+  .hero h1 { font-size: 38px; }
+  .panel { padding: 13px; }
+  .stats { grid-template-columns: 48px 64px minmax(0,1fr); }
+}
