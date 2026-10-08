@@ -17,3 +17,11 @@
   --shadow-soft: 0 12px 34px rgba(26, 43, 76, .045);
   --shadow-focus: 0 0 0 4px rgba(49, 95, 206, .12);
 }
+
+
+/* 02 — Consistent rendering and accessible interaction defaults. */
+html { scroll-behavior: smooth; background: var(--bg); }
+body { background: radial-gradient(ellipse at 50% -20%, #eaf0ff 0, transparent 43%), var(--bg); -webkit-font-smoothing: antialiased; }
+::selection { background: #dbe6ff; color: #18366f; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid rgba(49, 95, 206, .35); outline-offset: 3px; }
