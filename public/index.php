@@ -27,7 +27,7 @@ $csrf = WebSecurity::csrfToken();
     <span><b>Secure Package</b><small>High-assurance encrypted package platform</small></span>
   </a>
   <div class="top-actions">
-    <span class="version-pill">V<?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?></span>
+    <span class="version-pill"><?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?></span>
     <a class="ghost-button" href="client-vault.html">Legacy Browser Vault V13</a>
     <button class="ghost-button" id="authButton" type="button">Sign in</button>
   </div>
@@ -36,7 +36,7 @@ $csrf = WebSecurity::csrfToken();
 <main>
 <section class="hero">
   <div class="hero-copy">
-    <span class="eyebrow"><span class="status-dot"></span> V<?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> cryptographic package engine</span>
+    <span class="eyebrow"><span class="status-dot"></span> Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · cryptographic package engine</span>
     <h1>Encrypt the project. Authenticate the package. Restore safely.</h1>
     <p>The server format separates credential wrapping from the package root key, authenticates metadata and ciphertext, verifies the complete blob inventory and Merkle root, and refuses unsafe restore paths.</p>
     <div class="hero-badges">
@@ -95,7 +95,7 @@ $csrf = WebSecurity::csrfToken();
     </div>
 
     <div class="panel-footer hidden" id="buildFooter">
-      <div><span class="security-note">Secrets are never written to the encrypted package. V14 verifies package integrity before restore output begins.</span></div>
+      <div><span class="security-note">Secrets are never written to the encrypted package. The package verifier checks integrity before restore output begins.</span></div>
       <button class="primary-button" id="buildBtn" type="button"><span>Build package</span><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
     </div>
 
@@ -131,7 +131,7 @@ $csrf = WebSecurity::csrfToken();
   <div class="architecture-panel glass">
     <div class="architecture-title"><strong>Server security pipeline</strong><span>SECURE-PKG-V14</span></div>
     <div class="pipeline"><span>CREDENTIALS</span><i></i><span>Argon2id</span><i></i><span>KEY WRAP</span><i></i><span>AEAD</span><i></i><span>STREAM</span><i></i><span>MERKLE</span></div>
-    <p>V14 protects the package root key separately, authenticates the header binding and manifest, hashes every ciphertext blob, then verifies the complete Merkle root before restore.</p>
+    <p>The server format protects the package root key separately, authenticates the header binding and manifest, hashes every ciphertext blob, then verifies the complete Merkle root before restore.</p>
   </div>
 </section>
 </main>
