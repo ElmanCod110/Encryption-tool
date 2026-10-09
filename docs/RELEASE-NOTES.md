@@ -21,6 +21,10 @@ V14 moves the active server package engine to `SECURE-PKG-V14` and introduces a 
 
 `SECURE-BROWSER-V13` remains available as a separate browser compatibility boundary. It is not silently upgraded to the V14 server format.
 
+### Release validation
+
+Use the [reproducible release QA matrix](RELEASE-QA.md) to record automated CI evidence separately from manual Windows/XAMPP and real-browser checks. The checklist intentionally starts manual scenarios as NOT RUN; do not infer browser or deployment compatibility from syntax checks alone.
+
 ### Known release prerequisites
 
-A production release should include a real committed `composer.lock`, an independently trusted Ed25519 release public key, and the completed adversarial/fuzzing gates documented in the security roadmap.
+A production release should include a real committed `composer.lock`, an independently trusted Ed25519 release public key, and the completed adversarial/fuzzing gates documented in the security roadmap. The release workflow currently fails closed when `composer.lock` is absent; do not bypass this gate with a fabricated lockfile.
