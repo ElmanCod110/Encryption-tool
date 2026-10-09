@@ -26,21 +26,16 @@ jobs:
       - name: Validate Composer manifest
         run: composer validate --no-check-publish
 
-      - name: Strict lock validation when a lock is committed
+      - name: Require committed dependency lockfile
         run: |
-          if [ -f composer.lock ]; then
-            composer validate --strict --no-check-publish
-          else
-            echo "::notice::composer.lock is not committed; release verification will resolve composer.json."
+          if [ ! -f composer.lock ]; then
+            echo "::error::composer.lock is required for a reproducible release. Generate it with Composer in a supported development environment and commit it."
+            exit 1
           fi
+          composer validate --strict --no-check-publish
 
-      - name: Install dependencies
-        run: |
-          if [ -f composer.lock ]; then
-            composer install --no-interaction --no-progress --prefer-dist
-          else
-            composer install --no-interaction --no-progress --prefer-dist
-          fi
+      - name: Install locked dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
 
       - name: Dependency audit
         run: composer audit --no-interaction
