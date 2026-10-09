@@ -1,4 +1,4 @@
-# V14 Deployment Guide
+# Deployment Guide
 
 ## Web root
 

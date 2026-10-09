@@ -15,8 +15,8 @@ $csrf = WebSecurity::csrfToken();
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="csrf-token" content="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-<meta name="description" content="Secure Package V14 — high-assurance encrypted project packages with authenticated integrity and recovery. ">
-<title>Secure Package V14</title>
+<meta name="description" content="Secure Package — high-assurance encrypted project packages with authenticated integrity and recovery. ">
+<title>Secure Package · <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?></title>
 <link rel="stylesheet" href="assets/app.css?v=2">
 </head>
 <body>
@@ -27,7 +27,7 @@ $csrf = WebSecurity::csrfToken();
     <span><b>Secure Package</b><small>High-assurance encrypted package platform</small></span>
   </a>
   <div class="top-actions">
-    <span class="version-pill">V<?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?></span>
+    <span class="version-pill"><?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?></span>
     <a class="ghost-button" href="client-vault.html">Legacy Browser Vault V13</a>
     <button class="ghost-button" id="authButton" type="button">Sign in</button>
   </div>
@@ -36,9 +36,9 @@ $csrf = WebSecurity::csrfToken();
 <main>
 <section class="hero">
   <div class="hero-copy">
-    <span class="eyebrow"><span class="status-dot"></span> V<?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> cryptographic package engine</span>
+    <span class="eyebrow"><span class="status-dot"></span> Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · cryptographic package engine</span>
     <h1>Encrypt the project. Authenticate the package. Restore safely.</h1>
-    <p>V14 separates credential wrapping from the package root key, authenticates metadata and ciphertext, verifies the complete blob inventory and Merkle root, and refuses unsafe restore paths.</p>
+    <p>The server format separates credential wrapping from the package root key, authenticates metadata and ciphertext, verifies the complete blob inventory and Merkle root, and refuses unsafe restore paths.</p>
     <div class="hero-badges">
       <span>Argon2id13</span><span>XChaCha20-Poly1305</span><span>Secretstream</span><span>HKDF key separation</span><span>Pre-write integrity</span>
     </div>
@@ -52,7 +52,7 @@ $csrf = WebSecurity::csrfToken();
 <section class="workspace-grid">
   <article class="panel glass span-2">
     <div class="panel-heading">
-      <div><span class="step-index">01</span><h2>Create a V14 encrypted package</h2><p>Upload a ZIP, process protected archives, then build an authenticated package.</p></div>
+      <div><span class="step-index">01</span><h2>Create an encrypted package</h2><p>Upload a ZIP, process protected archives, then build an authenticated package.</p></div>
       <span class="mini-state" id="createState">Ready</span>
     </div>
     <div class="dropzone" id="dropzone">
@@ -95,8 +95,8 @@ $csrf = WebSecurity::csrfToken();
     </div>
 
     <div class="panel-footer hidden" id="buildFooter">
-      <div><span class="security-note">Secrets are never written to the encrypted package. V14 verifies package integrity before restore output begins.</span></div>
-      <button class="primary-button" id="buildBtn" type="button"><span>Build V14 package</span><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
+      <div><span class="security-note">Secrets are never written to the encrypted package. The package verifier checks integrity before restore output begins.</span></div>
+      <button class="primary-button" id="buildBtn" type="button"><span>Build package</span><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
     </div>
 
     <div class="result-card hidden" id="recoveryCard">
@@ -106,12 +106,12 @@ $csrf = WebSecurity::csrfToken();
   </article>
 
   <article class="panel glass">
-    <div class="panel-heading"><div><span class="step-index">02</span><h2>Open a package</h2><p>Use the primary credentials or the independent V14 recovery key.</p></div></div>
+    <div class="panel-heading"><div><span class="step-index">02</span><h2>Open a package</h2><p>Use the primary credentials or the independent recovery key.</p></div></div>
     <div class="stack-fields">
       <label>Package ID<input class="text-input" id="packageId" maxlength="48" placeholder="48-character package ID"></label>
       <label>Password<input class="text-input" id="decryptPassword" type="password" autocomplete="off" placeholder="Package password"></label>
       <label>Pattern<input class="text-input" id="decryptPattern" type="password" autocomplete="off" placeholder="Package pattern"></label>
-      <label>Recovery key <span class="muted-label">optional</span><input class="text-input" id="recoveryKeyInput" maxlength="43" autocomplete="off" spellcheck="false" placeholder="V14 recovery key (43 chars)"></label>
+      <label>Recovery key <span class="muted-label">optional</span><input class="text-input" id="recoveryKeyInput" maxlength="43" autocomplete="off" spellcheck="false" placeholder="Package recovery key"></label>
     </div>
     <button class="primary-button full" id="decryptBtn" type="button">Open package <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
     <div class="callout"><span class="callout-icon">i</span><p>Credential failures remain generic. Restore is fail-closed and never overwrites an existing destination.</p></div>
@@ -126,17 +126,17 @@ $csrf = WebSecurity::csrfToken();
 <section class="bottom-grid">
   <div class="status-panel glass">
     <div class="status-title"><span class="live-dot"></span><strong id="statusPill">System ready</strong><span class="status-caption">CSRF • ownership • replay/rate controls • ciphertext-only transport</span></div>
-    <pre id="log">V14 package engine ready.</pre>
+    <pre id="log">Package engine ready.</pre>
   </div>
   <div class="architecture-panel glass">
-    <div class="architecture-title"><strong>V14 security pipeline</strong><span>SECURE-PKG-V14</span></div>
+    <div class="architecture-title"><strong>Server security pipeline</strong><span>SECURE-PKG-V14</span></div>
     <div class="pipeline"><span>CREDENTIALS</span><i></i><span>Argon2id</span><i></i><span>KEY WRAP</span><i></i><span>AEAD</span><i></i><span>STREAM</span><i></i><span>MERKLE</span></div>
-    <p>V14 protects the package root key separately, authenticates the header binding and manifest, hashes every ciphertext blob, then verifies the complete Merkle root before restore.</p>
+    <p>The server format protects the package root key separately, authenticates the header binding and manifest, hashes every ciphertext blob, then verifies the complete Merkle root before restore.</p>
   </div>
 </section>
 </main>
 
-<footer><span>Secure Package · Author: ElmanCod110</span><span>V<?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> server package engine · PHP Zip extension required · V13 browser compatibility remains isolated as legacy.</span></footer>
+<footer><span>Secure Package · Author: ElmanCod110</span><span>Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · PHP Zip extension required · Browser compatibility remains isolated.</span></footer>
 </div>
 
 <div class="modal hidden" id="authModal">

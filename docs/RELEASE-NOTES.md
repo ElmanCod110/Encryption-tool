@@ -1,4 +1,4 @@
-# Secure Package V14 Release Notes
+# Secure Package Release Notes
 
 V14 moves the active server package engine to `SECURE-PKG-V14` and introduces a separate random package root key with independently authenticated credential and recovery wrapping.
 

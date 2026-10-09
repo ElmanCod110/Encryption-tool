@@ -1,4 +1,4 @@
-# V14 Validation Record
+# Validation Record
 
 Date: 2026-10-01
 
