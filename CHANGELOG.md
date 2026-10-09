@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — MVP readiness and repository maintenance
+
+- Established `VERSION` as the single source of truth for the application release version and documented the distinction between application versioning and package-format identifiers.
+- Updated the main UI to display the canonical application version from shared configuration.
+- Normalized versioned documentation filenames while retaining the historical Markdown change and validation records.
+- Removed the superseded bundled source archive from the active repository tree.
+- Added security reporting, contribution, support, and structured issue-reporting guidance.
+
+
 ## 14.1.0 — Compatibility and Server Reliability Fixes
 
 - Fixed Browser Vault V13 self-produced package rejection caused by missing key-slot type/version metadata.
