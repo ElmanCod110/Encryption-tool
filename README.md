@@ -1,12 +1,12 @@
-# Secure Package V14
+# Secure Package
 
 **Author:** ElmanCod110
 
-Secure Package V14 is an open-source encrypted project package engine built around explicit cryptographic boundaries, authenticated metadata, fail-closed parsing, bounded resource consumption, and safe restore semantics.
+Secure Package is an open-source encrypted project package engine built around explicit cryptographic boundaries, authenticated metadata, fail-closed parsing, bounded resource consumption, and safe restore semantics.
 
 ## V14 server package engine
 
-The active server package format is `SECURE-PKG-V14` (`.spkg14`). V14 uses:
+The active server package format is `SECURE-PKG-V14` (`.spkg14`). Its cryptographic format identifier is independent of the application release version. The server format uses:
 
 - Argon2id13 for password and pattern credential derivation through libsodium
 - A random 256-bit package root key, wrapped independently from credentials
@@ -22,23 +22,17 @@ The active server package format is `SECURE-PKG-V14` (`.spkg14`). V14 uses:
 - Independent optional recovery-key slot
 - Atomic temporary-file writes and secret zeroization where applicable
 
-V14 is designed so that the password and pattern do not directly serve as the long-lived file-encryption key. They derive a wrapping key which unlocks the random package root key; subkeys are then derived for manifests, filenames, and file streams.
+The server format is designed so that the password and pattern do not directly serve as the long-lived file-encryption key. They derive a wrapping key which unlocks the random package root key; subkeys are then derived for manifests, filenames, and file streams.
 
 ## Browser compatibility boundary
 
-The browser-first vault remains `SECURE-BROWSER-V13` (`.spk13`). It is intentionally kept as a separate compatibility boundary rather than silently reinterpreted as V14.
+The browser-first vault remains `SECURE-BROWSER-V13` (`.spk13`). It is intentionally kept as a separate compatibility boundary rather than silently reinterpreted as the server format.
 
 The browser implementation uses the standards-based Web Crypto API and PBKDF2-HMAC-SHA-256. The server package engine uses Argon2id through libsodium. These are separate designs with separate threat assumptions.
 
 ## Repository layout
 
-The repository root contains active V14 source and security tooling. Historical source and superseded generation material is bundled under:
-
-```text
-archive/secure-package-legacy.zip
-```
-
-The archive is not part of the active application surface.
+The repository root contains the active application source and security tooling. Superseded source bundles are intentionally excluded from the working tree; historical release and change explanations remain in Markdown documentation.
 
 ## Runtime requirements
 
@@ -52,7 +46,7 @@ The archive is not part of the active application surface.
 
 Point Apache/XAMPP at the `public/` directory and open the application entry point.
 
-The V14 package engine is exposed through the main application UI and CLI helpers:
+The server package engine is exposed through the main application UI and CLI helpers:
 
 ```text
 php bin/encrypt-directory.php <source-dir> <package-dir> <password> <pattern>
@@ -89,4 +83,20 @@ For a reproducible release, generate and commit a real `composer.lock` from the 
 
 ## Security philosophy
 
-V14 treats cryptography, parsing, filesystem handling, authentication, resource limits, and supply-chain integrity as one security boundary. A stronger cipher alone does not make the system secure; every step between untrusted input and plaintext restore must fail closed.
+The application treats cryptography, parsing, filesystem handling, authentication, resource limits, and supply-chain integrity as one security boundary. A stronger cipher alone does not make the system secure; every step between untrusted input and plaintext restore must fail closed.
+
+
+## Project policy and further documentation
+
+- [Versioning policy](VERSIONING.md)
+- [Security reporting](SECURITY.md)
+- [Contribution guide](CONTRIBUTING.md)
+- [Support](SUPPORT.md)
+- [Deployment guide](docs/DEPLOYMENT.md)
+- [Format specification](docs/FORMAT.md)
+- [Threat model](docs/THREAT-MODEL.md)
+- [Migration notes](docs/MIGRATION.md)
+- [Release procedure](docs/RELEASE-PROCEDURE.md)
+- [Release notes](docs/RELEASE-NOTES.md)
+- [Validation record](docs/VALIDATION.md)
+- [Changelog](CHANGELOG.md)
