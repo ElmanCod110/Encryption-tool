@@ -35,7 +35,7 @@ $checks = [
     'Unexpected API failures use HTTP 500' =>
         str_contains($api, "'Internal server error.'") && str_contains($api, '], 500);'),
     'Unexpected API logs do not include exception messages or traces' =>
-        str_contains($api, "get_class($exception)") && !str_contains($api, '$exception->getMessage()'),
+        str_contains($api, 'get_class($exception)') && !str_contains($api, '$exception->getMessage()'),
     'Oversized JSON requests use HTTP 413' =>
         str_contains($request, 'new HttpException(413,'),
     'Malformed JSON requests use HTTP 400' =>
