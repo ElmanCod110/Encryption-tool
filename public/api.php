@@ -18,8 +18,15 @@ use SecurePackage\Storage\JobStore;
 use SecurePackage\Storage\ResumableUploadStore;
 
 $config = require dirname(__DIR__) . '/config/config.php';
-WebSecurity::startSession();
-WebSecurity::applyHeaders();
+try {
+    WebSecurity::startSession();
+    WebSecurity::applyHeaders();
+} catch (HttpException $exception) {
+    JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+} catch (Throwable $exception) {
+    error_log('[Secure Package] API initialization failure: ' . get_class($exception));
+    JsonResponse::send(['ok' => false, 'error' => 'Internal server error.'], 500);
+}
 
 $jobs = new JobStore($config['storage']['temp'] . DIRECTORY_SEPARATOR . 'jobs');
 $policy = new ArchivePolicy(
