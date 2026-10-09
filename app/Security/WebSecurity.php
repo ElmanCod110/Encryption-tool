@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace SecurePackage\Security;
 
 use RuntimeException;
+use SecurePackage\Api\HttpException;
 
 final class WebSecurity
 {
@@ -13,7 +14,7 @@ final class WebSecurity
         $requireHttps = getenv('SPK_REQUIRE_HTTPS') === '1';
         $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
         if ($requireHttps && !$secure) {
-            throw new RuntimeException('HTTPS is required for this deployment.');
+            throw new HttpException(503, 'Service is not configured for this connection.');
         }
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
@@ -55,11 +56,11 @@ final class WebSecurity
         } else {
             $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
             if ($host === '' || !preg_match('/^(?:[A-Za-z0-9-]+\.)*[A-Za-z0-9-]+(?::\d+)?$/', $host)) {
-                throw new RuntimeException('Origin policy is not configured.');
+                throw new HttpException(403, 'Request origin is not allowed.');
             }
             $expected = $scheme . '://' . $host;
         }
-        if (!hash_equals($expected, $origin)) throw new RuntimeException('Invalid request origin.');
+        if (!hash_equals($expected, $origin)) throw new HttpException(403, 'Request origin is not allowed.');
     }
 
     public static function csrfToken(): string
@@ -80,7 +81,7 @@ final class WebSecurity
     {
         self::startSession();
         if ($token === null || !isset($_SESSION['csrf']) || !hash_equals((string) $_SESSION['csrf'], $token)) {
-            throw new RuntimeException('Invalid CSRF token.');
+            throw new HttpException(403, 'Request validation failed.');
         }
         self::assertSameOrigin();
     }

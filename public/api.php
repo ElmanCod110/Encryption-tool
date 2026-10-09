@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Api\JsonResponse;
+use SecurePackage\Api\HttpException;
 use SecurePackage\Api\PackageController;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
@@ -17,8 +18,15 @@ use SecurePackage\Storage\JobStore;
 use SecurePackage\Storage\ResumableUploadStore;
 
 $config = require dirname(__DIR__) . '/config/config.php';
-WebSecurity::startSession();
-WebSecurity::applyHeaders();
+try {
+    WebSecurity::startSession();
+    WebSecurity::applyHeaders();
+} catch (HttpException $exception) {
+    JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+} catch (Throwable $exception) {
+    error_log('[Secure Package] API initialization failure: ' . get_class($exception));
+    JsonResponse::send(['ok' => false, 'error' => 'Internal server error.'], 500);
+}
 
 $jobs = new JobStore($config['storage']['temp'] . DIRECTORY_SEPARATOR . 'jobs');
 $policy = new ArchivePolicy(
@@ -58,6 +66,10 @@ try {
         case 'csrf': JsonResponse::send(['ok' => true, 'csrf' => WebSecurity::csrfToken()]);
         default: JsonResponse::send(['ok' => false, 'error' => 'Unknown action.'], 404);
     }
-} catch (Throwable) {
-    JsonResponse::send(['ok' => false, 'error' => 'Request failed.'], 400);
+} catch (HttpException $exception) {
+    JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+} catch (Throwable $exception) {
+    // Log only the exception class: messages and traces can contain paths or sensitive input.
+    error_log('[Secure Package] Unhandled API exception: ' . get_class($exception));
+    JsonResponse::send(['ok' => false, 'error' => 'Internal server error.'], 500);
 }

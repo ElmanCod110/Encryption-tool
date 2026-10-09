@@ -3,34 +3,40 @@ declare(strict_types=1);
 
 namespace SecurePackage\Api;
 
-use RuntimeException;
-
 final class Request
 {
     public static function json(int $maxBytes = 2_097_152): array
     {
         if ($maxBytes < 1) {
-            throw new RuntimeException('Invalid request size policy.');
+            throw new \LogicException('Invalid request size policy.');
         }
+
         $contentLength = isset($_SERVER['CONTENT_LENGTH']) ? (int) $_SERVER['CONTENT_LENGTH'] : null;
         if ($contentLength !== null && $contentLength > $maxBytes) {
-            throw new RuntimeException('Request body is too large.');
+            throw new HttpException(413, 'Request body is too large.');
         }
+
         $raw = file_get_contents('php://input');
-        if ($raw === false || $raw === '') {
-            return [];
+        if ($raw === false) {
+            throw new HttpException(400, 'Unable to read request body.');
         }
         if (strlen($raw) > $maxBytes) {
-            throw new RuntimeException('Request body is too large.');
+            throw new HttpException(413, 'Request body is too large.');
         }
+        if ($raw === '') {
+            return [];
+        }
+
         try {
             $data = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
-        } catch (\Throwable) {
-            throw new RuntimeException('Invalid JSON request.');
+        } catch (\JsonException $exception) {
+            throw new HttpException(400, 'Invalid JSON request.', $exception);
         }
+
         if (!is_array($data)) {
-            throw new RuntimeException('Invalid JSON request.');
+            throw new HttpException(400, 'Invalid JSON request.');
         }
+
         return $data;
     }
 }
