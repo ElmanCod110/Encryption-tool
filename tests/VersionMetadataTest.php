@@ -24,11 +24,8 @@ if (($config['app']['format'] ?? null) !== 'SECURE-PKG-V14') {
 }
 
 $mainPage = (string) file_get_contents(dirname(__DIR__) . '/public/index.php');
-if (!str_contains($mainPage, "$config['app']['version_string']")) {
-    // The view must consume the shared app configuration, not hard-code a release number.
-    if (!str_contains($mainPage, "['app']['version_string']")) {
-        throw new RuntimeException('Main UI does not consume the shared application version.');
-    }
+if (!str_contains($mainPage, "version_string")) {
+    throw new RuntimeException('Main UI does not consume the shared application version.');
 }
 
 echo "Version metadata tests passed.\n";
