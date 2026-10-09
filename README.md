@@ -75,11 +75,12 @@ php bin/source-audit.php
 php bin/security-test.php --full
 find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 composer validate --strict --no-check-publish
-composer install --no-interaction --prefer-dist --no-progress
 composer audit --no-interaction
 ```
 
-For a reproducible release, generate and commit a real `composer.lock` from the normal development environment, then install with that lock in CI.
+After a real root `composer.lock` has been generated with Composer and committed, install the locked dependency graph with `composer install --no-interaction --prefer-dist --no-progress`. Do not treat `composer install` without a lockfile as a reproducible dependency install; the release workflow intentionally fails while the lockfile is missing.
+
+Before a release, work through the [reproducible release QA matrix](docs/RELEASE-QA.md). It separates CI evidence from manual Windows/XAMPP and real-browser checks; manual scenarios must remain NOT RUN until tested.
 
 ## Security philosophy
 
@@ -98,5 +99,6 @@ The application treats cryptography, parsing, filesystem handling, authenticatio
 - [Migration notes](docs/MIGRATION.md)
 - [Release procedure](docs/RELEASE-PROCEDURE.md)
 - [Release notes](docs/RELEASE-NOTES.md)
+- [Reproducible release QA matrix](docs/RELEASE-QA.md)
 - [Validation record](docs/VALIDATION.md)
 - [Changelog](CHANGELOG.md)
