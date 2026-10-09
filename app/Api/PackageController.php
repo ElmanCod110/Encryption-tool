@@ -248,6 +248,7 @@ final class PackageController
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Too many failed attempts.'], 429);
         }
+        $outputDir = null;
         try {
             if ($recoveryKey === null || $recoveryKey === '') {
                 Validator::validatePassword($password);
@@ -278,6 +279,9 @@ final class PackageController
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => true, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
         } catch (\Throwable) {
+            // A failed restore can leave partially or fully decrypted files behind.
+            // Remove them before returning an error; only successful responses expose a restore token.
+            if (is_string($outputDir)) $this->removePath($outputDir);
             sodium_memzero($password); sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 422);
