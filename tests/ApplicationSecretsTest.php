@@ -14,6 +14,15 @@ try {
     if (strlen($first) < 32 || !hash_equals($first, $second)) throw new RuntimeException('Local application secret was not persisted safely.');
     $path = $root . '/secrets/name-pepper.bin';
     if (!is_file($path) || filesize($path) !== 32) throw new RuntimeException('Application secret file is invalid.');
+
+    // A persisted pepper is binary; NUL bytes must not make an otherwise valid
+    // 32-byte secret unreadable. This deterministic fixture prevents a flaky
+    // random-byte-dependent failure.
+    $binaryPepper = "\0" . str_repeat('p', 31);
+    if (file_put_contents($path, $binaryPepper) !== 32) throw new RuntimeException('Could not write binary pepper fixture.');
+    $loadedBinaryPepper = ApplicationSecrets::namePepper($root);
+    if (!hash_equals($binaryPepper, $loadedBinaryPepper)) throw new RuntimeException('Binary application pepper was not accepted intact.');
+
     @unlink($path);
     @rmdir($root . '/secrets');
     @rmdir($root);
