@@ -27,7 +27,7 @@ For a local checkout with PHP 8.2+ and the required extensions:
 | PHP regression tests | `for test in tests/*.php; do php "$test" || exit 1; done` | Every PHP test exits successfully | NOT RUN — record CI run |
 | Browser V13 round-trip | `node tests/BrowserV13RoundTripTest.mjs` | Compatibility test passes | NOT RUN — record CI run |
 
-The CI workflow may run some of these checks automatically. Link the actual Actions run rather than copying a previous result or marking this table PASS by assumption.
+The CI workflow may run some of these checks automatically. Link the actual Actions run rather than copying a previous result or marking this table PASS by assumption. The current endpoint response mapping and known error-contract gaps are tracked in [API Error Contract Audit](API-ERROR-CONTRACT.md); use that audit to add concrete integration scenarios rather than treating source-text checks as end-to-end proof.
 
 ## Windows / XAMPP deployment
 
