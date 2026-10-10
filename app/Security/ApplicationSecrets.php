@@ -70,8 +70,11 @@ final class ApplicationSecrets
     private static function assertPepper(string $pepper): void
     {
         $length = strlen($pepper);
-        if ($length < self::MIN_PEPPER_BYTES || $length > self::MAX_PEPPER_BYTES || str_contains($pepper, "\0")) {
-            throw new RuntimeException('SPK_NAME_PEPPER must contain at least 32 non-null bytes.');
+        // The persisted pepper is binary random data, so NUL bytes are valid.
+        // Environment variables cannot represent embedded NUL bytes; validate only
+        // the length here so randomly generated secrets are not rejected by chance.
+        if ($length < self::MIN_PEPPER_BYTES || $length > self::MAX_PEPPER_BYTES) {
+            throw new RuntimeException('SPK_NAME_PEPPER must contain between 32 and 4096 bytes.');
         }
     }
 }
