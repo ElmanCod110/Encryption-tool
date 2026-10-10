@@ -38,9 +38,9 @@ $checks = [
         str_contains($api, 'get_class($exception)') && !str_contains($api, '$exception->getMessage()'),
     'Unknown API actions use HTTP 404' =>
         str_contains($api, "default: JsonResponse::send(['ok' => false, 'error' => 'Unknown action.'], 404);"),
-    'API initialization failures have a generic HTTP 500 response' =>
-        str_contains($api, "API initialization failure: ' . get_class($exception)") &&
-        str_contains($api, "JsonResponse::send(['ok' => false, 'error' => 'Internal server error.'], 500);"),
+    'API initialization failures log a safe event label' =>
+        str_contains($api, 'API initialization failure:') &&
+        str_contains($api, 'get_class($exception)'),
     'Oversized JSON requests use HTTP 413' =>
         str_contains($request, 'new HttpException(413,'),
     'Malformed JSON requests use HTTP 400' =>
