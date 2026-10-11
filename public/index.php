@@ -21,7 +21,7 @@ $csrf = WebSecurity::csrfToken();
 </head>
 <body>
 <div class="app-shell">
-<header class="topbar glass">
+<header class="topbar glass" data-learn-title="Your workspace header" data-learn="This is the main navigation area. The version badge identifies the application release, the legacy vault link opens the separate browser-based V13 format, and Sign in opens account access for package management.">
   <a class="brand" href="./" aria-label="Secure Package home">
     <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 3 26 7v7c0 7-4.2 11.6-10 15-5.8-3.4-10-8-10-15V7l10-4Z"/><path d="m11.5 16 3 3 6-7"/></svg></span>
     <span><b>Secure Package</b><small>High-assurance encrypted package platform</small></span>
@@ -35,7 +35,7 @@ $csrf = WebSecurity::csrfToken();
 
 <main>
 <section class="hero">
-  <div class="hero-copy">
+  <div class="hero-copy" data-learn-title="What Secure Package does" data-learn="This introduction summarizes the server-side encryption workflow and the security boundaries it is designed to enforce. The badges name the main cryptographic components; they are a quick overview, not a substitute for the format and threat-model documentation.">
     <span class="eyebrow"><span class="status-dot"></span> Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · cryptographic package engine</span>
     <h1>Encrypt the project. Authenticate the package. Restore safely.</h1>
     <p>The server format separates credential wrapping from the package root key, authenticates metadata and ciphertext, verifies the complete blob inventory and Merkle root, and refuses unsafe restore paths.</p>
@@ -50,12 +50,12 @@ $csrf = WebSecurity::csrfToken();
 </section>
 
 <section class="workspace-grid">
-  <article class="panel glass span-2">
+  <article class="panel glass span-2" data-learn-title="Create an encrypted package" data-learn="Start by uploading a ZIP archive. If the archive is password-protected, process it in the archive step. Then choose a unique package name, set a strong encryption password and independent pattern, and optionally create a recovery key. Build package becomes available once the required workflow state is ready. Store any recovery key offline: it is shown only once.">
     <div class="panel-heading">
       <div><span class="step-index">01</span><h2>Create an encrypted package</h2><p>Upload a ZIP, process protected archives, then build an authenticated package.</p></div>
       <span class="mini-state" id="createState">Ready</span>
     </div>
-    <div class="dropzone" id="dropzone">
+    <div class="dropzone" id="dropzone" data-learn-title="Upload your source archive" data-learn="Drop a ZIP file into this area or choose one from your computer. The interface uploads it in chunks and displays progress. Only select files you intend to encrypt, and remember that the resulting package is a separate encrypted artifact.">
       <input id="archive" type="file" accept=".zip,application/zip" hidden>
       <div class="upload-icon"><svg viewBox="0 0 32 32"><path d="M16 22V6"/><path d="m10 12 6-6 6 6"/><path d="M7 18v7h18v-7"/></svg></div>
       <h3>Drop a ZIP archive here</h3>
@@ -106,7 +106,7 @@ $csrf = WebSecurity::csrfToken();
   </article>
 
   <article class="panel glass">
-    <div class="panel-heading"><div><span class="step-index">02</span><h2>Open a package</h2><p>Use the primary credentials or the independent recovery key.</p></div></div>
+    <div class="panel-heading" data-learn-title="Open an encrypted package" data-learn="Enter the package ID and matching password and pattern. If you created an independent recovery key, it can be used as the alternate unlock credential. The application validates the package before making restored files available; never share credentials in logs or support messages."><div><span class="step-index">02</span><h2>Open a package</h2><p>Use the primary credentials or the independent recovery key.</p></div></div>
     <div class="stack-fields">
       <label>Package ID<input class="text-input" id="packageId" maxlength="48" placeholder="48-character package ID"></label>
       <label>Password<input class="text-input" id="decryptPassword" type="password" autocomplete="off" placeholder="Package password"></label>
@@ -118,17 +118,17 @@ $csrf = WebSecurity::csrfToken();
   </article>
 
   <article class="panel glass">
-    <div class="panel-heading"><div><span class="step-index">03</span><h2>Your packages</h2><p>Management is tied to your current identity.</p></div><button class="refresh-button" id="refreshPackages" type="button">Refresh</button></div>
+    <div class="panel-heading" data-learn-title="Manage your packages" data-learn="After signing in, review packages associated with your identity. Refresh reloads the list. Depending on package state, actions can create access links, adjust expiry, revoke access, or delete a package. Check confirmations carefully before destructive actions."><div><span class="step-index">03</span><h2>Your packages</h2><p>Management is tied to your current identity.</p></div><button class="refresh-button" id="refreshPackages" type="button">Refresh</button></div>
     <div id="packageList" class="package-list empty"><div class="empty-icon"><svg viewBox="0 0 32 32"><path d="M5 9h8l2 3h12v13H5z"/><path d="M5 9V7h9l2 2"/></svg></div><strong>No packages loaded</strong><span>Sign in or create a package to see managed items.</span></div>
   </article>
 </section>
 
 <section class="bottom-grid">
-  <div class="status-panel glass">
+  <div class="status-panel glass" data-learn-title="Operation status and messages" data-learn="This panel reports the current application state and detailed operation messages. If something fails, read the message here first. Before sharing diagnostic output, make sure it contains no passwords, recovery keys, access tokens, or other secrets.">
     <div class="status-title"><span class="live-dot"></span><strong id="statusPill">System ready</strong><span class="status-caption">CSRF • ownership • replay/rate controls • ciphertext-only transport</span></div>
     <pre id="log">Package engine ready.</pre>
   </div>
-  <div class="architecture-panel glass">
+  <div class="architecture-panel glass" data-learn-title="Security pipeline overview" data-learn="This diagram summarizes the server package flow: credentials derive wrapping material, the package root key is protected separately, encrypted content is authenticated, and the complete inventory is verified before restore. See the format specification and threat model for exact guarantees and limitations.">
     <div class="architecture-title"><strong>Server security pipeline</strong><span>SECURE-PKG-V14</span></div>
     <div class="pipeline"><span>CREDENTIALS</span><i></i><span>Argon2id</span><i></i><span>KEY WRAP</span><i></i><span>AEAD</span><i></i><span>STREAM</span><i></i><span>MERKLE</span></div>
     <p>The server format protects the package root key separately, authenticates the header binding and manifest, hashes every ciphertext blob, then verifies the complete Merkle root before restore.</p>
@@ -136,7 +136,7 @@ $csrf = WebSecurity::csrfToken();
 </section>
 </main>
 
-<footer><span>Secure Package · Author: ElmanCod110</span><span>Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · PHP Zip extension required · Browser compatibility remains isolated.</span></footer>
+<footer data-learn-title="Version and runtime notes" data-learn="The footer shows the current application version and runtime reminders. Server package workflows require PHP and the ZIP extension; the legacy browser vault is a separate compatibility format and should not be confused with the server package format."><span>Secure Package · Author: ElmanCod110</span><span>Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · PHP Zip extension required · Browser compatibility remains isolated.</span></footer>
 </div>
 
 <div class="modal hidden" id="authModal">
@@ -152,6 +152,6 @@ $csrf = WebSecurity::csrfToken();
   </div>
 </div>
 
-<script src="assets/app.js" defer></script>
+<script src="assets/learn.js?v=1" defer></script>\n<script src="assets/app.js" defer></script>
 </body>
 </html>
