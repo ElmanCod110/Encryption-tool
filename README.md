@@ -102,3 +102,11 @@ The application treats cryptography, parsing, filesystem handling, authenticatio
 - [Reproducible release QA matrix](docs/RELEASE-QA.md)
 - [Validation record](docs/VALIDATION.md)
 - [Changelog](CHANGELOG.md)
+
+---
+
+## Like this project?
+
+If Secure Package is useful to you, consider giving it a **star** on GitHub. ⭐ Your support helps more developers discover the project and encourages continued work on secure, reliable encryption tools.
+
+**Found it interesting? [Star the repository](https://github.com/ElmanCod110/Encryption-tool)** — it only takes a second, and it means a lot.
