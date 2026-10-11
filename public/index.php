@@ -106,7 +106,7 @@ $csrf = WebSecurity::csrfToken();
   </article>
 
   <article class="panel glass">
-    <div class="panel-heading"><div><span class="step-index">02</span><h2>Open a package</h2><p>Use the primary credentials or the independent recovery key.</p></div></div>
+    <div class="panel-heading" data-learn-title="Open an encrypted package" data-learn="Enter the package ID and matching password and pattern. If you created an independent recovery key, it can be used as the alternate unlock credential. The application validates the package before making restored files available; never share credentials in logs or support messages."><div><span class="step-index">02</span><h2>Open a package</h2><p>Use the primary credentials or the independent recovery key.</p></div></div>
     <div class="stack-fields">
       <label>Package ID<input class="text-input" id="packageId" maxlength="48" placeholder="48-character package ID"></label>
       <label>Password<input class="text-input" id="decryptPassword" type="password" autocomplete="off" placeholder="Package password"></label>
