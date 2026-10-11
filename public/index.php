@@ -118,7 +118,7 @@ $csrf = WebSecurity::csrfToken();
   </article>
 
   <article class="panel glass">
-    <div class="panel-heading"><div><span class="step-index">03</span><h2>Your packages</h2><p>Management is tied to your current identity.</p></div><button class="refresh-button" id="refreshPackages" type="button">Refresh</button></div>
+    <div class="panel-heading" data-learn-title="Manage your packages" data-learn="After signing in, review packages associated with your identity. Refresh reloads the list. Depending on package state, actions can create access links, adjust expiry, revoke access, or delete a package. Check confirmations carefully before destructive actions."><div><span class="step-index">03</span><h2>Your packages</h2><p>Management is tied to your current identity.</p></div><button class="refresh-button" id="refreshPackages" type="button">Refresh</button></div>
     <div id="packageList" class="package-list empty"><div class="empty-icon"><svg viewBox="0 0 32 32"><path d="M5 9h8l2 3h12v13H5z"/><path d="M5 9V7h9l2 2"/></svg></div><strong>No packages loaded</strong><span>Sign in or create a package to see managed items.</span></div>
   </article>
 </section>
