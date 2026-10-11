@@ -1,0 +1,20 @@
+/* Guided-tour UI: kept in a same-origin file to respect the app's restrictive CSP. */
+body.sp-learn-open { overflow: hidden !important; }
+#sp-learn-launcher { position:fixed; right:22px; bottom:22px; z-index:2147483000; width:48px; height:48px; border:1px solid #b7f36b; border-radius:50%; background:#b7f36b; color:#10170d; box-shadow:0 8px 28px rgba(0,0,0,.35); font:800 23px/1 system-ui,sans-serif; cursor:pointer; display:grid; place-items:center; transition:transform .18s ease,box-shadow .18s ease; }
+#sp-learn-launcher:hover { transform:translateY(-2px); box-shadow:0 12px 32px rgba(0,0,0,.42); }
+#sp-learn-launcher:focus-visible, #sp-learn-card button:focus-visible { outline:3px solid #fff; outline-offset:3px; }
+#sp-learn-overlay { position:fixed; inset:0; z-index:2147482000; background:rgba(2,7,10,.62); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+.sp-learn-spotlight { position:relative!important; z-index:2147482500!important; isolation:isolate!important; outline:2px solid #b7f36b!important; outline-offset:5px!important; box-shadow:0 0 0 9999px rgba(2,7,10,.78),0 0 0 7px rgba(183,243,107,.22)!important; border-radius:7px!important; filter:none!important; }
+#sp-learn-card { position:fixed; z-index:2147483001; left:14px; top:14px; width:min(440px,calc(100vw - 28px)); max-height:min(330px,calc(100vh - 28px)); overflow:auto; padding:20px; border:1px solid #526b4b; border-radius:10px; background:#111b23; color:#edf4f5; box-shadow:0 24px 80px rgba(0,0,0,.5); font:14px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+#sp-learn-card .sp-learn-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; color:#b7f36b; font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+#sp-learn-card .sp-learn-close { width:30px; height:30px; border:1px solid #354954; border-radius:6px; background:#17232c; color:#dbe6e8; font-size:19px; cursor:pointer; }
+#sp-learn-card h2 { margin:0 0 9px; color:#f1f6f6; font-size:20px; line-height:1.25; letter-spacing:-.035em; }
+#sp-learn-card p { margin:0; color:#b4c4c9; font-size:13px; line-height:1.8; white-space:pre-line; }
+#sp-learn-card .sp-learn-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:19px; padding-top:14px; border-top:1px solid #2a3b45; }
+#sp-learn-card .sp-learn-count { color:#92a7af; font-size:11px; font-variant-numeric:tabular-nums; }
+#sp-learn-card .sp-learn-actions { display:flex; gap:7px; }
+#sp-learn-card .sp-learn-actions button { min-height:35px; padding:8px 12px; border:1px solid #3c505b; border-radius:6px; background:#17232c; color:#dce6e8; font-size:12px; font-weight:750; cursor:pointer; }
+#sp-learn-card .sp-learn-actions button[data-action="next"], #sp-learn-card .sp-learn-actions button[data-action="finish"] { border-color:#b7f36b; background:#b7f36b; color:#10170d; }
+#sp-learn-card .sp-learn-actions button:disabled { opacity:.4; cursor:not-allowed; }
+@media(max-width:520px) { #sp-learn-launcher { right:15px; bottom:15px; width:44px; height:44px; } #sp-learn-card { padding:16px; } #sp-learn-card h2 { font-size:18px; } }
+@media(prefers-reduced-motion:reduce) { #sp-learn-launcher { transition:none; } }
