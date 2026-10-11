@@ -31,29 +31,27 @@
   // Create styles once instead of depending on a second stylesheet or a CSS framework.
   function installStyles() {
     if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = `
-      #${BUTTON_ID}{position:fixed;right:22px;bottom:22px;z-index:2147483000;width:48px;height:48px;border:1px solid #b7f36b;border-radius:50%;background:#b7f36b;color:#10170d;box-shadow:0 8px 28px rgba(0,0,0,.35);font:800 23px/1 system-ui,sans-serif;cursor:pointer;display:grid;place-items:center;transition:transform .18s ease,box-shadow .18s ease}
-      #${BUTTON_ID}:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.42)}
-      #${BUTTON_ID}:focus-visible,#${CARD_ID} button:focus-visible{outline:3px solid #fff;outline-offset:3px}
-      #${OVERLAY_ID}{position:fixed;inset:0;z-index:2147482000;background:rgba(2,7,10,.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-      .${SPOTLIGHT_CLASS}{position:relative!important;z-index:2147482500!important;isolation:isolate!important;outline:2px solid #b7f36b!important;outline-offset:5px!important;box-shadow:0 0 0 9999px rgba(2,7,10,.78),0 0 0 7px rgba(183,243,107,.22)!important;border-radius:7px!important;filter:none!important}
-      #${CARD_ID}{position:fixed;z-index:2147483001;width:min(440px,calc(100vw - 28px));max-height:min(330px,calc(100vh - 28px));overflow:auto;padding:20px;border:1px solid #526b4b;border-radius:10px;background:#111b23;color:#edf4f5;box-shadow:0 24px 80px rgba(0,0,0,.5);font:14px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-      #${CARD_ID} .sp-learn-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;color:#b7f36b;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-      #${CARD_ID} .sp-learn-close{width:30px;height:30px;border:1px solid #354954;border-radius:6px;background:#17232c;color:#dbe6e8;font-size:19px;cursor:pointer}
-      #${CARD_ID} h2{margin:0 0 9px;color:#f1f6f6;font-size:20px;line-height:1.25;letter-spacing:-.035em}
-      #${CARD_ID} p{margin:0;color:#b4c4c9;font-size:13px;line-height:1.8;white-space:pre-line}
-      #${CARD_ID} .sp-learn-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:19px;padding-top:14px;border-top:1px solid #2a3b45}
-      #${CARD_ID} .sp-learn-count{color:#92a7af;font-size:11px;font-variant-numeric:tabular-nums}
-      #${CARD_ID} .sp-learn-actions{display:flex;gap:7px}
-      #${CARD_ID} .sp-learn-actions button{min-height:35px;padding:8px 12px;border:1px solid #3c505b;border-radius:6px;background:#17232c;color:#dce6e8;font-size:12px;font-weight:750;cursor:pointer}
-      #${CARD_ID} .sp-learn-actions button[data-action="next"],#${CARD_ID} .sp-learn-actions button[data-action="finish"]{border-color:#b7f36b;background:#b7f36b;color:#10170d}
-      #${CARD_ID} .sp-learn-actions button:disabled{opacity:.4;cursor:not-allowed}
-      @media(max-width:520px){#${BUTTON_ID}{right:15px;bottom:15px;width:44px;height:44px}#${CARD_ID}{padding:16px}#${CARD_ID} h2{font-size:18px}}
-      @media(prefers-reduced-motion:reduce){#${BUTTON_ID}{transition:none}}
-    `;
-    document.head.appendChild(style);
+    // Load a same-origin stylesheet so strict style-src policies do not block the guide UI.
+    const link = document.createElement('link');
+    link.id = STYLE_ID;
+    link.rel = 'stylesheet';
+    link.href = 'assets/learn.css?v=1';
+    document.head.appendChild(link);
+  }
+
+  // Update the positioning rule in the same-origin stylesheet instead of adding inline styles.
+  function setCardPosition({ left, top, width }) {
+    const sheetLink = document.getElementById(STYLE_ID);
+    const sheet = sheetLink && sheetLink.sheet;
+    if (!sheet) return;
+    for (const rule of sheet.cssRules) {
+      if (rule.selectorText === '#sp-learn-card') {
+        rule.style.left = left + 'px';
+        rule.style.top = top + 'px';
+        rule.style.width = width + 'px';
+        return;
+      }
+    }
   }
 
   // Use DOM nodes and textContent for all copy so tutorial text is never interpreted as markup.
@@ -114,7 +112,7 @@
     document.getElementById(OVERLAY_ID).hidden = false;
     document.getElementById(CARD_ID).hidden = false;
     document.getElementById(BUTTON_ID).setAttribute('aria-expanded', 'true');
-    document.body.style.overflow = 'hidden';
+    document.body.classList.add('sp-learn-open');
     showStep(0);
   }
 
@@ -153,12 +151,11 @@
     if (!card || card.hidden || !target) return;
     const rect = target.getBoundingClientRect();
     const width = Math.min(440, window.innerWidth - 28);
-    card.style.width = width + 'px';
-    card.style.left = Math.max(14, Math.min(window.innerWidth - width - 14, rect.left + rect.width / 2 - width / 2)) + 'px';
+    const left = Math.max(14, Math.min(window.innerWidth - width - 14, rect.left + rect.width / 2 - width / 2));
     const cardHeight = card.offsetHeight;
     const below = window.innerHeight - rect.bottom - 18;
     const top = below >= Math.min(cardHeight, 220) ? rect.bottom + 14 : Math.max(14, rect.top - cardHeight - 14);
-    card.style.top = Math.min(top, window.innerHeight - cardHeight - 14) + 'px';
+    setCardPosition({ left, top: Math.min(top, window.innerHeight - cardHeight - 14), width });
   }
 
   // Remove the spotlight and restore scrolling/focus without changing the underlying application state.
@@ -170,7 +167,7 @@
     if (card) card.hidden = true;
     const launcher = document.getElementById(BUTTON_ID);
     if (launcher) launcher.setAttribute('aria-expanded', 'false');
-    document.body.style.overflow = '';
+    document.body.classList.remove('sp-learn-open');
     activeIndex = -1;
     steps = [];
     if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus({ preventScroll: true });
