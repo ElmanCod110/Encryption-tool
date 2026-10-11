@@ -36,6 +36,7 @@
     link.id = STYLE_ID;
     link.rel = 'stylesheet';
     link.href = 'assets/learn.css?v=1';
+    link.addEventListener('load', () => { if (activeIndex >= 0) requestAnimationFrame(positionCard); }, { once: true });
     document.head.appendChild(link);
   }
 
@@ -129,7 +130,7 @@
     }
 
     steps.forEach(({ target }) => target.classList.remove(SPOTLIGHT_CLASS));
-    step.target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center', inline: 'nearest' });
+    step.target.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
     step.target.classList.add(SPOTLIGHT_CLASS);
 
     document.getElementById('sp-learn-title').textContent = step.title;
