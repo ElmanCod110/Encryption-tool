@@ -128,6 +128,7 @@ try {
     $common = ['Content-Type: application/json', 'Cookie: ' . $cookie];
     $expect(403, $request('api.php?action=login', 'POST', $common, '{}'), 'Missing CSRF token');
     $expect(403, $request('api.php?action=login', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf, 'Origin: https://attacker.example']), '{}'), 'Cross-origin request');
+    $expect(401, $request('api.php?action=packages', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf]), '{}'), 'Unauthenticated package listing');
     $expect(400, $request('api.php?action=login', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf]), '{invalid-json'), 'Malformed JSON');
     $invalidLogin = $request(
         'api.php?action=login',
