@@ -123,6 +123,8 @@ final class ArchiveWorkflow
                 $localBytes += $copied;
 
                 if ($this->looksLikeZip($target)) {
+                    $childDepth = (int) ($state['pending'][$pendingIndex]['depth'] ?? 0) + 1;
+                    if ($childDepth > $this->policy->maxDepth) throw new RuntimeException('Nested archive depth limit exceeded.');
                     if (count($state['pending']) + count($newArchives) >= $this->policy->maxNestedArchives) throw new RuntimeException('Nested archive count limit exceeded.');
                     $childId = bin2hex(random_bytes(16));
                     $stored = $jobPath . DIRECTORY_SEPARATOR . 'archives' . DIRECTORY_SEPARATOR . $childId . '.zip';
@@ -132,7 +134,7 @@ final class ArchiveWorkflow
                     $childDestination = ($relativeParent === '' ? '' : $relativeParent . '/') . $withoutZip;
                     $absoluteChildDestination = $jobPath . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $childDestination);
                     if (!is_dir($absoluteChildDestination) && !mkdir($absoluteChildDestination, 0700, true) && !is_dir($absoluteChildDestination)) throw new RuntimeException('Unable to prepare nested archive destination.');
-                    $newArchives[] = ['id' => $childId, 'file' => 'archives/' . $childId . '.zip', 'destination' => $childDestination, 'display_name' => $name];
+                    $newArchives[] = ['id' => $childId, 'file' => 'archives/' . $childId . '.zip', 'destination' => $childDestination, 'depth' => $childDepth, 'display_name' => $name];
                 }
             }
             $zip->close();
