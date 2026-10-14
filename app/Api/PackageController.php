@@ -14,6 +14,7 @@ use SecurePackage\Project\V14PackageService;
 use SecurePackage\Security\AccessContext;
 use SecurePackage\Security\ApplicationSecrets;
 use SecurePackage\Security\AccountStore;
+use SecurePackage\Security\AuthenticationRequiredException;
 use SecurePackage\Security\DuplicateAccountException;
 use SecurePackage\Security\AuthorizationService;
 use SecurePackage\Security\SecurityPolicy;
@@ -371,6 +372,8 @@ final class PackageController
             if (($record['revoked_at'] ?? null) !== null) throw new RuntimeException('Package revoked.');
             $token = $this->accessTokens->issue($packageId, AccessContext::ownerId(), false);
             JsonResponse::send(['ok' => true, 'download' => 'download.php?token=' . rawurlencode($token)]);
+        } catch (AuthenticationRequiredException $exception) {
+            throw $exception;
         } catch (\Throwable) {
             JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         }
@@ -386,6 +389,8 @@ final class PackageController
             $this->catalog->setExpiry($packageId, AccessContext::ownerId(), $expiresAt);
             $this->audit->event('package.expiry_changed', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
             JsonResponse::send(['ok' => true]);
+        } catch (AuthenticationRequiredException $exception) {
+            throw $exception;
         } catch (\Throwable) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to update package expiration.'], 404);
         }
@@ -401,6 +406,8 @@ final class PackageController
             $this->accessTokens->revokeForPackage($packageId);
             $this->audit->event('package.revoked', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
             JsonResponse::send(['ok' => true]);
+        } catch (AuthenticationRequiredException $exception) {
+            throw $exception;
         } catch (\Throwable) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to revoke package.'], 404);
         }
@@ -422,6 +429,8 @@ final class PackageController
             $this->catalog->delete($packageId, AccessContext::ownerId());
             $this->audit->event('package.deleted', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
             JsonResponse::send(['ok' => true]);
+        } catch (AuthenticationRequiredException $exception) {
+            throw $exception;
         } catch (\Throwable) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to delete package.'], 404);
         }
