@@ -60,10 +60,10 @@ final class ArchiveWorkflow
             }
         }
         if ($pendingIndex === null) {
-            throw new RuntimeException('Archive is not pending.');
+            throw new ArchiveStepConflictException('Archive is not pending.');
         }
         if (strlen($password) > 4096 || str_contains($password, "\0")) {
-            throw new RuntimeException('Invalid archive password.');
+            throw new ArchiveProcessingException('Invalid archive password.');
         }
 
         $jobPath = $this->jobs->path($jobId);
@@ -88,26 +88,26 @@ final class ArchiveWorkflow
         $mergedEntries = [];
         try {
             if ($zip->open($archivePath) !== true) {
-                throw new RuntimeException('Unable to open archive.');
+                throw new ArchiveProcessingException('Unable to open archive.');
             }
             $zip->setPassword($password);
             if ($zip->numFiles > $this->policy->maxEntries) {
-                throw new RuntimeException('Archive entry limit exceeded.');
+                throw new ArchiveProcessingException('Archive entry limit exceeded.');
             }
             for ($i = 0; $i < $zip->numFiles; $i++) {
                 $stat = $zip->statIndex($i, ZipArchive::FL_UNCHANGED);
-                if ($stat === false) throw new RuntimeException('Unable to inspect archive entry.');
+                if ($stat === false) throw new ArchiveProcessingException('Unable to inspect archive entry.');
                 $name = str_replace('\\', '/', (string) ($stat['name'] ?? ''));
                 $this->validateEntryPath($name);
                 $this->policy->assertSafePath($name);
-                if (strlen($name) > $this->policy->maxPathLength) throw new RuntimeException('Archive path is too long.');
-                if ($this->isSymbolicLink($zip, $i)) throw new RuntimeException('Symbolic links are not supported.');
+                if (strlen($name) > $this->policy->maxPathLength) throw new ArchiveProcessingException('Archive path is too long.');
+                if ($this->isSymbolicLink($zip, $i)) throw new ArchiveProcessingException('Symbolic links are not supported.');
 
                 $isDir = str_ends_with($name, '/');
                 $size = max(0, (int) ($stat['size'] ?? 0));
                 if (!$isDir) {
                     if ($size > $this->policy->maxSingleFileBytes || (int) $state['stats']['bytes'] + $localBytes + $size > $this->policy->maxTotalUncompressedBytes) {
-                        throw new RuntimeException('Archive extraction limit exceeded.');
+                        throw new ArchiveProcessingException('Archive extraction limit exceeded.');
                     }
                 }
                 $target = $stage . DIRECTORY_SEPARATOR . $name;
@@ -117,9 +117,9 @@ final class ArchiveWorkflow
                 }
                 $parent = dirname($target);
                 if (!is_dir($parent) && !mkdir($parent, 0700, true) && !is_dir($parent)) throw new RuntimeException('Unable to create extraction directory.');
-                if (file_exists($target)) throw new RuntimeException('Archive contains duplicate output paths.');
+                if (file_exists($target)) throw new ArchiveProcessingException('Archive contains duplicate output paths.');
                 $stream = $zip->getStream($name);
-                if ($stream === false) throw new RuntimeException('Unable to open archive content.');
+                if ($stream === false) throw new ArchiveProcessingException('Unable to open archive content.');
                 $out = fopen($target, 'xb');
                 if ($out === false) { fclose($stream); throw new RuntimeException('Unable to create extracted file.'); }
                 try {
@@ -136,8 +136,8 @@ final class ArchiveWorkflow
 
                 if ($this->looksLikeZip($target)) {
                     $childDepth = (int) ($state['pending'][$pendingIndex]['depth'] ?? 0) + 1;
-                    if ($childDepth > $this->policy->maxDepth) throw new RuntimeException('Nested archive depth limit exceeded.');
-                    if (count($state['pending']) + count($newArchives) >= $this->policy->maxNestedArchives) throw new RuntimeException('Nested archive count limit exceeded.');
+                    if ($childDepth > $this->policy->maxDepth) throw new ArchiveProcessingException('Nested archive depth limit exceeded.');
+                    if (count($state['pending']) + count($newArchives) >= $this->policy->maxNestedArchives) throw new ArchiveProcessingException('Nested archive count limit exceeded.');
                     $childId = bin2hex(random_bytes(16));
                     $stored = $jobPath . DIRECTORY_SEPARATOR . 'archives' . DIRECTORY_SEPARATOR . $childId . '.zip';
                     if (!rename($target, $stored)) throw new RuntimeException('Unable to queue nested archive.');
@@ -171,7 +171,13 @@ final class ArchiveWorkflow
                 $childPath = $jobPath . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $child['file']);
                 if (is_link($childPath) || is_file($childPath)) @unlink($childPath);
             }
-            throw new RuntimeException('Unable to extract archive. The supplied archive password may be invalid.', 0, $e);
+            if ($e instanceof ArchiveStepConflictException) {
+                throw $e;
+            }
+            if ($e instanceof ArchiveProcessingException) {
+                throw new ArchiveProcessingException('Unable to extract archive. The supplied archive password may be invalid.', 0, $e);
+            }
+            throw $e;
         }
     }
 
@@ -210,7 +216,7 @@ final class ArchiveWorkflow
         foreach (new \FilesystemIterator($source, \FilesystemIterator::SKIP_DOTS) as $item) {
             $destination = $target . DIRECTORY_SEPARATOR . $item->getFilename();
             if (file_exists($destination) || is_link($destination)) {
-                throw new RuntimeException('Archive output path collision detected.');
+                throw new ArchiveProcessingException('Archive output path collision detected.');
             }
             $moves[] = ['source' => $item->getPathname(), 'destination' => $destination];
         }
@@ -248,7 +254,7 @@ final class ArchiveWorkflow
     private function validateEntryPath(string $path): void
     {
         if ($path === '' || str_starts_with($path, '/') || preg_match('/^[A-Za-z]:\//', $path) === 1 || str_contains($path, "\0")) {
-            throw new RuntimeException('Archive contains an unsafe path.');
+            throw new ArchiveProcessingException('Archive contains an unsafe path.');
         }
         foreach (explode('/', $path) as $part) {
             if ($part === '.' || $part === '..') {
