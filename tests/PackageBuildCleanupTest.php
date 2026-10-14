@@ -18,19 +18,25 @@ if ($cleanupHelperStart === false || $removePathStart === false) {
 }
 $cleanupHelper = substr($controller, $cleanupHelperStart, $removePathStart - $cleanupHelperStart);
 
-$failureStart = strpos($build, 'if ($buildStarted)');
+$failureStart = strpos($build, '} catch (\\Throwable) {');
 $failurePath = $failureStart === false ? '' : substr($build, $failureStart);
 $checks = [
-    'Build cleanup starts only after input validation' =>
-        strpos($build, 'Validator::validateProjectName') < strpos($build, '$buildStarted = true;'),
-    'Successful package creation removes the plaintext job' =>
+    'Input validation precedes the encryption build' =>
+        strpos($build, 'Validator::validateProjectName') < strpos($build, '$service->build(')
+        && strpos($build, 'Validator::validatePassword') < strpos($build, '$service->build(')
+        && strpos($build, 'Validator::validatePattern') < strpos($build, '$service->build('),
+    'Successful package creation removes the plaintext job only after catalog creation' =>
         strpos($build, '$this->catalog->create(') < strpos($build, '$this->removeJobDirectory($jobId);')
         && strpos($build, '$this->removeJobDirectory($jobId);') < strpos($build, "'ok' => true"),
-    'Failed package builds attempt plaintext job cleanup' =>
-        str_contains($failurePath, 'if ($buildStarted)')
-        && str_contains($failurePath, '$this->removeJobDirectory($jobId);'),
+    'Failed builds preserve the plaintext source job for recovery' =>
+        $failureStart !== false
+        && !str_contains($failurePath, '$this->removeJobDirectory($jobId);'),
+    'Incomplete encrypted artifacts are cleaned only before catalog creation' =>
+        str_contains($failurePath, 'if (!$packageCreated)')
+        && str_contains($failurePath, '$this->removePath($portableArchive)')
+        && str_contains($failurePath, '$this->removePath($packageDirectory)'),
     'Cleanup verifies the job path no longer exists' =>
-        str_contains($cleanupHelper, 'if (file_exists($path) || is_link($path))'),
+        str_contains($cleanupHelper, 'if (file_exists($path) || is_link($path)'),
 ];
 
 foreach ($checks as $description => $passed) {
@@ -39,4 +45,4 @@ foreach ($checks as $description => $passed) {
     }
 }
 
-echo "Package build cleanup regression tests passed.\n";
+echo "Package build cleanup regression tests passed.\\n";
