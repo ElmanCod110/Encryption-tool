@@ -1,50 +1,58 @@
-# API Error Contract Audit
+# API Error Contract and Audit
 
-**Status:** source audit baseline; not a claim that every scenario has been exercised at runtime.  
-**Scope:** `public/api.php`, `app/Api/Request.php`, `app/Api/HttpException.php`, `app/Security/WebSecurity.php`, and `app/Api/PackageController.php`.
+**Application version:** see the root VERSION file.  
+**Audit status:** source review updated for release-readiness work. Existing policy and HTTP integration tests cover representative boundary cases; this is not proof that every controller path has correct classification.
 
-## Current observable contract
+## Boundary contract
 
-| Condition / action | Current response status | Public response | Audit note |
+The API entry point is public/api.php. It applies the centralized ApiRequestPolicy before dispatch and handles HttpException separately from unexpected Throwable failures.
+
+| Condition | Expected status | Public response policy | Evidence / remaining work |
 | --- | ---: | --- | --- |
-| Unknown `action` | 404 | `Unknown action.` | Explicit action allowlist and route fallback. |
-| Known action with a non-POST method | 405 | `Method not allowed.` | All API actions require POST; response includes `Allow: POST`. |
-| Wrong or missing media type | 415 | `Unsupported media type.` | JSON actions require `application/json`; upload chunks require `application/octet-stream`; the token-free CSRF bootstrap action does not parse a body. |
-| Invalid JSON / non-array JSON | 400 | `Invalid JSON request.` | Implemented by `Request::json()`. |
-| Request JSON body exceeds configured parser limit | 413 | `Request body is too large.` | Checks declared and actual body length. |
-| CSRF token or same-origin validation failure | 403 | `Request validation failed.` or `Request origin is not allowed.` | Implemented with `HttpException`. |
-| HTTPS required but request is not HTTPS | 503 | `Service is not configured for this connection.` | Only when `SPK_REQUIRE_HTTPS=1`. |
-| Login rate limit exceeded | 429 | `Too many login attempts.` | Controller sends response directly. |
-| Archive password attempt rate limit | 429 | `Too many archive password attempts.` | Controller sends response directly. |
-| Package restore rate limit | 429 | `Too many failed attempts.` | Controller sends response directly. |
-| Unhandled API exception | 500 | `Internal server error.` | API boundary logs exception class only. |
-| Invalid registration input | 422 | `Invalid account details.` | Input validation failures are distinguished from storage failures. |
-| Duplicate account registration | 409 | `Unable to create account.` | Duplicate account is a typed conflict; response avoids echoing the username. |
-| Unexpected account-store failure | 500 | `Internal server error.` | Unexpected failures reach the API boundary, which logs the exception class only. |
-| Malformed login username | 401 | `Unable to sign in.` | Invalid usernames take the dummy password-verification path and do not become 500 responses. |
-| Active upload quota or upload-init rate limit | 429 | `Active upload quota exceeded.` or `Too many upload initialization attempts.` | Per-owner reservation limits and per-IP initialization throttling. |
-| Upload initialization input/storage exception | 422 | `Unable to initialize upload.` | Some non-quota storage failures still need typed classification. |
-| Upload chunk exception | 409 | `Upload chunk rejected.` | Broad catch currently also maps unexpected failures to 409. |
-| Upload finalization exception | 422 | `Unable to finalize upload.` | Broad catch currently also maps unexpected failures to 422. |
-| Archive processing failure | 422 | `Unable to open archive with the supplied password.` | Broad catch; does not distinguish invalid input from server/storage failures. |
-| Archive job ownership/read failure | 404 | `Archive job was not found.` | Intentionally hides existence/ownership, but broad catch can hide internal failures too. |
-| Package build exception | 422 | `Unable to build package.` | Broad catch currently also maps unexpected failures to 422. |
-| Package restore exception | 422 | `Unable to open package.` | Failed restore output cleanup was added; error categories remain collapsed. |
-| Access token / expiry / revoke / delete exception | 404 | Generic package/action-specific message | Broad catches hide ownership/existence but can also hide internal failures. |
+| Unknown action | 404 | Generic unknown-action message | Covered by ApiHttpIntegrationTest.php |
+| Unsupported method | 405 | Generic method message and Allow: POST | Covered by ApiHttpIntegrationTest.php |
+| Unsupported content type | 415 | Generic media-type message | Covered by ApiHttpIntegrationTest.php |
+| Invalid JSON | 400 | Generic malformed-request message | Covered by ApiHttpIntegrationTest.php |
+| Oversized JSON body | 413 | Generic body-size message | Request-level regression coverage |
+| CSRF / origin failure | 403 | Generic request-validation message | Covered by HTTP integration and policy tests |
+| Authentication failure | 401 | Generic sign-in message; no username enumeration | Covered for malformed username path |
+| Rate limit | 429 | Generic retry-later message | Controller and rate-limiter tests |
+| Typed upload failure | Status carried by UploadException | Safe, typed public message | Upload controller paths use UploadException |
+| Unexpected exception at API boundary | 500 | Internal server error only | Integration test checks that implementation details are not exposed |
+| Unexpected account-store failure | 500 | Internal server error only | HTTP integration test corrupts an isolated fixture store and checks response privacy |
 
-## Confirmed follow-up work
+## Confirmed controller classification risks
 
-1. **Separate expected domain failures from unexpected failures.** Avoid catching every `Throwable` and returning 4xx for disk, permission, programming, or storage failures. Keep public messages generic and log a safe event identifier plus exception class; never log secrets, exception messages, or traces that may contain sensitive data.
-2. **Document and enforce HTTP methods.** The API currently dispatches primarily by `action`; this audit did not find a central per-action HTTP-method contract. Decide and test allowed methods before claiming method-mismatch coverage.
-3. **Decide content-type policy.** The JSON parser validates body shape but this audit did not confirm a consistent `Content-Type: application/json` requirement for every JSON action.
-4. **Exercise failures with integration tests.** Source-text regression tests are useful guards, but do not prove the real HTTP status, response body, filesystem cleanup, or log behavior under a live PHP server.
-5. **Preserve privacy on package ownership checks.** Where 404 is intentional to avoid revealing package existence, maintain that behavior for not-found and unauthorized resources while ensuring genuine internal failures are not silently mislabeled as 404.
+The following broad catches remain and should be replaced with typed domain failures where the underlying services can distinguish them safely:
+
+- **archive-step:** a nested catch maps any Throwable from archive processing to 422, while an outer catch maps any Throwable (including storage/programming failures) to 404. This can mislabel an internal outage as invalid archive input or not-found.
+- **build:** a broad catch returns 422 for validation, archive/ZIP, storage, catalog, and other failures. Cleanup behavior must be preserved while separating expected package/input failures from internal failures.
+- **decrypt:** a broad catch returns 422 for all restore failures. Public privacy should remain generic, but internal failures must not be represented as client errors without a typed reason.
+- **package availability / expiry / revoke / delete:** broad catches return 404 for any failure. A 404 may be appropriate for missing or unauthorized resources to prevent enumeration, but disk and programming errors should reach the internal-error boundary.
+- **upload paths:** UploadException and QuotaExceededException already provide a better basis for classification; unexpected exceptions are rethrown to the API boundary. Keep this typed approach consistent.
+
+Do not simply expose exception messages or stack traces to solve these issues. They may contain filesystem paths, credentials, recovery material, or attacker-controlled input.
+
+## Logging and response requirements
+
+1. Public error responses must not contain stack traces, exception messages, storage paths, credentials, recovery keys, session identifiers, or plaintext.
+2. Unexpected errors should be logged with a safe event identifier and exception class. Do not log exception messages or traces unless a reviewed redaction strategy proves that secrets cannot leak.
+3. Expected user/domain failures must use explicit exception types or result objects with a documented status and safe public message.
+4. Keep not-found and unauthorized package responses indistinguishable when needed to avoid resource enumeration, but do not collapse unrelated infrastructure failures into 404.
+5. Cleanup must be tested independently: a generic error response is not sufficient evidence that temporary files were removed or original data was preserved.
+6. Keep the central method and content-type policy in ApiRequestPolicy. Any action-specific exception (such as the CSRF bootstrap) must be explicit and covered by tests.
+
+## Required follow-up tests
+
+- Real HTTP tests for malformed input, unsupported methods/media types, authentication, and unexpected storage failures.
+- Controller/service tests proving invalid package input maps to a client error while simulated disk or permission failure reaches HTTP 500.
+- Assertions that public response bodies do not reveal exception class, message, paths, or secrets.
+- Cleanup tests for interrupted upload, package build, restore, and token operations.
+- Ownership/privacy tests that preserve the 404 boundary for missing and unauthorized package identifiers without swallowing genuine internal failures.
 
 ## Verification record
 
-- Source inspection: completed against the repository files listed above.
-- Live HTTP integration tests: **NOT RUN** by this document.
-- Windows/XAMPP and real-browser tests: **NOT RUN** unless separate evidence is linked in the release QA matrix.
-- Dependency validation/audit: blocked until a real root `composer.lock` is committed and Composer checks pass.
-
-Update this document only when the code and regression evidence support the changed contract.
+- Source inspection: updated against public/api.php, app/Api/ApiRequestPolicy.php, app/Api/PackageController.php, and the current HTTP integration test.
+- Existing automated HTTP integration test: included in the repository security workflow; the current source has not been executed by this documentation update.
+- Windows/XAMPP and real-browser release QA: NOT RUN until evidence is recorded in docs/RELEASE-QA-MATRIX.md.
+- Composer lockfile and dependency audit: BLOCKED until the generated lockfile is reviewed and committed.
