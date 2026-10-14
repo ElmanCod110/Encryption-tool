@@ -107,9 +107,36 @@ final class AccountStore
 
     private function read(): array
     {
-        $raw = file_get_contents($this->file);
-        $data = json_decode((string) $raw, true);
-        return is_array($data) ? $data : [];
+        $raw = @file_get_contents($this->file);
+        if ($raw === false) {
+            throw new RuntimeException('Unable to read account storage.');
+        }
+
+        try {
+            $data = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+        } catch (\\JsonException) {
+            throw new RuntimeException('Account storage is invalid.');
+        }
+
+        if (!is_array($data) || !array_is_list($data)) {
+            throw new RuntimeException('Account storage is invalid.');
+        }
+
+        foreach ($data as $account) {
+            if (!is_array($account)
+                || !is_string($account['id'] ?? null)
+                || !preg_match('/^[a-f0-9]{32}$/', $account['id'])
+                || !is_string($account['username_hash'] ?? null)
+                || !preg_match('/^[a-f0-9]{64}$/', $account['username_hash'])
+                || !is_string($account['password_hash'] ?? null)
+                || $account['password_hash'] === ''
+                || !is_string($account['username_hint'] ?? null)
+                || !is_int($account['created_at'] ?? null)) {
+                throw new RuntimeException('Account storage is invalid.');
+            }
+        }
+
+        return $data;
     }
 
     private function write(array $accounts): void
@@ -119,13 +146,24 @@ final class AccountStore
 
     private function replace(string $id, array $replacement): void
     {
-        $accounts = $this->read();
-        foreach ($accounts as $index => $account) {
-            if (($account['id'] ?? '') === $id) {
-                $accounts[$index] = $replacement;
-                $this->write($accounts);
-                return;
+        $lock = fopen($this->file . '.lock', 'c+b');
+        if ($lock === false || !flock($lock, LOCK_EX)) {
+            if (is_resource($lock)) fclose($lock);
+            throw new RuntimeException('Unable to lock account store.');
+        }
+
+        try {
+            $accounts = $this->read();
+            foreach ($accounts as $index => $account) {
+                if (($account['id'] ?? '') === $id) {
+                    $accounts[$index] = $replacement;
+                    $this->write($accounts);
+                    return;
+                }
             }
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
         }
     }
 }
