@@ -75,7 +75,8 @@ final class V14PackageReader
                 $referenced[$blob] = true;
                 if (!isset($blobs[$blob])) throw new RuntimeException('Manifest references a missing blob.');
                 $actualHash = hash_file('sha256', $blobs[$blob]);
-                if ($actualHash === false || !hash_equals((string) $node['cipher_hash'], $actualHash)) throw new RuntimeException('Ciphertext integrity check failed.');
+                if ($actualHash === false) throw new PackageStorageException('Unable to hash package blob.');
+                if (!hash_equals((string) $node['cipher_hash'], $actualHash)) throw new RuntimeException('Ciphertext integrity check failed.');
                 $leaves[] = V14Merkle::leaf((string) $node['id'], (string) $node['cipher_hash'], (int) $node['size']);
             }
             if (count($referenced) !== count($blobs)) throw new RuntimeException('Package contains unreachable blobs.');
@@ -125,8 +126,12 @@ final class V14PackageReader
                 'total_plain_bytes' => (int) $manifest['total_plain_bytes'],
                 'merkle_root' => $manifest['merkle_root'],
             ];
+        } catch (PackageStorageException $exception) {
+            throw $exception;
+        } catch (PackageRestoreRejectedException $exception) {
+            throw $exception;
         } catch (\Throwable $e) {
-            throw new RuntimeException('Unable to open V14 package.', 0, $e);
+            throw new PackageRestoreRejectedException('Unable to open V14 package.', 0, $e);
         } finally {
             if ($credentialKey !== null) sodium_memzero($credentialKey);
             if ($packageRootKey !== null) sodium_memzero($packageRootKey);
