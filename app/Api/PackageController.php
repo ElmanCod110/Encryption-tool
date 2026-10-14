@@ -128,6 +128,8 @@ final class PackageController
             JsonResponse::send(['ok' => false, 'error' => 'Too many upload initialization attempts.'], 429);
         }
         try {
+            // Purge expired upload reservations before enforcing per-owner quotas.
+            $this->uploads->cleanup();
             $result = $this->uploads->initialize($total, AccessContext::ownerId(), $sha256);
             JsonResponse::send(['ok' => true, 'upload' => $result], 201);
         } catch (QuotaExceededException) {
