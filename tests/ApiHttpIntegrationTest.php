@@ -129,6 +129,23 @@ try {
     $expect(403, $request('api.php?action=login', 'POST', $common, '{}'), 'Missing CSRF token');
     $expect(403, $request('api.php?action=login', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf, 'Origin: https://attacker.example']), '{}'), 'Cross-origin request');
     $expect(400, $request('api.php?action=login', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf]), '{invalid-json'), 'Malformed JSON');
+    $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';
+    if (!is_file($accountFile) || file_put_contents($accountFile, '{broken-account-store') === false) {
+        throw new RuntimeException('Unable to prepare internal-error response fixture.');
+    }
+    $internal = $request(
+        'api.php?action=login',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['username' => 'test-user', 'password' => 'NeverLogged!Passphrase2026'], JSON_THROW_ON_ERROR)
+    );
+    $expect(500, $internal, 'Internal storage failure');
+    if (!str_contains($internal['body'], 'Internal server error.')
+        || str_contains($internal['body'], 'RuntimeException')
+        || str_contains($internal['body'], 'users.json')
+        || str_contains($internal['body'], $fixture)) {
+        throw new RuntimeException('Internal API failure exposed implementation details.');
+    }
 
     echo "API HTTP integration tests passed.\n";
 } finally {
