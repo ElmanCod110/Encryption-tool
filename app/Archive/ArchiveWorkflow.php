@@ -207,7 +207,7 @@ final class ArchiveWorkflow
         }
 
         $moves = [];
-        foreach (new \\FilesystemIterator($source, \\FilesystemIterator::SKIP_DOTS) as $item) {
+        foreach (new \FilesystemIterator($source, \FilesystemIterator::SKIP_DOTS) as $item) {
             $destination = $target . DIRECTORY_SEPARATOR . $item->getFilename();
             if (file_exists($destination) || is_link($destination)) {
                 throw new RuntimeException('Archive output path collision detected.');
@@ -223,7 +223,7 @@ final class ArchiveWorkflow
                 }
                 $moved[] = $move;
             }
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             $this->rollbackMergedEntries($moved);
             throw $error;
         }
