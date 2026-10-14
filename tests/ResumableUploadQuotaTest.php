@@ -45,9 +45,18 @@ try {
         throw new RuntimeException('Per-owner active-upload count quota was not enforced.');
     }
 
+    $cleanupRoot = $base . DIRECTORY_SEPARATOR . 'cleanup';
+    $cleanupStore = new ResumableUploadStore($cleanupRoot, 1000, 1, 3, 1000);
+    $expired = $cleanupStore->initialize(10, 'owner-cleanup');
+    sleep(2);
+    $cleanupStore->cleanup();
+    if (file_exists($cleanupRoot . DIRECTORY_SEPARATOR . $expired['id'])) {
+        throw new RuntimeException('Expired upload data was not cleaned up.');
+    }
+
     echo "Resumable upload quota tests passed.\n";
 } finally {
-    foreach ([$bytesRoot, $countRoot] as $root) {
+    foreach ([$bytesRoot, $countRoot, $base . DIRECTORY_SEPARATOR . 'cleanup'] as $root) {
         if (!is_dir($root)) continue;
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
