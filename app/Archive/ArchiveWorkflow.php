@@ -43,8 +43,8 @@ final class ArchiveWorkflow
             ];
             $this->jobs->writeState($job['id'], $state);
             return ['job_id' => $job['id'], 'state' => $this->publicState($state)];
-        } catch (\\Throwable $error) {
-            try { $this->jobs->remove($job['id']); } catch (\\Throwable) {}
+        } catch (\Throwable $error) {
+            try { $this->jobs->remove($job['id']); } catch (\Throwable) {}
             throw $error;
         }
     }
