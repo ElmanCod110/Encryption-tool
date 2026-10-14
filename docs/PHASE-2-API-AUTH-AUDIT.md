@@ -1,7 +1,7 @@
 # Phase 2 — API and Authentication Audit
 
 **Status:** Phase-2 fixes and regression tests implemented on `security/phase-2-api-auth-hardening`; current CI and live HTTP integration checks passed at `a246eafbb613178a3f8b4eaba5e705c91924f965`.  
-**Baseline:** `master` after the V1.0.0 initial-security PR merge.  
+**Baseline:** `master` after Phase 2 PR #18 was merged.  
 **Scope:** API action dispatch, request methods and media types, session setup, account-store integrity, and package download-token consumption.
 
 ## Findings and changes
@@ -14,7 +14,7 @@
 
 **Regression test:** `tests/PackageAccessTokenStoreTest.php` covers successful one-time use, replay rejection, reusable-token behavior, and malformed input.
 
-**Status:** Fix and regression test committed on this branch; CI is required to validate them.
+**Status:** Merged into `master` in PR #18; see the validation notes below.
 
 ### SPK-API-002 — Corrupt account JSON could be treated as an empty account database
 
@@ -24,7 +24,7 @@
 
 **Regression test:** `tests/AccountStoreCorruptionTest.php` verifies that corrupted account data is rejected and left unchanged.
 
-**Status:** Fix and regression test committed on this branch; CI is required to validate them.
+**Status:** Merged into `master` in PR #18; see the validation notes below.
 
 ### SPK-API-003 — Session cookie name was configured using an invalid INI key
 
@@ -34,7 +34,7 @@
 
 **Regression test:** `tests/WebSecuritySessionConfigurationTest.php` checks the active session name and key cookie/session settings.
 
-**Status:** Fix and regression test committed on this branch; runtime/CI verification is pending.
+**Status:** Merged into `master` in PR #18; CI passed on the PR head.
 
 ### SPK-API-004 — API action dispatch lacked a central method and media-type contract
 
@@ -44,7 +44,7 @@
 
 **Documentation:** `docs/API-ERROR-CONTRACT.md` records the new observable contract.
 
-**Status:** Source change committed; live HTTP tests are still required to verify statuses, headers, and request behavior end-to-end.
+**Status:** Merged into `master` in PR #18; the PR-head HTTP integration tests passed in CI.
 
 ### SPK-API-006 — Archive and restore rate limits were scoped to an owner/session key
 
@@ -62,7 +62,7 @@
 
 **Regression test:** `tests/PackageCatalogMutationTest.php` covers duplicate creation, preserving expiry while revoking, wrong-owner mutation rejection, and revoked-package availability.
 
-**Status:** Fix and regression test committed on this branch; CI is required to validate them. Concurrent-process stress testing remains pending.
+**Status:** Merged into `master` in PR #18; see the validation notes below. Concurrent-process stress testing remains pending.
 
 ### SPK-API-007 — Upload initialization had no per-owner reservation quota
 
@@ -87,8 +87,9 @@
 
 - Source review: completed for the files named above.
 - Regression tests added: token replay, account-store corruption, session configuration, package catalog mutation/ownership, API method/media-type policy, and upload count/byte quotas.
-- CI passed for the full phase-2 code at commit `1b8980e7e07f24c52ae184354940cb1cb6fa589d`: [CI run](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38603168996), [Security and Release Integrity](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38603168923), and [Client Security](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38603168886). All three completed successfully.
-- Isolated PHP built-in-server integration test covers 404/405/415, CSRF/origin, malformed JSON, and generic internal-error responses without exposing internal paths/classes; it passed in the CI run above.\n- Manual Windows/XAMPP and production-host HTTP checks: NOT RUN.
-- Windows/XAMPP and production-host checks: NOT RUN.
+- All three PR-head workflows passed on source commit `c5acb90b890aa8ab7a5ed6d3af0b830a0df79055`: [CI](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38610445367), [Security and Release Integrity](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38610445667), and [Client Security](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38610445381).
+- The PR-head isolated PHP built-in-server integration test covers 404/405/415, CSRF/origin, malformed JSON, and generic internal-error responses without exposing internal paths/classes.
+- Phase 2 was squash-merged by [PR #18](https://github.com/ElmanCod110/Encryption-tool/pull/18); merge commit: `f8a69ebf8325e8c71341b2fbf674442fdf12fb94`.
+- Manual Windows/XAMPP and production-host HTTP checks: NOT RUN. Post-merge workflow reruns must be verified independently.
 
 This audit is an engineering record, not a security certification or a claim that all API/authentication risks have been eliminated.
