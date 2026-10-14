@@ -299,8 +299,8 @@ final class PackageController
                 Validator::validatePassword($password);
                 Validator::validatePattern($pattern);
             }
-            $record = $this->catalog->get($packageId);
-            if (($record['revoked_at'] ?? null) !== null || ($record['expires_at'] ?? null) !== null && (int) $record['expires_at'] < time()) throw new RuntimeException('Unavailable.');
+            // Centralize revocation and expiry checks so decrypt uses the same boundary as downloads.
+            $this->catalog->assertAvailable($packageId);
             $packageDir = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
             $temporaryPackageDir = null;
             $portable = $packageDir . '.spkg14';
