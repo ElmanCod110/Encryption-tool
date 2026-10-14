@@ -98,17 +98,51 @@ final class ResumableUploadStore
     {
         if (!preg_match('/^[a-f0-9]{48}$/', $id)) return;
         $dir = $this->directory($id);
+        if (is_link($dir)) {
+            @unlink($dir);
+            return;
+        }
         if (!is_dir($dir)) return;
-        foreach (glob($dir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) @unlink($file);
+        foreach (glob($dir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
+            if (is_link($file) || is_file($file)) {
+                @unlink($file);
+            } elseif (is_dir($file)) {
+                $iterator = new \\RecursiveIteratorIterator(
+                    new \\RecursiveDirectoryIterator($file, \\FilesystemIterator::SKIP_DOTS),
+                    \\RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($iterator as $item) {
+                    $item->isLink() || !$item->isDir()
+                        ? @unlink($item->getPathname())
+                        : @rmdir($item->getPathname());
+                }
+                @rmdir($file);
+            }
+        }
         @rmdir($dir);
     }
 
     public function cleanup(): void
     {
-        foreach (glob($this->root . DIRECTORY_SEPARATOR . '*') ?: [] as $dir) {
-            if (!is_dir($dir)) continue;
-            $stateFile = $dir . DIRECTORY_SEPARATOR . 'state.json';
-            if (!is_file($stateFile) || (time() - (int) @filemtime($stateFile)) > $this->ttlSeconds) $this->remove(basename($dir));
+        if (is_link($this->root) || !is_dir($this->root)) return;
+        $iterator = new \\FilesystemIterator($this->root, \\FilesystemIterator::SKIP_DOTS);
+        foreach ($iterator as $entry) {
+            $id = $entry->getFilename();
+            if (!preg_match('/^[a-f0-9]{48}$/', $id)) continue;
+            if ($entry->isLink()) {
+                @unlink($entry->getPathname());
+                continue;
+            }
+            if (!$entry->isDir()) continue;
+            $stateFile = $entry->getPathname() . DIRECTORY_SEPARATOR . 'state.json';
+            $state = is_file($stateFile) ? json_decode((string) @file_get_contents($stateFile), true) : null;
+            $createdAt = is_array($state) ? (int) ($state['created_at'] ?? 0) : 0;
+            if ($createdAt <= 0) $createdAt = (int) @filemtime($entry->getPathname());
+            if ($createdAt > 0 && time() - $createdAt > $this->ttlSeconds) {
+                $this->remove($id);
+            } elseif (!is_file($stateFile)) {
+                $this->remove($id);
+            }
         }
     }
 
