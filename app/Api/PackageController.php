@@ -9,6 +9,7 @@ use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
 use SecurePackage\Project\PackageArchive;
 use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\PackageNotAvailableException;
 use SecurePackage\Project\V14PackageReader;
 use SecurePackage\Project\V14PackageService;
 use SecurePackage\Security\AccessContext;
@@ -335,6 +336,11 @@ final class PackageController
             sodium_memzero($password); sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => true, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
+        } catch (PackageNotAvailableException) {
+            if (is_string($outputDir)) $this->removePath($outputDir);
+            sodium_memzero($password); sodium_memzero($pattern);
+            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+            JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         } catch (\Throwable) {
             // A failed restore can leave partially or fully decrypted files behind.
             // Remove them before returning an error; only successful responses expose a restore token.
@@ -374,7 +380,7 @@ final class PackageController
             JsonResponse::send(['ok' => true, 'download' => 'download.php?token=' . rawurlencode($token)]);
         } catch (AuthenticationRequiredException $exception) {
             throw $exception;
-        } catch (\Throwable) {
+        } catch (PackageNotAvailableException) {
             JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         }
     }
@@ -391,8 +397,8 @@ final class PackageController
             JsonResponse::send(['ok' => true]);
         } catch (AuthenticationRequiredException $exception) {
             throw $exception;
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to update package expiration.'], 404);
+        } catch (PackageNotAvailableException) {
+            JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         }
     }
 
@@ -408,8 +414,8 @@ final class PackageController
             JsonResponse::send(['ok' => true]);
         } catch (AuthenticationRequiredException $exception) {
             throw $exception;
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to revoke package.'], 404);
+        } catch (PackageNotAvailableException) {
+            JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         }
     }
 
@@ -431,8 +437,8 @@ final class PackageController
             JsonResponse::send(['ok' => true]);
         } catch (AuthenticationRequiredException $exception) {
             throw $exception;
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to delete package.'], 404);
+        } catch (PackageNotAvailableException) {
+            JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         }
     }
 
