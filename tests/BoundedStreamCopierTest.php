@@ -21,7 +21,7 @@ if (stream_get_contents($destination) !== '12345678') {
 fclose($source);
 fclose($destination);
 
-foreach ([[9, 8], [8, 7]] as [$maxFile, $maxTotal]) {
+foreach ([[7, 8], [8, 7]] as [$maxFile, $maxTotal]) {
     $source = fopen('php://temp', 'w+b');
     $destination = fopen('php://temp', 'w+b');
     fwrite($source, '12345678');
