@@ -64,6 +64,22 @@ try {
         throw new RuntimeException('Invalid package identifiers were not classified as unavailable.');
     }
 
+    $corruptId = str_repeat('c', 48);
+    if (file_put_contents($directory . DIRECTORY_SEPARATOR . $corruptId . '.json', '{invalid-json') === false) {
+        throw new RuntimeException('Unable to prepare corrupt catalog fixture.');
+    }
+    $corruptionRemainedInternal = false;
+    try {
+        $catalog->get($corruptId);
+    } catch (PackageNotAvailableException) {
+        throw new RuntimeException('Corrupt catalog data was incorrectly classified as a missing package.');
+    } catch (Throwable) {
+        $corruptionRemainedInternal = true;
+    }
+    if (!$corruptionRemainedInternal) {
+        throw new RuntimeException('Corrupt catalog data did not produce an internal failure.');
+    }
+
     // Race multiple independent PHP processes against the same new package ID.
     // Exactly one create must win; all other processes must observe the existing record.
     $raceId = str_repeat('b', 48);
