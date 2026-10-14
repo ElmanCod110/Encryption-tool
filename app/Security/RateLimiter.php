@@ -113,7 +113,27 @@ final class RateLimiter
 
     public function success(string $key): void
     {
-        @unlink($this->file($key));
+        $file = $this->file($key);
+        if (is_link($file)) return;
+        $handle = fopen($file, 'c+');
+        if ($handle === false) return;
+        if (!flock($handle, LOCK_EX)) {
+            fclose($handle);
+            return;
+        }
+        try {
+            $encoded = json_encode(['failures' => 0, 'window_start' => time()], JSON_THROW_ON_ERROR);
+            rewind($handle);
+            ftruncate($handle, 0);
+            if (fwrite($handle, $encoded) !== strlen($encoded)) {
+                throw new RuntimeException('Unable to reset rate-limit state.');
+            }
+            fflush($handle);
+            @chmod($file, 0600);
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
     }
 
     private function read(string $key): array
