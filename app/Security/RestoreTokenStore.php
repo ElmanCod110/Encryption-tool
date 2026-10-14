@@ -89,9 +89,9 @@ final class RestoreTokenStore
             return;
         }
 
-        $iterator = new \\RecursiveIteratorIterator(
-            new \\RecursiveDirectoryIterator($restorePath, \\FilesystemIterator::SKIP_DOTS),
-            \\RecursiveIteratorIterator::CHILD_FIRST
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($restorePath, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
         );
         foreach ($iterator as $item) {
             $itemPath = $item->getPathname();
