@@ -21,11 +21,11 @@ final class V14PackageVerifier
         $headerRaw = file_get_contents($headerPath);
         if ($headerRaw === false) throw new PackageStorageException('Unable to read package header.');
         if (strlen($headerRaw) > V14Descriptor::MAX_HEADER_BYTES) throw new PackageRestoreRejectedException('Unable to open package.');
-        try { $header = json_decode($headerRaw, true, 32, JSON_THROW_ON_ERROR); } catch (\Throwable) { throw new PackageRestoreRejectedException('Unable to open package.'); }
+        try { $header = json_decode($headerRaw, true, 32, JSON_THROW_ON_ERROR); } catch (\JsonException) { throw new PackageRestoreRejectedException('Unable to open package.'); }
         if (!is_array($header)) throw new PackageRestoreRejectedException('Unable to open package.');
         try {
             V14Descriptor::assertHeader($header);
-        } catch (\Throwable $exception) {
+        } catch (\RuntimeException|\InvalidArgumentException $exception) {
             throw new PackageRestoreRejectedException('Unable to open package.', 0, $exception);
         }
         $manifestSize = filesize($manifestPath);
