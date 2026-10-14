@@ -6,7 +6,6 @@ namespace SecurePackage\Project;
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use RuntimeException;
 use SecurePackage\Crypto\V14Aead;
 use SecurePackage\Crypto\V14KeyDerivation;
 use SecurePackage\Crypto\V14Merkle;
@@ -132,9 +131,9 @@ final class V14PackageReader
             throw $exception;
         } catch (PackageRestoreRejectedException $exception) {
             throw $exception;
-        } catch (\\JsonException|V14AuthenticationException|V14StreamRejectedException $exception) {
+        } catch (\JsonException|V14AuthenticationException|V14StreamRejectedException $exception) {
             throw new PackageRestoreRejectedException('Unable to open V14 package.', 0, $exception);
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             throw $exception;
         } finally {
             if ($credentialKey !== null) sodium_memzero($credentialKey);
