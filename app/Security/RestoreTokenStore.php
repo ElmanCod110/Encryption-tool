@@ -46,6 +46,62 @@ final class RestoreTokenStore
         return $token;
     }
 
+    /**
+     * Resolve a live token without consuming it. Download endpoints can prepare
+     * the archive first, then consume the token immediately before streaming.
+     */
+    public function resolve(string $token): string
+    {
+        if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
+            throw new RuntimeException('Restore token is invalid or expired.');
+        }
+
+        $file = $this->file($token);
+        if (is_link($file) || !is_file($file)) {
+            throw new RuntimeException('Restore token is invalid or expired.');
+        }
+
+        $handle = @fopen($file, 'r');
+        if ($handle === false || !flock($handle, LOCK_SH)) {
+            if (is_resource($handle)) fclose($handle);
+            throw new RuntimeException('Restore token is invalid or expired.');
+        }
+
+        try {
+            $raw = stream_get_contents($handle);
+            try {
+                $record = json_decode(is_string($raw) ? $raw : '', true, 16, JSON_THROW_ON_ERROR);
+            } catch (\\JsonException) {
+                throw new RuntimeException('Restore token is invalid or expired.');
+            }
+
+            if (!is_array($record)
+                || ($record['consumed'] ?? false) === true
+                || !is_string($record['directory'] ?? null)
+                || $record['directory'] === ''
+                || !is_int($record['created_at'] ?? null)
+                || $record['created_at'] <= 0
+                || !is_int($record['expires_at'] ?? null)
+                || $record['expires_at'] <= time()
+                || $record['expires_at'] <= $record['created_at']) {
+                throw new RuntimeException('Restore token is invalid or expired.');
+            }
+
+            $directory = $record['directory'];
+            if (is_link($directory) || !is_dir($directory)) {
+                throw new RuntimeException('Restore token is invalid or expired.');
+            }
+            $resolved = realpath($directory);
+            if ($resolved === false) {
+                throw new RuntimeException('Restore token is invalid or expired.');
+            }
+            return $resolved;
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+    }
+
     public function consume(string $token): string
     {
         if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
