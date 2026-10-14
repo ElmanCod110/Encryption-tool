@@ -68,36 +68,48 @@ final class V14Stream
         $out = fopen($tmp, 'wb');
         if ($out === false) { fclose($in); throw new PackageStorageException('Unable to create restored file.'); }
         try {
-            $header = self::readExact($in, strlen(self::MAGIC) + SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES);
-            if (!hash_equals(self::MAGIC, substr($header, 0, strlen(self::MAGIC)))) throw new RuntimeException('Invalid encrypted stream.');
-            $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull(substr($header, strlen(self::MAGIC)), $key);
+            try {
+                $header = self::readExact($in, strlen(self::MAGIC) + SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES);
+            } catch (RuntimeException $exception) {
+                throw new V14StreamRejectedException('Encrypted stream is truncated.', 0, $exception);
+            }
+            if (!hash_equals(self::MAGIC, substr($header, 0, strlen(self::MAGIC)))) throw new V14StreamRejectedException('Invalid encrypted stream.');
+            try {
+                $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull(substr($header, strlen(self::MAGIC)), $key);
+            } catch (\\Throwable $exception) {
+                throw new V14StreamRejectedException('Invalid encrypted stream header.', 0, $exception);
+            }
             $written = 0;
             $index = 0;
             $final = false;
             while (!feof($in)) {
                 $lenBytes = fread($in, self::LENGTH_BYTES);
                 if ($lenBytes === '' || $lenBytes === false) break;
-                if (strlen($lenBytes) !== self::LENGTH_BYTES) throw new RuntimeException('Encrypted stream is truncated.');
+                if (strlen($lenBytes) !== self::LENGTH_BYTES) throw new V14StreamRejectedException('Encrypted stream is truncated.');
                 $length = unpack('Nlen', $lenBytes)['len'] ?? 0;
-                if ($length < SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_ABYTES || $length > self::MAX_CIPHER_CHUNK) throw new RuntimeException('Encrypted stream chunk is invalid.');
-                $cipher = self::readExact($in, $length);
+                if ($length < SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_ABYTES || $length > self::MAX_CIPHER_CHUNK) throw new V14StreamRejectedException('Encrypted stream chunk is invalid.');
+                try {
+                    $cipher = self::readExact($in, $length);
+                } catch (RuntimeException $exception) {
+                    throw new V14StreamRejectedException('Encrypted stream is truncated.', 0, $exception);
+                }
                 $plainResult = sodium_crypto_secretstream_xchacha20poly1305_pull($state, $cipher, $aad . '|chunk|' . $index . '|' . $expectedPlainSize);
-                if ($plainResult === false) throw new RuntimeException('Unable to authenticate encrypted stream.');
+                if ($plainResult === false) throw new V14StreamRejectedException('Unable to authenticate encrypted stream.');
                 [$plain, $tag] = $plainResult;
                 if ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL) $final = true;
-                elseif ($tag !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE) throw new RuntimeException('Unexpected stream tag.');
+                elseif ($tag !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE) throw new V14StreamRejectedException('Unexpected stream tag.');
                 $written += strlen($plain);
-                if ($written > $expectedPlainSize) throw new RuntimeException('Encrypted stream length is invalid.');
+                if ($written > $expectedPlainSize) throw new V14StreamRejectedException('Encrypted stream length is invalid.');
                 if ($plain !== '') self::writeAll($out, $plain);
                 sodium_memzero($plain);
                 $index++;
                 if ($final) {
                     $tail = fread($in, 1);
-                    if ($tail !== '' && $tail !== false) throw new RuntimeException('Encrypted stream contains trailing data.');
+                    if ($tail !== '' && $tail !== false) throw new V14StreamRejectedException('Encrypted stream contains trailing data.');
                     break;
                 }
             }
-            if (!$final || $written !== $expectedPlainSize) throw new RuntimeException('Encrypted stream length is invalid.');
+            if (!$final || $written !== $expectedPlainSize) throw new V14StreamRejectedException('Encrypted stream length is invalid.');
             fflush($out);
             fclose($out); $out = null;
             fclose($in); $in = null;
