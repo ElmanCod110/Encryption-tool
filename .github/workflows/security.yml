@@ -60,6 +60,7 @@ jobs:
           php tests/ApiRequestPolicyTest.php
           php tests/ApiHttpIntegrationTest.php
           php tests/AccountStoreCorruptionTest.php
+          php tests/AccountStoreBehaviorTest.php
           php tests/PackageAccessTokenStoreTest.php
           php tests/PackageCatalogMutationTest.php
           php tests/ResumableUploadQuotaTest.php
