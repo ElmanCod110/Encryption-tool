@@ -258,7 +258,7 @@ final class ArchiveWorkflow
         }
         foreach (explode('/', $path) as $part) {
             if ($part === '.' || $part === '..') {
-                throw new RuntimeException('Archive contains an unsafe path.');
+                throw new ArchiveProcessingException('Archive contains an unsafe path.');
             }
         }
     }
