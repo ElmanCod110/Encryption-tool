@@ -44,9 +44,13 @@ final class PackageCatalog
 
     public function get(string $packageId): array
     {
-        $file = $this->file($packageId);
+        try {
+            $file = $this->file($packageId);
+        } catch (RuntimeException) {
+            throw new PackageNotAvailableException();
+        }
         if (is_link($file) || !is_file($file)) {
-            throw new RuntimeException('Package does not exist.');
+            throw new PackageNotAvailableException();
         }
         $raw = @file_get_contents($file);
         if ($raw === false) {
@@ -75,7 +79,7 @@ final class PackageCatalog
     {
         $record = $this->get($packageId);
         if (!hash_equals((string) $record['owner_hash'], hash('sha256', $ownerId))) {
-            throw new RuntimeException('Package does not exist.');
+            throw new PackageNotAvailableException();
         }
         return $record;
     }
@@ -84,8 +88,8 @@ final class PackageCatalog
     public function assertAvailable(string $packageId): array
     {
         $record = $this->get($packageId);
-        if (($record['revoked_at'] ?? null) !== null) throw new RuntimeException('Package is revoked.');
-        if (($record['expires_at'] ?? null) !== null && (int) $record['expires_at'] <= time()) throw new RuntimeException('Package is expired.');
+        if (($record['revoked_at'] ?? null) !== null) throw new PackageNotAvailableException();
+        if (($record['expires_at'] ?? null) !== null && (int) $record['expires_at'] <= time()) throw new PackageNotAvailableException();
         return $record;
     }
 
