@@ -154,24 +154,62 @@ final class ResumableUploadStore
     public function cleanup(): void
     {
         if (is_link($this->root) || !is_dir($this->root)) return;
-        $iterator = new \FilesystemIterator($this->root, \FilesystemIterator::SKIP_DOTS);
-        foreach ($iterator as $entry) {
-            $id = $entry->getFilename();
-            if (!preg_match('/^[a-f0-9]{48}$/', $id)) continue;
-            if ($entry->isLink()) {
-                @unlink($entry->getPathname());
-                continue;
+
+        // Serialize cleanup with upload initialization, then lock each upload before
+        // deciding whether it can be removed. Expired state is marked before unlinking
+        // so a request that acquires the per-upload lock afterward fails closed.
+        $quotaLock = $this->acquireQuotaLock();
+        try {
+            foreach (new \\FilesystemIterator($this->root, \\FilesystemIterator::SKIP_DOTS) as $entry) {
+                $id = $entry->getFilename();
+                if (!preg_match('/^[a-f0-9]{48}$/', $id)) continue;
+                if ($entry->isLink()) {
+                    @unlink($entry->getPathname());
+                    continue;
+                }
+                if (!$entry->isDir()) continue;
+
+                $directory = $entry->getPathname();
+                $stateFile = $directory . DIRECTORY_SEPARATOR . 'state.json';
+                $lockPath = $directory . DIRECTORY_SEPARATOR . 'upload.lock';
+                $lock = @fopen($lockPath, 'c+b');
+                if ($lock === false || !flock($lock, LOCK_EX)) {
+                    if (is_resource($lock)) fclose($lock);
+                    // A partial directory without a lock cannot be an active valid upload.
+                    if (!is_file($stateFile)) $this->remove($id);
+                    continue;
+                }
+
+                $remove = false;
+                try {
+                    $state = null;
+                    if (is_link($stateFile) || !is_file($stateFile)) {
+                        $remove = true;
+                    } else {
+                        try {
+                            $state = json_decode((string) file_get_contents($stateFile), true, 16, JSON_THROW_ON_ERROR);
+                        } catch (\\Throwable) {
+                            $remove = true;
+                        }
+                        if (is_array($state)) {
+                            $createdAt = (int) ($state['created_at'] ?? 0);
+                            $remove = $createdAt <= 0 || time() - $createdAt > $this->ttlSeconds
+                                || ($state['status'] ?? '') === 'expired';
+                            if ($remove && $createdAt > 0) {
+                                $state['status'] = 'expired';
+                                AtomicFile::write($stateFile, json_encode($state, JSON_THROW_ON_ERROR));
+                            }
+                        }
+                    }
+                } finally {
+                    flock($lock, LOCK_UN);
+                    fclose($lock);
+                }
+
+                if ($remove) $this->remove($id);
             }
-            if (!$entry->isDir()) continue;
-            $stateFile = $entry->getPathname() . DIRECTORY_SEPARATOR . 'state.json';
-            $state = is_file($stateFile) ? json_decode((string) @file_get_contents($stateFile), true) : null;
-            $createdAt = is_array($state) ? (int) ($state['created_at'] ?? 0) : 0;
-            if ($createdAt <= 0) $createdAt = (int) @filemtime($entry->getPathname());
-            if ($createdAt > 0 && time() - $createdAt > $this->ttlSeconds) {
-                $this->remove($id);
-            } elseif (!is_file($stateFile)) {
-                $this->remove($id);
-            }
+        } finally {
+            $this->releaseQuotaLock($quotaLock);
         }
     }
 
@@ -182,7 +220,7 @@ final class ResumableUploadStore
         if (!is_file($file)) throw new RuntimeException('Upload does not exist.');
         $state = json_decode((string) file_get_contents($file), true, 16, JSON_THROW_ON_ERROR);
         if (!is_array($state)) throw new RuntimeException('Upload state is invalid.');
-        if ((time() - (int) ($state['created_at'] ?? 0)) > $this->ttlSeconds) throw new RuntimeException('Upload has expired.');
+        if (($state['status'] ?? '') === 'expired' || (time() - (int) ($state['created_at'] ?? 0)) > $this->ttlSeconds) throw new RuntimeException('Upload has expired.');
         return $state;
     }
 
