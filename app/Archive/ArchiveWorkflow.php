@@ -239,9 +239,9 @@ final class ArchiveWorkflow
             return;
         }
 
-        $iterator = new \\RecursiveIteratorIterator(
-            new \\RecursiveDirectoryIterator($path, \\FilesystemIterator::SKIP_DOTS),
-            \\RecursiveIteratorIterator::CHILD_FIRST
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
         );
         foreach ($iterator as $item) {
             $itemPath = $item->getPathname();
