@@ -10,6 +10,8 @@ use SecurePackage\Archive\ArchiveWorkflow;
 use SecurePackage\Project\PackageArchive;
 use SecurePackage\Project\PackageCatalog;
 use SecurePackage\Project\PackageNotAvailableException;
+use SecurePackage\Project\PackageRestoreRejectedException;
+use SecurePackage\Project\PackageStorageException;
 use SecurePackage\Project\V14PackageReader;
 use SecurePackage\Project\V14PackageService;
 use SecurePackage\Security\AccessContext;
@@ -349,13 +351,21 @@ final class PackageController
             sodium_memzero($password); sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
-        } catch (\Throwable) {
-            // A failed restore can leave partially or fully decrypted files behind.
-            // Remove them before returning an error; only successful responses expose a restore token.
+        } catch (PackageRestoreRejectedException|InvalidArgumentException) {
             if (is_string($outputDir)) $this->removePath($outputDir);
             sodium_memzero($password); sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 422);
+        } catch (PackageStorageException $exception) {
+            if (is_string($outputDir)) $this->removePath($outputDir);
+            sodium_memzero($password); sodium_memzero($pattern);
+            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+            throw $exception;
+        } catch (\Throwable $exception) {
+            if (is_string($outputDir)) $this->removePath($outputDir);
+            sodium_memzero($password); sodium_memzero($pattern);
+            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+            throw $exception;
         }
     }
 
