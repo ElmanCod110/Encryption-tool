@@ -28,6 +28,7 @@ use SecurePackage\Security\WebSecurity;
 use SecurePackage\Storage\AuditLogger;
 use SecurePackage\Storage\FileStore;
 use SecurePackage\Storage\JobStore;
+use SecurePackage\Storage\JobNotAvailableException;
 use SecurePackage\Storage\ResumableUploadStore;
 use SecurePackage\Storage\QuotaExceededException;
 use SecurePackage\Storage\UploadException;
@@ -215,11 +216,14 @@ final class PackageController
                 $this->rateLimiter->success($ipRateKey);
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => true, 'state' => $state]);
+            } catch (JobNotAvailableException) {
+                sodium_memzero($password);
+                JsonResponse::send(['ok' => false, 'error' => 'Archive job was not found.'], 404);
             } catch (\Throwable) {
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => false, 'error' => 'Unable to open archive with the supplied password.'], 422);
             }
-        } catch (\Throwable) {
+        } catch (JobNotAvailableException) {
             sodium_memzero($password);
             JsonResponse::send(['ok' => false, 'error' => 'Archive job was not found.'], 404);
         }
@@ -272,6 +276,13 @@ final class PackageController
                 'recovery_key' => $result['recovery_key'] ?? null,
                 'format' => 'SECURE-PKG-V14',
             ], 201);
+        } catch (JobNotAvailableException $exception) {
+            $this->cleanupFailedBuild($portableArchive, $packageDirectory, $packageCreated);
+            sodium_memzero($password); sodium_memzero($pattern);
+            if ($packageCreated) {
+                throw $exception;
+            }
+            JsonResponse::send(['ok' => false, 'error' => 'Archive job was not found.'], 404);
         } catch (InvalidArgumentException) {
             $this->cleanupFailedBuild($portableArchive, $packageDirectory, $packageCreated);
             sodium_memzero($password); sodium_memzero($pattern);
