@@ -20,6 +20,7 @@ The API entry point is public/api.php. It applies the centralized ApiRequestPoli
 | Typed upload failure | Status carried by UploadException | Safe, typed public message | Upload controller paths use UploadException |
 | Unexpected exception at API boundary | 500 | Internal server error only | Integration test checks that implementation details are not exposed |
 | Unexpected account-store failure | 500 | Internal server error only | HTTP integration test corrupts an isolated fixture store and checks response privacy |
+| Package-catalog initialization failure | 500 | Internal server error only | HTTP integration test replaces the fixture catalog directory with a file and checks response privacy |
 
 ## Confirmed controller classification risks
 
@@ -45,7 +46,7 @@ Do not simply expose exception messages or stack traces to solve these issues. T
 
 ## Required follow-up tests
 
-- Real HTTP tests for malformed input, unsupported methods/media types, authentication, and unexpected storage failures.
+- Real HTTP tests for malformed input, unsupported methods/media types, authentication, account-store corruption, and catalog initialization failure. Add a separate package-restore disk/permission failure case.
 - Controller/service tests proving invalid package input maps to a client error while simulated disk or permission failure reaches HTTP 500.
 - Assertions that public response bodies do not reveal exception class, message, paths, or secrets.
 - Cleanup tests for interrupted upload, package build, restore, and token operations.
