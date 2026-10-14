@@ -2,11 +2,6 @@ name: Refresh Composer Lockfile
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - release/v1.0.0-readiness
-    paths:
-      - .github/workflows/refresh-composer-lock.yml
 
 permissions:
   contents: write
@@ -41,8 +36,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: automation/generated-composer-lock-v1-readiness
-          base: release/v1.0.0-readiness
+          branch: automation/generated-composer-lock
           delete-branch: false
           add-paths: composer.lock
           commit-message: "build: add Composer dependency lockfile"
