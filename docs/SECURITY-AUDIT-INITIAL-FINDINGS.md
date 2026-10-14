@@ -40,10 +40,51 @@ Plaintext extracted from user-provided archives can remain in application tempor
 
 **Current status:** Confirmed as a source-level lifecycle gap; fix not yet applied.
 
+## Finding SPK-SEC-002 — Archive extraction bypasses the stricter path policy
+
+**Preliminary severity:** High for cross-platform deployments; confirm impact on supported operating systems.  
+**Confidence:** High that the policy is not wired into this extraction path.
+
+### Evidence
+
+- `app/Archive/ArchiveWorkflow.php` calls its private `validateEntryPath()`, which rejects empty, absolute, NUL-containing, and dot-segment traversal paths.
+- That validator does not reject all platform-sensitive names such as colon-containing path segments, Windows device names, control characters, or trailing dots/spaces.
+- `app/Archive/ArchivePolicy.php` has stricter checks for those cases, and `tests/ZipPolicyTest.php` tests that policy, but the inspected `ArchiveWorkflow::process()` path does not call `$this->policy->assertSafePath($name)`.
+
+### Impact
+
+The tested path policy does not necessarily protect the actual uploaded-archive extraction flow. Depending on the host OS and filesystem, unusual names may cause unsafe or inconsistent extraction behavior, including Windows-specific path interpretation.
+
+### Recommended remediation
+
+Use the central policy in the real extraction path and add integration tests that submit malicious ZIP entries through `ArchiveWorkflow`, not only unit tests against `ArchivePolicy`. Preserve the existing traversal checks and ensure nested entries follow the same policy.
+
+**Current status:** Source-level integration gap identified; exploitability and platform impact require integration testing. Fix not yet applied.
+
+## Finding SPK-SEC-003 — Configured nested archive depth is not enforced in the workflow
+
+**Preliminary severity:** Medium  
+**Confidence:** High for the missing enforcement in the inspected workflow.
+
+### Evidence
+
+- `config/config.php` sets `max_archive_depth`.
+- `ArchivePolicy` stores `maxDepth`.
+- `app/Archive/ArchiveWorkflow.php` checks the nested archive count, but the inspected state and processing logic do not track a nesting depth or compare it with `$this->policy->maxDepth`.
+
+### Impact
+
+The configured depth limit does not constrain nested archive processing as intended. The total nested archive count still provides a separate bound, but it is not equivalent to a maximum nesting depth and does not enforce the documented policy.
+
+### Recommended remediation
+
+Persist and validate each pending archive's depth, reject entries exceeding `maxDepth`, and test both just-under-limit and over-limit nested archive chains.
+
+**Current status:** Source-level enforcement gap identified; integration test not run. Fix not yet applied.
+
 ## Follow-up review queue
 
 - Verify ZIP extraction bounds against actual streamed bytes, not only archive metadata.
-- Verify nested archive depth limits are enforced, not just nested archive count.
 - Review rate limiting and authentication/quota enforcement in the API.
 - Review credential normalization/validation and UI claims against actual enforcement.
 - Review V13, CLI, CI, and release verification paths after high-priority storage cleanup is addressed.
