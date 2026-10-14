@@ -12,6 +12,13 @@ $roots = [
 $now = time();
 $removed = 0;
 
+// Expired resumable uploads are stored outside the generic temp root.
+(new \SecurePackage\Storage\ResumableUploadStore(
+    $config['storage']['uploads'],
+    (int) $config['limits']['max_upload_bytes'],
+    (int) $config['limits']['upload_ttl_seconds']
+))->cleanup();
+
 // Expired restore tokens own temporary plaintext directories; clean those as one lifecycle unit.
 (new \SecurePackage\Security\RestoreTokenStore(
     $config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens',
