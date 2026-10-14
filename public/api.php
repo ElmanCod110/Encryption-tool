@@ -47,7 +47,7 @@ $policy = new ArchivePolicy(
 );
 $archives = new ArchiveWorkflow($jobs, $policy);
 $limiter = new RateLimiter($config['storage']['rate_limits'], $config['rate_limit']['max_failures_per_window'], $config['rate_limit']['window_seconds']);
-$uploads = new ResumableUploadStore($config['storage']['uploads'], $config['limits']['max_upload_bytes']);
+$uploads = new ResumableUploadStore($config['storage']['uploads'], $config['limits']['max_upload_bytes'], $config['limits']['upload_ttl_seconds'], $config['limits']['max_active_uploads_per_owner'], $config['limits']['max_active_upload_bytes_per_owner']);
 $catalog = new PackageCatalog($config['storage']['catalog']);
 $accessTokens = new PackageAccessTokenStore($config['storage']['temp'] . DIRECTORY_SEPARATOR . 'download-tokens', $config['limits']['download_token_ttl_seconds']);
 $accounts = new AccountStore($config['storage']['accounts'] . DIRECTORY_SEPARATOR . 'users.json');
