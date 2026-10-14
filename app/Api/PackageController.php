@@ -222,7 +222,7 @@ final class PackageController
             $token = $this->accessTokens->issue($result['package_id'], AccessContext::ownerId(), false);
             $this->audit->event('package.created', ['package_id' => $result['package_id'], 'account_id' => AccessContext::accountId(), 'nodes' => $result['stats']['nodes'] ?? null, 'format' => 'SECURE-PKG-V14']);
             // The encrypted package is now stored and catalogued; remove the plaintext extraction job.
-            $this->removePath($this->jobs->path($jobId));
+            $this->removeJobDirectory($jobId);
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send([
                 'ok' => true,
@@ -235,7 +235,7 @@ final class PackageController
             ], 201);
         } catch (\Throwable) {
             if ($buildStarted) {
-                try { $this->removePath($this->jobs->path($jobId)); } catch (\Throwable) {}
+                try { $this->removeJobDirectory($jobId); } catch (\Throwable) {}
             }
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
@@ -392,6 +392,15 @@ final class PackageController
             'crypto' => ['kdf' => 'argon2id13', 'aead' => 'xchacha20poly1305-ietf', 'stream' => 'secretstream-xchacha20poly1305', 'key_wrap' => 'xchacha20poly1305-ietf', 'key_separation' => 'HKDF-SHA-256'],
             'controls' => ['csrf' => true, 'same_origin' => true, 'rate_limiting' => true, 'resumable_uploads' => true, 'tamper_evident_audit' => true, 'package_ownership' => true, 'header_binding' => true, 'external_key_wrap' => true, 'no_overwrite_restore' => true]
         ]);
+    }
+
+    private function removeJobDirectory(string $jobId): void
+    {
+        $path = $this->jobs->path($jobId);
+        $this->removePath($path);
+        if (file_exists($path) || is_link($path)) {
+            throw new RuntimeException('Unable to remove plaintext job data.');
+        }
     }
 
     private function removePath(string $path): void
