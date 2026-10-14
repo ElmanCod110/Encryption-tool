@@ -275,7 +275,7 @@ final class PackageController
         } catch (InvalidArgumentException) {
             $this->cleanupFailedBuild($portableArchive, $packageDirectory, $packageCreated);
             sodium_memzero($password); sodium_memzero($pattern);
-            JsonResponse::send(['ok' => false, 'error' => 'Invalid package details.'], 422);
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
         } catch (\Throwable $exception) {
             // Preserve the plaintext source and clean only incomplete encrypted artifacts.
             // Unexpected storage, ZIP, catalog, and programming failures must reach the API
