@@ -170,13 +170,16 @@ final class PackageController
         try {
             $this->jobs->assertOwner($jobId, AccessContext::ownerId());
             $rateKey = 'archive:' . $jobId . ':' . $archiveId . ':' . hash('sha256', AccessContext::ownerId());
-            if (!$this->rateLimiter->allow($rateKey)) {
+            $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+            $ipRateKey = 'archive:ip:' . hash('sha256', $ip);
+            if (!$this->rateLimiter->allow($ipRateKey) || !$this->rateLimiter->allow($rateKey)) {
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => false, 'error' => 'Too many archive password attempts.'], 429);
             }
             try {
                 $state = $this->archives->process($jobId, $archiveId, $password);
                 $this->rateLimiter->success($rateKey);
+                $this->rateLimiter->success($ipRateKey);
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => true, 'state' => $state]);
             } catch (\Throwable) {
@@ -251,8 +254,11 @@ final class PackageController
         $pattern = (string) ($input['pattern'] ?? '');
         $recoveryKey = isset($input['recovery_key']) ? trim((string) $input['recovery_key']) : null;
         $rateKey = 'package:' . $packageId . ':' . hash('sha256', AccessContext::ownerId());
-        if (!$this->rateLimiter->allow($rateKey)) {
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $ipRateKey = 'package:ip:' . hash('sha256', $ip);
+        if (!$this->rateLimiter->allow($ipRateKey) || !$this->rateLimiter->allow($rateKey)) {
             sodium_memzero($password); sodium_memzero($pattern);
+            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Too many failed attempts.'], 429);
         }
         $outputDir = null;
@@ -281,6 +287,7 @@ final class PackageController
             $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
             $restoreToken = $tokenStore->issue($outputDir);
             $this->rateLimiter->success($rateKey);
+            $this->rateLimiter->success($ipRateKey);
             $this->audit->event('package.restored', ['package_id' => $packageId, 'account_id' => AccessContext::accountId(), 'files' => $result['files'] ?? null]);
             sodium_memzero($password); sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
