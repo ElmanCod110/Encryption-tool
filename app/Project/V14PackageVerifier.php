@@ -25,7 +25,11 @@ final class V14PackageVerifier
         if (strlen($headerRaw) > V14Descriptor::MAX_HEADER_BYTES) throw new PackageRestoreRejectedException('Unable to open package.');
         try { $header = json_decode($headerRaw, true, 32, JSON_THROW_ON_ERROR); } catch (\Throwable) { throw new PackageRestoreRejectedException('Unable to open package.'); }
         if (!is_array($header)) throw new PackageRestoreRejectedException('Unable to open package.');
-        V14Descriptor::assertHeader($header);
+        try {
+            V14Descriptor::assertHeader($header);
+        } catch (\\Throwable $exception) {
+            throw new PackageRestoreRejectedException('Unable to open package.', 0, $exception);
+        }
         $manifestSize = filesize($manifestPath);
         if ($manifestSize === false) throw new PackageStorageException('Unable to inspect encrypted manifest.');
         if ($manifestSize < SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES + SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_ABYTES || $manifestSize > V14Descriptor::MAX_MANIFEST_BYTES + 64) throw new PackageRestoreRejectedException('Unable to open package.');
