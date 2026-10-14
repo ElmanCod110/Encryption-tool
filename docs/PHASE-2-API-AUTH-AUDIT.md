@@ -78,7 +78,7 @@
 
 ## Remaining phase-2 work
 
-- Run the new isolated live HTTP integration test for 404/405/415, CSRF/origin rejection, and malformed JSON; add coverage for generic internal-error responses without leaking internals.
+- Run the isolated live HTTP integration test for 404/405/415, CSRF/origin rejection, malformed JSON, and generic internal-error responses; keep deployment-specific behavior separate.
 - Continue reviewing ownership enforcement and account/session boundaries across every management action.
 - Review rate-limit identity scope and storage/quota exhaustion behavior.
 - Perform concurrent-process stress testing for catalog mutation races, expiry/revocation behavior, and cleanup after failed operations.
@@ -90,7 +90,7 @@
 - Source review: completed for the files named above.
 - Regression tests added: token replay, account-store corruption, session configuration, package catalog mutation/ownership, API method/media-type policy, and upload count/byte quotas.
 - CI passed for the code snapshot at `0ee2dd8248f26f3e79edbed06ab1a46d8f42db32`; subsequent changes include additional rate-limit and API-policy test code and require a fresh run.
-- Isolated PHP built-in-server integration test added for 404/405/415, CSRF/origin, and malformed JSON; current CI result pending.\n- Manual Windows/XAMPP and production-host HTTP checks: NOT RUN.
+- Isolated PHP built-in-server integration test covers 404/405/415, CSRF/origin, malformed JSON, and generic internal-error responses without exposing internal paths/classes; latest CI result pending.\n- Manual Windows/XAMPP and production-host HTTP checks: NOT RUN.
 - Windows/XAMPP and production-host checks: NOT RUN.
 
 This audit is an engineering record, not a security certification or a claim that all API/authentication risks have been eliminated.
