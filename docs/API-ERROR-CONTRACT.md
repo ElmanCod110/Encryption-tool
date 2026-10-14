@@ -25,7 +25,7 @@ The API entry point is public/api.php. It applies the centralized ApiRequestPoli
 
 The following broad catches remain and should be replaced with typed domain failures where the underlying services can distinguish them safely:
 
-- **archive-step:** a nested catch maps any Throwable from archive processing to 422, while an outer catch maps any Throwable (including storage/programming failures) to 404. This can mislabel an internal outage as invalid archive input or not-found.
+- **archive-step:** missing/unauthorized jobs now use JobNotAvailableException for a privacy-preserving 404. The nested catch still maps any Throwable from ArchiveWorkflow processing to 422, so infrastructure failures during extraction can still be mislabeled as invalid archive input; typed archive-content versus storage failures remain follow-up work.
 - **build:** a broad catch returns 422 for validation, archive/ZIP, storage, catalog, and other failures. Cleanup behavior must be preserved while separating expected package/input failures from internal failures.
 - **decrypt:** unavailable catalog records now return a privacy-preserving 404, but a broad catch still returns 422 for other restore failures. Invalid package/credential failures need typed classification separate from disk, permission, and programming failures.
 - **build:** validation errors now return 422, while unexpected ZIP, storage, catalog, token, and programming failures are rethrown to the API boundary for a generic 500. Incomplete artifacts are cleaned through a shared helper, while a catalogued package is retained.
