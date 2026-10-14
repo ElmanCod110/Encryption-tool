@@ -5,6 +5,7 @@ require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Storage\QuotaExceededException;
 use SecurePackage\Storage\ResumableUploadStore;
+use SecurePackage\Storage\UploadException;
 
 $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'spk-upload-quota-' . bin2hex(random_bytes(8));
 $bytesRoot = $base . DIRECTORY_SEPARATOR . 'bytes';
@@ -48,6 +49,22 @@ try {
     $cleanupRoot = $base . DIRECTORY_SEPARATOR . 'cleanup';
     $cleanupStore = new ResumableUploadStore($cleanupRoot, 1000, 1, 3, 1000);
     $expired = $cleanupStore->initialize(10, 'owner-cleanup');
+    try {
+        $cleanupStore->append($expired['id'], 1, 'x', 'owner-cleanup');
+        throw new RuntimeException('Unexpected upload offset was accepted.');
+    } catch (UploadException $exception) {
+        if ($exception->statusCode !== 409) {
+            throw new RuntimeException('Unexpected upload offset was not classified as a conflict.');
+        }
+    }
+    try {
+        $cleanupStore->initialize(0, 'owner-cleanup');
+        throw new RuntimeException('Invalid upload size was accepted.');
+    } catch (UploadException $exception) {
+        if ($exception->statusCode !== 422) {
+            throw new RuntimeException('Invalid upload size was not classified as a validation error.');
+        }
+    }
     sleep(2);
     $cleanupStore->cleanup();
     if (file_exists($cleanupRoot . DIRECTORY_SEPARATOR . $expired['id'])) {
