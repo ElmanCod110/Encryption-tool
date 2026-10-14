@@ -10,6 +10,7 @@ use SecurePackage\Api\PackageController;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
 use SecurePackage\Security\AccountStore;
+use SecurePackage\Security\AuthenticationRequiredException;
 use SecurePackage\Security\PackageAccessTokenStore;
 use SecurePackage\Security\RateLimiter;
 use SecurePackage\Security\WebSecurity;
@@ -77,6 +78,8 @@ try {
     }
 } catch (HttpException $exception) {
     JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+} catch (AuthenticationRequiredException) {
+    JsonResponse::send(['ok' => false, 'error' => 'Authentication required.'], 401);
 } catch (Throwable $exception) {
     // Log only the exception class: messages and traces can contain paths or sensitive input.
     error_log('[Secure Package] Unhandled API exception: ' . get_class($exception));
