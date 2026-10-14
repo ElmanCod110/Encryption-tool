@@ -50,7 +50,8 @@ final class RestoreTokenStore
         try {
             rewind($handle);
             $record = json_decode((string) stream_get_contents($handle), true, 16, JSON_THROW_ON_ERROR);
-            if (!is_array($record) || (int) ($record['expires_at'] ?? 0) < time()) {
+            if (!is_array($record) || (int) ($record['expires_at'] ?? 0) <= time()) {
+                if (is_array($record)) $this->removeExpiredRestoreDirectory($record);
                 @unlink($file);
                 throw new RuntimeException('Restore token is invalid or expired.');
             }
@@ -70,10 +71,37 @@ final class RestoreTokenStore
     {
         foreach (glob($this->directory . DIRECTORY_SEPARATOR . '*.json') ?: [] as $file) {
             $record = json_decode((string) @file_get_contents($file), true);
-            if (!is_array($record) || (int) ($record['expires_at'] ?? 0) < time()) {
+            if (!is_array($record) || (int) ($record['expires_at'] ?? 0) <= time()) {
+                if (is_array($record)) $this->removeExpiredRestoreDirectory($record);
                 @unlink($file);
             }
         }
+    }
+
+    private function removeExpiredRestoreDirectory(array $record): void
+    {
+        $candidate = (string) ($record['directory'] ?? '');
+        $tempRoot = realpath(dirname(rtrim($this->directory, DIRECTORY_SEPARATOR)));
+        $restorePath = $candidate !== '' ? realpath($candidate) : false;
+        if ($tempRoot === false || $restorePath === false || is_link($candidate)
+            || dirname($restorePath) !== $tempRoot
+            || !str_starts_with(basename($restorePath), 'restore-')) {
+            return;
+        }
+
+        $iterator = new \\RecursiveIteratorIterator(
+            new \\RecursiveDirectoryIterator($restorePath, \\FilesystemIterator::SKIP_DOTS),
+            \\RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            $itemPath = $item->getPathname();
+            if ($item->isLink() || !$item->isDir()) {
+                @unlink($itemPath);
+            } else {
+                @rmdir($itemPath);
+            }
+        }
+        @rmdir($restorePath);
     }
 
     private function file(string $token): string
