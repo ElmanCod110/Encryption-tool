@@ -272,20 +272,17 @@ final class PackageController
                 'recovery_key' => $result['recovery_key'] ?? null,
                 'format' => 'SECURE-PKG-V14',
             ], 201);
-        } catch (\Throwable) {
-            // Never discard the only plaintext source copy when packaging fails. If catalog
-            // creation did not complete, remove incomplete encrypted artifacts; once catalogued,
-            // retain the package so a transient token/audit failure cannot destroy user data.
-            if (!$packageCreated) {
-                if (is_string($portableArchive)) {
-                    try { $this->removePath($portableArchive); } catch (\Throwable) {}
-                }
-                if (is_string($packageDirectory)) {
-                    try { $this->removePath($packageDirectory); } catch (\Throwable) {}
-                }
-            }
+        } catch (InvalidArgumentException) {
+            $this->cleanupFailedBuild($portableArchive, $packageDirectory, $packageCreated);
             sodium_memzero($password); sodium_memzero($pattern);
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
+            JsonResponse::send(['ok' => false, 'error' => 'Invalid package details.'], 422);
+        } catch (\Throwable $exception) {
+            // Preserve the plaintext source and clean only incomplete encrypted artifacts.
+            // Unexpected storage, ZIP, catalog, and programming failures must reach the API
+            // boundary as HTTP 500 instead of being mislabeled as client input errors.
+            $this->cleanupFailedBuild($portableArchive, $packageDirectory, $packageCreated);
+            sodium_memzero($password); sodium_memzero($pattern);
+            throw $exception;
         }
     }
 
@@ -456,6 +453,24 @@ final class PackageController
             'crypto' => ['kdf' => 'argon2id13', 'aead' => 'xchacha20poly1305-ietf', 'stream' => 'secretstream-xchacha20poly1305', 'key_wrap' => 'xchacha20poly1305-ietf', 'key_separation' => 'HKDF-SHA-256'],
             'controls' => ['csrf' => true, 'same_origin' => true, 'rate_limiting' => true, 'resumable_uploads' => true, 'tamper_evident_audit' => true, 'package_ownership' => true, 'header_binding' => true, 'external_key_wrap' => true, 'no_overwrite_restore' => true]
         ]);
+    }
+
+    private function cleanupFailedBuild(?string $portableArchive, ?string $packageDirectory, bool $packageCreated): void
+    {
+        if ($packageCreated) {
+            return;
+        }
+
+        foreach ([$portableArchive, $packageDirectory] as $path) {
+            if (!is_string($path)) {
+                continue;
+            }
+
+            $this->removePath($path);
+            if (file_exists($path) || is_link($path)) {
+                throw new RuntimeException('Unable to clean incomplete package artifacts.');
+            }
+        }
     }
 
     private function removeJobDirectory(string $jobId): void
