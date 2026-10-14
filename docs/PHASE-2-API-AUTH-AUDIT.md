@@ -46,12 +46,22 @@
 
 **Status:** Source change committed; live HTTP tests are still required to verify statuses, headers, and request behavior end-to-end.
 
+### SPK-API-005 — Package catalog mutations could overwrite concurrent state
+
+**Evidence:** Package expiry and revocation used read-modify-write operations without a shared per-package lock. Concurrent updates could write stale records over one another. Package creation also replaced an existing record if an identifier collision or repeated create reached the same path.
+
+**Change:** Catalog create, expiry, revoke, and delete now serialize on a per-package lock. Creation refuses to replace an existing record, reads reject symlinked or malformed records, and owner-list enumeration skips symlink entries.
+
+**Regression test:** `tests/PackageCatalogMutationTest.php` covers duplicate creation, preserving expiry while revoking, wrong-owner mutation rejection, and revoked-package availability.
+
+**Status:** Fix and regression test committed on this branch; CI is required to validate them. Concurrent-process stress testing remains pending.
+
 ## Remaining phase-2 work
 
 - Add live HTTP integration coverage for 405/415, CSRF/origin rejection, malformed JSON, and generic internal-error responses.
 - Continue reviewing ownership enforcement and account/session boundaries across every management action.
 - Review rate-limit identity scope and storage/quota exhaustion behavior.
-- Review package catalog mutation races, expiry/revocation behavior, and cleanup after failed operations.
+- Perform concurrent-process stress testing for catalog mutation races, expiry/revocation behavior, and cleanup after failed operations.
 - Distinguish expected domain errors from unexpected storage/programming failures without leaking internal details.
 - Record actual CI run links and outcomes for the exact branch head; do not mark this phase verified until the checks finish successfully.
 
