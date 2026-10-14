@@ -213,6 +213,8 @@ final class ResumableUploadStore
             if (!is_array($state)
                 || !is_int($state['created_at'] ?? null)
                 || !is_int($state['total_bytes'] ?? null)
+                || $state['total_bytes'] < 1
+                || $state['total_bytes'] > $this->maxBytes
                 || !is_string($state['owner_hash'] ?? null)
                 || !preg_match('/^[a-f0-9]{64}$/', $state['owner_hash'])) {
                 throw new RuntimeException('Unable to verify active upload quota.');
