@@ -71,7 +71,7 @@ final class RestoreTokenStore
             $raw = stream_get_contents($handle);
             try {
                 $record = json_decode(is_string($raw) ? $raw : '', true, 16, JSON_THROW_ON_ERROR);
-            } catch (\\JsonException) {
+            } catch (\JsonException) {
                 throw new RuntimeException('Restore token is invalid or expired.');
             }
 
