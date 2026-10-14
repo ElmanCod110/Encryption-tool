@@ -18,8 +18,8 @@ if ($cleanupHelperStart === false || $removePathStart === false) {
 }
 $cleanupHelper = substr($controller, $cleanupHelperStart, $removePathStart - $cleanupHelperStart);
 
-$catchStart = strrpos($build, '} catch (\\Throwable) {');
-$failurePath = $catchStart === false ? '' : substr($build, $catchStart);
+$failureStart = strpos($build, 'if ($buildStarted)');
+$failurePath = $failureStart === false ? '' : substr($build, $failureStart);
 $checks = [
     'Build cleanup starts only after input validation' =>
         strpos($build, 'Validator::validateProjectName') < strpos($build, '$buildStarted = true;'),
