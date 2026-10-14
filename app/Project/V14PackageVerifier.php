@@ -3,8 +3,6 @@ declare(strict_types=1);
 
 namespace SecurePackage\Project;
 
-use RuntimeException;
-use SecurePackage\Security\CanonicalJson;
 
 final class V14PackageVerifier
 {
