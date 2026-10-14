@@ -28,6 +28,7 @@ use SecurePackage\Storage\FileStore;
 use SecurePackage\Storage\JobStore;
 use SecurePackage\Storage\ResumableUploadStore;
 use SecurePackage\Storage\QuotaExceededException;
+use SecurePackage\Storage\UploadException;
 
 final class PackageController
 {
@@ -134,8 +135,10 @@ final class PackageController
             JsonResponse::send(['ok' => true, 'upload' => $result], 201);
         } catch (QuotaExceededException) {
             JsonResponse::send(['ok' => false, 'error' => 'Active upload quota exceeded.'], 429);
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to initialize upload.'], 422);
+        } catch (UploadException $exception) {
+            JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+        } catch (\Throwable $exception) {
+            throw $exception;
         }
     }
 
@@ -155,8 +158,10 @@ final class PackageController
         try {
             $state = $this->uploads->append($id, $offset, $chunk, AccessContext::ownerId());
             JsonResponse::send(['ok' => true, 'upload' => $state]);
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Upload chunk rejected.'], 409);
+        } catch (UploadException $exception) {
+            JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+        } catch (\Throwable $exception) {
+            throw $exception;
         }
     }
 
@@ -177,9 +182,12 @@ final class PackageController
             } finally {
                 $this->uploads->remove($uploadId);
             }
-        } catch (\Throwable) {
+        } catch (UploadException $exception) {
             $this->uploads->remove($uploadId);
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to finalize upload.'], 422);
+            JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+        } catch (\Throwable $exception) {
+            $this->uploads->remove($uploadId);
+            throw $exception;
         }
     }
 
