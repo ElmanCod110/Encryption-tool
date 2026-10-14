@@ -12,6 +12,12 @@ $roots = [
 $now = time();
 $removed = 0;
 
+// Expired restore tokens own temporary plaintext directories; clean those as one lifecycle unit.
+(new \\SecurePackage\\Security\\RestoreTokenStore(
+    $config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens',
+    (int) $config['limits']['restore_ttl_seconds']
+))->cleanup();
+
 // Expire each job using its own creation timestamp, not the shared jobs/ directory mtime.
 $jobRoot = $config['storage']['temp'] . DIRECTORY_SEPARATOR . 'jobs';
 if (is_dir($jobRoot) && !is_link($jobRoot)) {
