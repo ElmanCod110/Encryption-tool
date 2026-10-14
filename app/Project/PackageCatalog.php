@@ -10,7 +10,7 @@ final class PackageCatalog
 {
     public function __construct(private readonly string $directory)
     {
-        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) {
             throw new RuntimeException('Unable to initialize package catalog.');
         }
         @chmod($directory, 0700);
