@@ -18,7 +18,10 @@ if ($cleanupHelperStart === false || $removePathStart === false) {
 }
 $cleanupHelper = substr($controller, $cleanupHelperStart, $removePathStart - $cleanupHelperStart);
 
-$failureStart = strpos($build, '} catch (\\Throwable) {');
+$failureStart = strpos($build, '} catch (InvalidArgumentException)');
+if ($failureStart === false) {
+    $failureStart = strpos($build, '} catch (\\Throwable $exception)');
+}
 $failurePath = $failureStart === false ? '' : substr($build, $failureStart);
 $checks = [
     'Input validation precedes the encryption build' =>
