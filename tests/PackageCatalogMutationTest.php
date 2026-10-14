@@ -53,6 +53,51 @@ try {
         throw new RuntimeException('Revoked package remained available.');
     }
 
+    // Race multiple independent PHP processes against the same new package ID.
+    // Exactly one create must win; all other processes must observe the existing record.
+    $raceId = str_repeat('b', 48);
+    $workerCode = 'require $argv[1]; $catalog = new \\SecurePackage\\Project\\PackageCatalog($argv[2]); try { $catalog->create($argv[3], $argv[4], "Concurrent package"); exit(0); } catch (\\RuntimeException $e) { if (str_contains($e->getMessage(), "already exists")) exit(10); fwrite(STDERR, get_class($e) . ": " . $e->getMessage()); exit(1); }';
+    $processes = [];
+    for ($i = 0; $i < 8; $i++) {
+        $ownerId = 'race-owner-' . $i;
+        $pipes = [];
+        $process = proc_open(
+            [PHP_BINARY, '-r', $workerCode, dirname(__DIR__) . '/bootstrap.php', $directory, $raceId, $ownerId],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes
+        );
+        if (!is_resource($process)) {
+            throw new RuntimeException('Unable to start package catalog concurrency worker.');
+        }
+        fclose($pipes[0]);
+        $processes[] = ['process' => $process, 'stdout' => $pipes[1], 'stderr' => $pipes[2]];
+    }
+    $successes = 0;
+    $duplicates = 0;
+    foreach ($processes as $worker) {
+        $stdout = stream_get_contents($worker['stdout']);
+        $stderr = stream_get_contents($worker['stderr']);
+        fclose($worker['stdout']);
+        fclose($worker['stderr']);
+        $exitCode = proc_close($worker['process']);
+        if ($exitCode === 0) {
+            $successes++;
+        } elseif ($exitCode === 10) {
+            $duplicates++;
+        } else {
+            throw new RuntimeException('Catalog concurrency worker failed: ' . trim($stderr . ' ' . $stdout));
+        }
+    }
+    if ($successes !== 1 || $duplicates !== 7) {
+        throw new RuntimeException('Concurrent catalog creation did not serialize exactly one winner.');
+    }
+    if (!hash_equals(hash('sha256', 'race-owner-' . array_search(true, array_map(
+        static fn(string $owner): bool => hash_equals(hash('sha256', $owner), (string) ($catalog->get($raceId)['owner_hash'] ?? '')),
+        array_map(static fn(int $i): string => 'race-owner-' . $i, range(0, 7))
+    ), true)), (string) ($catalog->get($raceId)['owner_hash'] ?? ''))) {
+        throw new RuntimeException('Concurrent catalog record owner hash is inconsistent.');
+    }
+
     echo "Package catalog mutation regression tests passed.\n";
 } finally {
     $iterator = new RecursiveIteratorIterator(
