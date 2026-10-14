@@ -20,27 +20,33 @@ final class ArchiveWorkflow
             throw new RuntimeException('PHP Zip extension is required.');
         }
         $job = $this->jobs->create();
-        $archiveId = bin2hex(random_bytes(16));
-        $archivePath = $job['path'] . DIRECTORY_SEPARATOR . 'archives' . DIRECTORY_SEPARATOR . $archiveId . '.zip';
-        if (!copy($uploadedZip, $archivePath)) {
-            throw new RuntimeException('Unable to initialize archive job.');
+        try {
+            $archiveId = bin2hex(random_bytes(16));
+            $archivePath = $job['path'] . DIRECTORY_SEPARATOR . 'archives' . DIRECTORY_SEPARATOR . $archiveId . '.zip';
+            if (!copy($uploadedZip, $archivePath)) {
+                throw new RuntimeException('Unable to initialize archive job.');
+            }
+            @chmod($archivePath, 0600);
+            $state = [
+                'status' => 'awaiting_archive_password',
+                'root_archive' => $archiveId,
+                'pending' => [[
+                    'id' => $archiveId,
+                    'file' => 'archives/' . $archiveId . '.zip',
+                    'destination' => 'source',
+                    'depth' => 0,
+                    'display_name' => 'Root archive',
+                ]],
+                'completed' => [],
+                'stats' => ['archives' => 0, 'files' => 0, 'bytes' => 0],
+                'created_at' => time(),
+            ];
+            $this->jobs->writeState($job['id'], $state);
+            return ['job_id' => $job['id'], 'state' => $this->publicState($state)];
+        } catch (\\Throwable $error) {
+            try { $this->jobs->remove($job['id']); } catch (\\Throwable) {}
+            throw $error;
         }
-        $state = [
-            'status' => 'awaiting_archive_password',
-            'root_archive' => $archiveId,
-            'pending' => [[
-                'id' => $archiveId,
-                'file' => 'archives/' . $archiveId . '.zip',
-                'destination' => 'source',
-                'depth' => 0,
-                'display_name' => 'Root archive',
-            ]],
-            'completed' => [],
-            'stats' => ['archives' => 0, 'files' => 0, 'bytes' => 0],
-            'created_at' => time(),
-        ];
-        $this->jobs->writeState($job['id'], $state);
-        return ['job_id' => $job['id'], 'state' => $this->publicState($state)];
     }
 
     public function process(string $jobId, string $archiveId, string $password): array
