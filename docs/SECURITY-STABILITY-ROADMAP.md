@@ -14,6 +14,20 @@
 
 **Validation note:** An earlier CI run exposed a missing cleanup method and a later run exposed a PHP namespace-separator syntax error in that method. Both were corrected in subsequent commits. The latest branch still requires a fresh successful CI run before these changes can be considered validated.
 
+## Phase 2 progress — 2026-10-14
+
+The first API/authentication hardening pass is being reviewed in PR #18 (`security/phase-2-api-auth-hardening`).
+
+- Single-use download tokens now persist a consumed marker while holding the exclusive lock, preventing concurrent replay against an already-open inode.
+- Account storage now rejects malformed or structurally invalid JSON rather than treating it as an empty account list; password-hash rehash writes use the account-store lock.
+- Session naming now uses PHP's `session_name()` API; URL-based session propagation is disabled.
+- API actions enforce POST and the expected request media type.
+- Package catalog create/expiry/revoke/delete operations serialize with per-package locks, and catalog reads validate record shape.
+- Regression tests cover token replay, corrupt account storage, session settings, and catalog mutation/ownership.
+- CI has started for PR #18. The phase is not considered verified until the latest branch head passes all applicable workflows and live HTTP tests are added.
+
+See [Phase 2 API and Authentication Audit](PHASE-2-API-AUTH-AUDIT.md) for finding-level evidence and remaining work.
+
 ## Goals
 
 Prepare the project for a carefully validated V1.0.0 milestone by reviewing security-sensitive code paths, fixing confirmed defects, and recording reproducible test evidence.
