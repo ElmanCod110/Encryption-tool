@@ -23,7 +23,7 @@ final class ArchiveWorkflow
         try {
             $archiveId = bin2hex(random_bytes(16));
             $archivePath = $job['path'] . DIRECTORY_SEPARATOR . 'archives' . DIRECTORY_SEPARATOR . $archiveId . '.zip';
-            if (!copy($uploadedZip, $archivePath)) {
+            if (!@copy($uploadedZip, $archivePath)) {
                 throw new RuntimeException('Unable to initialize archive job.');
             }
             @chmod($archivePath, 0600);
