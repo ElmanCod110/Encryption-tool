@@ -198,11 +198,13 @@ final class PackageController
         $password = (string) ($input['password'] ?? '');
         $pattern = (string) ($input['pattern'] ?? '');
         $createRecovery = (bool) ($input['create_recovery'] ?? true);
+        $buildStarted = false;
         try {
             $this->jobs->assertOwner($jobId, AccessContext::ownerId());
             $state = $this->jobs->readState($jobId);
             if (($state['status'] ?? '') !== 'ready_to_build') JsonResponse::send(['ok' => false, 'error' => 'Archive extraction is not complete.'], 409);
             Validator::validateProjectName($name); Validator::validatePassword($password); Validator::validatePattern($pattern);
+            $buildStarted = true;
             $service = $this->makePackageService();
             $result = $service->build($this->archives->sourceDirectory($jobId), $name, $password, $pattern, $createRecovery);
             $portable = $result['package_dir'] . '.spkg14';
@@ -232,6 +234,9 @@ final class PackageController
                 'format' => 'SECURE-PKG-V14',
             ], 201);
         } catch (\Throwable) {
+            if ($buildStarted) {
+                try { $this->removePath($this->jobs->path($jobId)); } catch (\Throwable) {}
+            }
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
         }
