@@ -33,9 +33,18 @@ try {
 
     echo "Account store corruption regression tests passed.\n";
 } finally {
-    foreach (glob($directory . DIRECTORY_SEPARATOR . '*') ?: [] as $path) {
-        if (is_link($path) || is_file($path)) @unlink($path);
+    if (is_dir($root)) {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            if ($item->isDir() && !$item->isLink()) {
+                @rmdir($item->getPathname());
+            } else {
+                @unlink($item->getPathname());
+            }
+        }
+        @rmdir($root);
     }
-    @rmdir($directory);
-    @rmdir($root);
 }
