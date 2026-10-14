@@ -91,6 +91,7 @@ final class ArchiveWorkflow
                 if ($stat === false) throw new RuntimeException('Unable to inspect archive entry.');
                 $name = str_replace('\\', '/', (string) ($stat['name'] ?? ''));
                 $this->validateEntryPath($name);
+                $this->policy->assertSafePath($name);
                 if (strlen($name) > $this->policy->maxPathLength) throw new RuntimeException('Archive path is too long.');
                 if ($this->isSymbolicLink($zip, $i)) throw new RuntimeException('Symbolic links are not supported.');
 
