@@ -59,6 +59,7 @@ jobs:
           php tests/SecurityInvariantTest.php
           php tests/ApiRequestPolicyTest.php
           php tests/ApiHttpIntegrationTest.php
+          php tests/ArchiveWorkflowRollbackTest.php
           php tests/AccountStoreCorruptionTest.php
           php tests/AccountStoreBehaviorTest.php
           php tests/PackageAccessTokenStoreTest.php
