@@ -35,11 +35,11 @@ final class JobStore
     public function path(string $id): string
     {
         if (!preg_match('/^[a-f0-9]{48}$/', $id)) {
-            throw new RuntimeException('Invalid job identifier.');
+            throw new JobNotAvailableException();
         }
         $path = $this->root . DIRECTORY_SEPARATOR . $id;
         if (!is_dir($path) || is_link($path)) {
-            throw new RuntimeException('Job does not exist.');
+            throw new JobNotAvailableException();
         }
         return $path;
     }
@@ -79,7 +79,7 @@ final class JobStore
         $state = $this->readState($id);
         $stored = (string) ($state['owner_hash'] ?? '');
         if ($stored === '' || !hash_equals($stored, hash('sha256', $ownerToken))) {
-            throw new RuntimeException('Job does not exist.');
+            throw new JobNotAvailableException();
         }
     }
 
