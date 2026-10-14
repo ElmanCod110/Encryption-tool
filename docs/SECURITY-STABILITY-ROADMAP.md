@@ -1,8 +1,18 @@
 # Security and Stability Roadmap — V1.0.0 Initiative
 
-> **Status:** Planning and verification in progress  
+> **Status:** Initial implementation and verification in progress  
 > **Current stable release:** `v0.14.1`  
-> **Important:** This document starts the V1.0.0 security and stability workstream. It does not claim that the planned fixes have already been implemented or independently verified.
+> **Important:** Initial fixes and regression tests are now being added in small commits. The branch is not release-ready, and no fix is considered fully verified until the relevant tests pass.
+
+## Initial implementation progress — 2026-10-14
+
+- Connected the stricter archive path policy to the actual extraction workflow and added an integration regression test for a path containing a colon.
+- Added root-to-child archive depth tracking, enforced `maxDepth`, and added a nested-archive regression test.
+- Added plaintext job cleanup after successful package creation and an attempted cleanup after build failures; cleanup now checks whether the job path remains.
+- Added a build-cleanup regression check.
+- Added the missing archive staging-directory cleanup method after the integration test exposed its absence.
+
+**Validation note:** An earlier CI run exposed a missing cleanup method and a later run exposed a PHP namespace-separator syntax error in that method. Both were corrected in subsequent commits. The latest branch still requires a fresh successful CI run before these changes can be considered validated.
 
 ## Goals
 
