@@ -1,9 +1,9 @@
 # Initial Security Audit Findings
 
-**Audit status:** Static source review in progress  
-**Reviewed ref:** `master` at `d66aa69f735b6472ab9d55dab9673e1d3f2e4a95`  
-**Runtime validation:** NOT RUN in this review  
-**Important:** Findings below are based on the inspected source paths. They are not a substitute for reproducing the behavior in a controlled test environment.
+**Audit status:** Initial fixes implemented; fresh CI verification in progress  
+**Reviewed baseline:** `master` at `d66aa69f735b6472ab9d55dab9673e1d3f2e4a95`  
+**Runtime validation:** CI is exercising regression tests; manual production-host validation remains NOT RUN  
+**Important:** Findings below distinguish source-level observations from fixes that still require the latest test run to pass.
 
 ## Finding SPK-SEC-001 — Extracted plaintext persists after package creation
 
@@ -38,7 +38,7 @@ Plaintext extracted from user-provided archives can remain in application tempor
 - Create an expired job and verify the cleanup worker removes it without touching active jobs.
 - Run the full security and regression suites.
 
-**Current status:** Confirmed as a source-level lifecycle gap; fix not yet applied.
+**Current status:** Initial lifecycle fixes are implemented on the V1.0.0 branch: successful build and failed restore/download paths now attempt plaintext cleanup; restore-token expiry and resumable-upload TTL cleanup have dedicated handling. Fresh CI and additional failure-injection coverage are still required.
 
 ## Finding SPK-SEC-002 — Archive extraction bypasses the stricter path policy
 
@@ -59,7 +59,7 @@ The tested path policy does not necessarily protect the actual uploaded-archive 
 
 Use the central policy in the real extraction path and add integration tests that submit malicious ZIP entries through `ArchiveWorkflow`, not only unit tests against `ArchivePolicy`. Preserve the existing traversal checks and ensure nested entries follow the same policy.
 
-**Current status:** Source-level integration gap identified; exploitability and platform impact require integration testing. Fix not yet applied.
+**Current status:** The central path policy is now called by the real extraction workflow, with an integration regression test for a colon-containing path. Platform-specific filesystem behavior still needs supported-OS testing.
 
 ## Finding SPK-SEC-003 — Configured nested archive depth is not enforced in the workflow
 
@@ -80,8 +80,17 @@ The configured depth limit does not constrain nested archive processing as inten
 
 Persist and validate each pending archive's depth, reject entries exceeding `maxDepth`, and test both just-under-limit and over-limit nested archive chains.
 
-**Current status:** Source-level enforcement gap identified; integration test not run. Fix not yet applied.
+**Current status:** Root-to-child depth is now tracked and compared against `maxDepth`, with a nested-archive regression test. Latest CI verification is pending.
 
+## Additional initial safeguards implemented
+
+- **Actual streamed ZIP bytes:** Added a bounded stream copier to enforce per-file and remaining-total limits while bytes are read, rather than trusting central-directory sizes alone.
+- **Rate-limit state:** Corrupt persisted limiter state now fails closed; successful-authentication resets occur under an exclusive file lock.
+- **Temporary data lifecycle:** Failed archive initialization removes its partial job; failed extraction removes nested archive copies not committed to job state; expired restore tokens clean their associated `restore-*` plaintext directory; restore downloads remove their generated ZIP and validated restore directory in a `finally` path.
+- **Upload lifecycle:** Resumable uploads expire from their recorded creation time, and cleanup avoids traversing symlinked upload directories.
+- **UI honesty:** The password/pattern meter is explicitly described as a length indicator; server-side validation remains authoritative.
+
+These changes are on the review branch and must not be treated as release verification until the latest CI jobs pass. Production-host behavior, crash/power-loss cleanup, and operating-system-specific path semantics remain follow-up validation items.
 ## Follow-up review queue
 
 - Verify ZIP extraction bounds against actual streamed bytes, not only archive metadata.
