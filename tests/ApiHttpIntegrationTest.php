@@ -3,13 +3,40 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-$public = dirname(__DIR__) . '/public';
+$sourceRoot = dirname(__DIR__);
 $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'spk-api-http-' . bin2hex(random_bytes(8));
-if (!mkdir($base, 0700, true)) {
+$fixture = $base . DIRECTORY_SEPARATOR . 'fixture';
+$sessions = $base . DIRECTORY_SEPARATOR . 'sessions';
+if (!mkdir($base, 0700, true) || !mkdir($sessions, 0700, true)) {
     throw new RuntimeException('Unable to create HTTP integration fixture directory.');
 }
-$log = $base . DIRECTORY_SEPARATOR . 'server.log';
 
+$copyTree = static function (string $source, string $destination) use (&$copyTree): void {
+    if (!is_dir($destination) && !mkdir($destination, 0700, true) && !is_dir($destination)) {
+        throw new RuntimeException('Unable to create isolated fixture directory.');
+    }
+    foreach (new DirectoryIterator($source) as $entry) {
+        if ($entry->isDot() || $entry->isLink()) continue;
+        $from = $entry->getPathname();
+        $to = $destination . DIRECTORY_SEPARATOR . $entry->getFilename();
+        if ($entry->isDir()) {
+            $copyTree($from, $to);
+        } elseif ($entry->isFile() && !copy($from, $to)) {
+            throw new RuntimeException('Unable to copy isolated fixture file.');
+        }
+    }
+};
+
+foreach (['app', 'config', 'public'] as $directory) {
+    $copyTree($sourceRoot . DIRECTORY_SEPARATOR . $directory, $fixture . DIRECTORY_SEPARATOR . $directory);
+}
+foreach (['bootstrap.php', 'VERSION'] as $file) {
+    if (!copy($sourceRoot . DIRECTORY_SEPARATOR . $file, $fixture . DIRECTORY_SEPARATOR . $file)) {
+        throw new RuntimeException('Unable to prepare isolated fixture.');
+    }
+}
+
+$log = $base . DIRECTORY_SEPARATOR . 'server.log';
 $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
 if ($socket === false) {
     throw new RuntimeException('Unable to reserve an HTTP test port.');
@@ -19,10 +46,8 @@ fclose($socket);
 $port = (int) substr(strrchr((string) $address, ':'), 1);
 $url = 'http://127.0.0.1:' . $port . '/';
 $descriptors = [0 => ['pipe', 'r'], 1 => ['file', $log, 'a'], 2 => ['file', $log, 'a']];
-$process = proc_open([PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $public], $descriptors, $pipes, dirname(__DIR__));
+$process = proc_open([PHP_BINARY, '-d', 'session.save_path=' . $sessions, '-S', '127.0.0.1:' . $port, '-t', $fixture . DIRECTORY_SEPARATOR . 'public'], $descriptors, $pipes, $fixture);
 if (!is_resource($process)) {
-    @unlink($log);
-    @rmdir($base);
     throw new RuntimeException('Unable to start the PHP HTTP test server.');
 }
 fclose($pipes[0]);
@@ -53,6 +78,18 @@ $expect = static function (int $status, array $response, string $case): void {
     }
 };
 
+$removeTree = static function (string $path) use (&$removeTree): void {
+    if (is_link($path) || is_file($path)) {
+        @unlink($path);
+        return;
+    }
+    if (!is_dir($path)) return;
+    foreach (new DirectoryIterator($path) as $entry) {
+        if (!$entry->isDot()) $removeTree($entry->getPathname());
+    }
+    @rmdir($path);
+};
+
 try {
     $ready = false;
     for ($attempt = 0; $attempt < 40; $attempt++) {
@@ -71,21 +108,22 @@ try {
     $expect(405, $request('api.php?action=login', 'GET'), 'GET login method');
     $expect(415, $request('api.php?action=login', 'POST', ['Content-Type: text/plain'], '{}'), 'Login media type');
 
-    $csrfResponse = $request('api.php?action=csrf', 'POST');
-    $expect(200, $csrfResponse, 'CSRF bootstrap');
-    $payload = json_decode($csrfResponse['body'], true, 16, JSON_THROW_ON_ERROR);
-    $csrf = (string) ($payload['csrf'] ?? '');
-    if ($csrf === '') throw new RuntimeException('CSRF bootstrap did not return a token.');
+    $indexResponse = $request('');
+    $expect(200, $indexResponse, 'Index and session bootstrap');
+    if (!preg_match('/<meta name="csrf-token" content="([a-f0-9]{64})">/', $indexResponse['body'], $csrfMatch)) {
+        throw new RuntimeException('Index did not render a CSRF token.');
+    }
+    $csrf = $csrfMatch[1];
 
     $cookie = '';
-    foreach ($csrfResponse['headers'] as $header) {
+    foreach ($indexResponse['headers'] as $header) {
         if (stripos($header, 'Set-Cookie: SECUREPKGSESSID=') === 0
-            && preg_match('/SECUREPKGSESSID=([^;]+)/', $header, $match)) {
-            $cookie = 'SECUREPKGSESSID=' . $match[1];
+            && preg_match('/SECUREPKGSESSID=([^;]+)/', $header, $cookieMatch)) {
+            $cookie = 'SECUREPKGSESSID=' . $cookieMatch[1];
             break;
         }
     }
-    if ($cookie === '') throw new RuntimeException('CSRF bootstrap did not set the expected session cookie.');
+    if ($cookie === '') throw new RuntimeException('Index did not set the expected session cookie.');
 
     $common = ['Content-Type: application/json', 'Cookie: ' . $cookie];
     $expect(403, $request('api.php?action=login', 'POST', $common, '{}'), 'Missing CSRF token');
@@ -94,8 +132,9 @@ try {
 
     echo "API HTTP integration tests passed.\n";
 } finally {
-    proc_terminate($process);
-    proc_close($process);
-    @unlink($log);
-    @rmdir($base);
+    if (is_resource($process)) {
+        proc_terminate($process);
+        proc_close($process);
+    }
+    $removeTree($base);
 }
