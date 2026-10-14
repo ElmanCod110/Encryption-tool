@@ -25,9 +25,9 @@ final class ResumableUploadStore
 
     public function initialize(int $totalBytes, string $ownerId, ?string $sha256 = null): array
     {
-        if ($totalBytes <= 0 || $totalBytes > $this->maxBytes) throw new RuntimeException('Upload size is invalid.');
-        if ($ownerId === '') throw new RuntimeException('Upload owner is invalid.');
-        if ($sha256 !== null && !preg_match('/^[a-f0-9]{64}$/', $sha256)) throw new RuntimeException('Upload checksum is invalid.');
+        if ($totalBytes <= 0 || $totalBytes > $this->maxBytes) throw new UploadException(422, 'Upload size is invalid.');
+        if ($ownerId === '') throw new UploadException(422, 'Upload owner is invalid.');
+        if ($sha256 !== null && !preg_match('/^[a-f0-9]{64}$/', $sha256)) throw new UploadException(422, 'Upload checksum is invalid.');
 
         $ownerHash = hash('sha256', $ownerId);
         $quotaLock = $this->acquireQuotaLock();
@@ -69,7 +69,7 @@ final class ResumableUploadStore
 
     public function append(string $id, int $offset, string $chunk, string $ownerId): array
     {
-        if ($chunk === '') throw new RuntimeException('Upload chunk is empty.');
+        if ($chunk === '') throw new UploadException(422, 'Upload chunk is empty.');
         $lock = fopen($this->directory($id) . DIRECTORY_SEPARATOR . 'upload.lock', 'c+b');
         if ($lock === false || !flock($lock, LOCK_EX)) {
             if (is_resource($lock)) fclose($lock);
@@ -78,9 +78,9 @@ final class ResumableUploadStore
         try {
             $state = $this->state($id);
             $this->assertOwner($state, $ownerId);
-            if ($offset !== (int) $state['received_bytes']) throw new RuntimeException('Unexpected upload offset.');
+            if ($offset !== (int) $state['received_bytes']) throw new UploadException(409, 'Upload chunk rejected.');
             $next = $offset + strlen($chunk);
-            if ($next > (int) $state['total_bytes']) throw new RuntimeException('Upload exceeds declared size.');
+            if ($next > (int) $state['total_bytes']) throw new UploadException(413, 'Upload exceeds declared size.');
             $path = $this->directory($id) . DIRECTORY_SEPARATOR . 'upload.part';
             $handle = fopen($path, 'ab');
             if ($handle === false) throw new RuntimeException('Unable to write upload chunk.');
@@ -107,12 +107,12 @@ final class ResumableUploadStore
         try {
             $state = $this->state($id);
             $this->assertOwner($state, $ownerId);
-            if ((int) $state['received_bytes'] !== (int) $state['total_bytes']) throw new RuntimeException('Upload is incomplete.');
+            if ((int) $state['received_bytes'] !== (int) $state['total_bytes']) throw new UploadException(409, 'Upload is incomplete.');
             $source = $this->directory($id) . DIRECTORY_SEPARATOR . 'upload.part';
             $destination = $this->directory($id) . DIRECTORY_SEPARATOR . 'upload.zip';
             if (($state['sha256'] ?? null) !== null) {
                 $actual = hash_file('sha256', $source);
-                if (!is_string($actual) || !hash_equals((string) $state['sha256'], $actual)) throw new RuntimeException('Upload checksum verification failed.');
+                if (!is_string($actual) || !hash_equals((string) $state['sha256'], $actual)) throw new UploadException(422, 'Upload checksum verification failed.');
             }
             if (!rename($source, $destination)) throw new RuntimeException('Unable to finalize upload.');
             @chmod($destination, 0600);
@@ -215,18 +215,18 @@ final class ResumableUploadStore
 
     private function state(string $id): array
     {
-        if (!preg_match('/^[a-f0-9]{48}$/', $id)) throw new RuntimeException('Invalid upload identifier.');
+        if (!preg_match('/^[a-f0-9]{48}$/', $id)) throw new UploadException(404, 'Upload does not exist.');
         $file = $this->directory($id) . DIRECTORY_SEPARATOR . 'state.json';
-        if (!is_file($file)) throw new RuntimeException('Upload does not exist.');
+        if (!is_file($file)) throw new UploadException(404, 'Upload does not exist.');
         $state = json_decode((string) file_get_contents($file), true, 16, JSON_THROW_ON_ERROR);
         if (!is_array($state)) throw new RuntimeException('Upload state is invalid.');
-        if (($state['status'] ?? '') === 'expired' || (time() - (int) ($state['created_at'] ?? 0)) > $this->ttlSeconds) throw new RuntimeException('Upload has expired.');
+        if (($state['status'] ?? '') === 'expired' || (time() - (int) ($state['created_at'] ?? 0)) > $this->ttlSeconds) throw new UploadException(410, 'Upload has expired.');
         return $state;
     }
 
     private function assertOwner(array $state, string $ownerId): void
     {
-        if (!hash_equals((string) ($state['owner_hash'] ?? ''), hash('sha256', $ownerId))) throw new RuntimeException('Upload does not exist.');
+        if (!hash_equals((string) ($state['owner_hash'] ?? ''), hash('sha256', $ownerId))) throw new UploadException(404, 'Upload does not exist.');
     }
 
     private function assertOwnerQuota(string $ownerHash, int $newBytes): void
