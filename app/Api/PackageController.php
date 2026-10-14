@@ -7,6 +7,8 @@ use InvalidArgumentException;
 use RuntimeException;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
+use SecurePackage\Archive\ArchiveProcessingException;
+use SecurePackage\Archive\ArchiveStepConflictException;
 use SecurePackage\Project\PackageArchive;
 use SecurePackage\Project\PackageCatalog;
 use SecurePackage\Project\PackageNotAvailableException;
@@ -221,9 +223,15 @@ final class PackageController
             } catch (JobNotAvailableException) {
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => false, 'error' => 'Archive job was not found.'], 404);
-            } catch (\Throwable) {
+            } catch (ArchiveStepConflictException) {
+                sodium_memzero($password);
+                JsonResponse::send(['ok' => false, 'error' => 'Archive step is no longer available.'], 409);
+            } catch (ArchiveProcessingException) {
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => false, 'error' => 'Unable to open archive with the supplied password.'], 422);
+            } catch (\Throwable $exception) {
+                sodium_memzero($password);
+                throw $exception;
             }
         } catch (JobNotAvailableException) {
             sodium_memzero($password);
