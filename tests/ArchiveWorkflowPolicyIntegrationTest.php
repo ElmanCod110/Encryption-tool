@@ -6,7 +6,6 @@ require dirname(__DIR__) . '/bootstrap.php';
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
 use SecurePackage\Storage\JobStore;
-use ZipArchive;
 
 if (!extension_loaded('zip') || !class_exists(ZipArchive::class)) {
     throw new RuntimeException('The archive workflow policy test requires ext-zip.');
