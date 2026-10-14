@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace SecurePackage\Security;
 
+use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 use SecurePackage\Storage\AtomicFile;
 
