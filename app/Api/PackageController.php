@@ -344,7 +344,12 @@ final class PackageController
                 $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
                 $result = (new V14PackageReader())->restore($packageDir, $outputDir, $password, $pattern, $recoveryKey);
             } finally {
-                if ($temporaryPackageDir !== null) $this->removePath($temporaryPackageDir);
+                if ($temporaryPackageDir !== null) {
+                    $this->removePath($temporaryPackageDir);
+                    if (file_exists($temporaryPackageDir) || is_link($temporaryPackageDir)) {
+                        throw new PackageStorageException('Unable to clean temporary package extraction.');
+                    }
+                }
             }
             $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
             $restoreToken = $tokenStore->issue($outputDir);
@@ -355,24 +360,16 @@ final class PackageController
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => true, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
         } catch (PackageNotAvailableException) {
-            if (is_string($outputDir)) $this->removePath($outputDir);
-            sodium_memzero($password); sodium_memzero($pattern);
-            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+            $this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         } catch (PackageRestoreRejectedException|InvalidArgumentException) {
-            if (is_string($outputDir)) $this->removePath($outputDir);
-            sodium_memzero($password); sodium_memzero($pattern);
-            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+            $this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 422);
         } catch (PackageStorageException $exception) {
-            if (is_string($outputDir)) $this->removePath($outputDir);
-            sodium_memzero($password); sodium_memzero($pattern);
-            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+            $this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);
             throw $exception;
         } catch (\Throwable $exception) {
-            if (is_string($outputDir)) $this->removePath($outputDir);
-            sodium_memzero($password); sodium_memzero($pattern);
-            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+            $this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);
             throw $exception;
         }
     }
@@ -482,6 +479,22 @@ final class PackageController
             'crypto' => ['kdf' => 'argon2id13', 'aead' => 'xchacha20poly1305-ietf', 'stream' => 'secretstream-xchacha20poly1305', 'key_wrap' => 'xchacha20poly1305-ietf', 'key_separation' => 'HKDF-SHA-256'],
             'controls' => ['csrf' => true, 'same_origin' => true, 'rate_limiting' => true, 'resumable_uploads' => true, 'tamper_evident_audit' => true, 'package_ownership' => true, 'header_binding' => true, 'external_key_wrap' => true, 'no_overwrite_restore' => true]
         ]);
+    }
+
+    private function cleanupFailedRestore(?string $outputDir, string &$password, string &$pattern, ?string &$recoveryKey): void
+    {
+        try {
+            if (is_string($outputDir)) {
+                $this->removePath($outputDir);
+                if (file_exists($outputDir) || is_link($outputDir)) {
+                    throw new PackageStorageException('Unable to clean incomplete restore output.');
+                }
+            }
+        } finally {
+            sodium_memzero($password);
+            sodium_memzero($pattern);
+            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+        }
     }
 
     private function cleanupFailedBuild(?string $portableArchive, ?string $packageDirectory, bool $packageCreated): void
