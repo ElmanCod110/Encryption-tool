@@ -145,6 +145,54 @@ try {
     );
     $expect(401, $invalidLogin, 'Malformed username login');
 
+    $registerResponse = $request(
+        'api.php?action=register',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['username' => 'test-user', 'password' => 'NeverLogged!Passphrase2026'], JSON_THROW_ON_ERROR)
+    );
+    $expect(201, $registerResponse, 'Register test account');
+    $registration = json_decode($registerResponse['body'], true, 32, JSON_THROW_ON_ERROR);
+    if (!is_array($registration) || !is_string($registration['csrf'] ?? null)) {
+        throw new RuntimeException('Registration did not return a CSRF token.');
+    }
+    $csrf = $registration['csrf'];
+    foreach ($registerResponse['headers'] as $header) {
+        if (stripos($header, 'Set-Cookie: SECUREPKGSESSID=') === 0
+            && preg_match('/SECUREPKGSESSID=([^;]+)/', $header, $cookieMatch)) {
+            $cookie = 'SECUREPKGSESSID=' . $cookieMatch[1];
+        }
+    }
+    if ($cookie === '') throw new RuntimeException('Registration did not preserve the session cookie.');
+    $common = ['Content-Type: application/json', 'Cookie: ' . $cookie];
+
+    $catalogPath = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'catalog';
+    $catalogBackup = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'catalog-backup';
+    if (!is_dir($catalogPath) || !rename($catalogPath, $catalogBackup)) {
+        throw new RuntimeException('Unable to prepare catalog storage failure fixture.');
+    }
+    try {
+        if (file_put_contents($catalogPath, 'not-a-directory') === false) {
+            throw new RuntimeException('Unable to prepare catalog storage failure fixture.');
+        }
+        $catalogFailure = $request(
+            'api.php?action=packages',
+            'POST',
+            array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+            '{}'
+        );
+        $expect(500, $catalogFailure, 'Package catalog initialization failure');
+        if (!str_contains($catalogFailure['body'], 'Internal server error.')
+            || str_contains($catalogFailure['body'], 'RuntimeException')
+            || str_contains($catalogFailure['body'], 'catalog')
+            || str_contains($catalogFailure['body'], $fixture)) {
+            throw new RuntimeException('Catalog initialization failure exposed implementation details.');
+        }
+    } finally {
+        if (is_file($catalogPath) || is_link($catalogPath)) @unlink($catalogPath);
+        if (is_dir($catalogBackup)) @rename($catalogBackup, $catalogPath);
+    }
+
     $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';
     if (!is_file($accountFile) || file_put_contents($accountFile, '{broken-account-store') === false) {
         throw new RuntimeException('Unable to prepare internal-error response fixture.');
