@@ -7,6 +7,7 @@
 - Made the Composer lock refresh workflow report the dependency-audit outcome and fail the workflow after opening the review PR when the audit fails.
 - Added typed authentication-required handling (HTTP 401) and typed package-unavailable handling so package-management operations do not misreport catalog/storage failures as 404.
 - Separated package-build validation failures (422) from unexpected build/storage failures (500) and centralized cleanup for incomplete build artifacts.
+- Added typed missing/unauthorized job handling and regression coverage so archive-job lookup failures no longer collapse every outer exception into 404.
 
 ## Unreleased — MVP readiness and repository maintenance
 
