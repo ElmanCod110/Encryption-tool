@@ -89,8 +89,8 @@
 
 - Source review: completed for the files named above.
 - Regression tests added: token replay, account-store corruption, session configuration, package catalog mutation/ownership, API method/media-type policy, and upload count/byte quotas.
-- CI passed for the code snapshot at `0ee2dd8248f26f3e79edbed06ab1a46d8f42db32`; subsequent changes include additional rate-limit and API-policy test code and require a fresh run.
-- Isolated PHP built-in-server integration test covers 404/405/415, CSRF/origin, malformed JSON, and generic internal-error responses without exposing internal paths/classes; latest CI result pending.\n- Manual Windows/XAMPP and production-host HTTP checks: NOT RUN.
+- CI passed for the full phase-2 code at commit `1b8980e7e07f24c52ae184354940cb1cb6fa589d`: [CI run](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38603168996), [Security and Release Integrity](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38603168923), and [Client Security](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38603168886). All three completed successfully.
+- Isolated PHP built-in-server integration test covers 404/405/415, CSRF/origin, malformed JSON, and generic internal-error responses without exposing internal paths/classes; it passed in the CI run above.\n- Manual Windows/XAMPP and production-host HTTP checks: NOT RUN.
 - Windows/XAMPP and production-host checks: NOT RUN.
 
 This audit is an engineering record, not a security certification or a claim that all API/authentication risks have been eliminated.
