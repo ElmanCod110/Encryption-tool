@@ -32,6 +32,7 @@ final class ArchiveWorkflow
                 'id' => $archiveId,
                 'file' => 'archives/' . $archiveId . '.zip',
                 'destination' => 'source',
+                'depth' => 0,
                 'display_name' => 'Root archive',
             ]],
             'completed' => [],
