@@ -63,6 +63,7 @@ jobs:
           php tests/RestoreTokenTest.php
           php tests/RestoreTokenCleanupTest.php
           php tests/RestoreFailureCleanupTest.php
+          php tests/RestoredDownloadSafetyTest.php
           php tests/AccountStoreCorruptionTest.php
           php tests/AccountStoreBehaviorTest.php
           php tests/PackageAccessTokenStoreTest.php
