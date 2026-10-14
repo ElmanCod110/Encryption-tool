@@ -8,6 +8,7 @@
 - Added typed authentication-required handling (HTTP 401) and typed package-unavailable handling so package-management operations do not misreport catalog/storage failures as 404.
 - Separated package-build validation failures (422) from unexpected build/storage failures (500) and centralized cleanup for incomplete build artifacts.
 - Added typed missing/unauthorized job handling and regression coverage so archive-job lookup failures no longer collapse every outer exception into 404.
+- Separated primary V14 restore rejection errors from storage failures; invalid credentials/packages remain generic 422 responses while storage failures reach the HTTP 500 boundary.
 
 ## Unreleased — MVP readiness and repository maintenance
 
