@@ -21,10 +21,10 @@ final class V14PackageReader
         $verifier = new V14PackageVerifier();
         $header = $verifier->assertPackageDirectory($packageDir);
         $root = realpath($packageDir);
-        if ($root === false) throw new RuntimeException('Unable to open package.');
+        if ($root === false) throw new PackageRestoreRejectedException('Unable to open package.');
         $binding = (string) $header['header_binding'];
         $salt = base64_decode((string) $header['salt'], true);
-        if ($salt === false) throw new RuntimeException('Unable to open package.');
+        if ($salt === false) throw new PackageRestoreRejectedException('Unable to open package.');
 
         $packageRootKey = null;
         $manifestKey = null;
@@ -49,13 +49,16 @@ final class V14PackageReader
 
             $manifestPath = $root . DIRECTORY_SEPARATOR . 'manifest.enc';
             $manifestCipher = file_get_contents($manifestPath);
-            if ($manifestCipher === false || strlen($manifestCipher) > V14Descriptor::MAX_MANIFEST_BYTES + 64) throw new RuntimeException('Unable to open package.');
+            if ($manifestCipher === false) throw new PackageStorageException('Unable to read encrypted manifest.');
+            if (strlen($manifestCipher) > V14Descriptor::MAX_MANIFEST_BYTES + 64) throw new PackageRestoreRejectedException('Unable to open package.');
             $manifestPlain = V14Aead::open($manifestCipher, $manifestKey, 'SecurePackage|V14|manifest|' . $header['package_id'] . '|' . $binding);
             if (strlen($manifestPlain) > V14Descriptor::MAX_MANIFEST_BYTES) throw new RuntimeException('Manifest exceeds V14 limits.');
             $manifest = json_decode($manifestPlain, true, 64, JSON_THROW_ON_ERROR);
             $this->validateManifest($manifest, $header);
 
-            $complete = json_decode((string) file_get_contents($root . DIRECTORY_SEPARATOR . 'complete.json'), true, 32, JSON_THROW_ON_ERROR);
+            $completeRaw = file_get_contents($root . DIRECTORY_SEPARATOR . 'complete.json');
+            if ($completeRaw === false) throw new PackageStorageException('Unable to read package completion record.');
+            $complete = json_decode($completeRaw, true, 32, JSON_THROW_ON_ERROR);
             if (!is_array($complete)) throw new RuntimeException('Package completion record is invalid.');
             $completeKeys = array_keys($complete); sort($completeKeys);
             if ($completeKeys !== ['created_at', 'format', 'header_binding', 'manifest_sha256', 'package_id', 'version'] || ($complete['format'] ?? null) !== V14Descriptor::FORMAT || (int) ($complete['version'] ?? 0) !== V14Descriptor::VERSION || ($complete['package_id'] ?? null) !== $header['package_id'] || ($complete['created_at'] ?? null) !== $header['created_at'] || ($complete['header_binding'] ?? null) !== $binding || !hash_equals((string) ($complete['manifest_sha256'] ?? ''), hash('sha256', $manifestCipher))) {
@@ -78,8 +81,8 @@ final class V14PackageReader
             if (count($referenced) !== count($blobs)) throw new RuntimeException('Package contains unreachable blobs.');
             if (!hash_equals((string) $manifest['merkle_root'], V14Merkle::root($leaves))) throw new RuntimeException('Merkle integrity verification failed.');
 
-            if (file_exists($destinationDir)) throw new RuntimeException('Destination directory already exists.');
-            if (!mkdir($destinationDir, 0700, true)) throw new RuntimeException('Unable to create destination directory.');
+            if (file_exists($destinationDir)) throw new PackageRestoreRejectedException('Destination directory already exists.');
+            if (!mkdir($destinationDir, 0700, true)) throw new PackageStorageException('Unable to create destination directory.');
             $created = true;
             try {
                 $paths = $this->preflightPaths($manifest, $filenameKey, $header['package_id'], $binding, $destinationDir);
@@ -92,7 +95,7 @@ final class V14PackageReader
                 usort($directories, static fn(array $a, array $b): int => ($paths[$a['id']]['depth'] <=> $paths[$b['id']]['depth']) ?: strcmp($paths[$a['id']]['normalized'], $paths[$b['id']]['normalized']));
                 foreach ($directories as $node) {
                     $target = $paths[$node['id']]['target'];
-                    if (!mkdir($target, 0700) && !is_dir($target)) throw new RuntimeException('Unable to restore directory.');
+                    if (!mkdir($target, 0700) && !is_dir($target)) throw new PackageStorageException('Unable to restore directory.');
                 }
                 usort($files, static fn(array $a, array $b): int => strcmp($paths[$a['id']]['normalized'], $paths[$b['id']]['normalized']));
                 foreach ($files as $node) {
@@ -188,7 +191,8 @@ final class V14PackageReader
             $path = $dir . DIRECTORY_SEPARATOR . $entry;
             if (is_link($path) || !is_file($path)) throw new RuntimeException('Invalid package blob.');
             $size = filesize($path);
-            if ($size === false || $size < SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_ABYTES + 8 || $size > V14Descriptor::MAX_FILE_BYTES + 64 * 1024 * 1024) throw new RuntimeException('Package blob exceeds limits.');
+            if ($size === false) throw new PackageStorageException('Unable to inspect package blob.');
+            if ($size < SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_ABYTES + 8 || $size > V14Descriptor::MAX_FILE_BYTES + 64 * 1024 * 1024) throw new PackageRestoreRejectedException('Package blob exceeds limits.');
             $map[$entry] = $path;
             if (count($map) > V14Descriptor::MAX_BLOBS) throw new RuntimeException('Too many package blobs.');
         }
