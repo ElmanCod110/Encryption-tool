@@ -160,7 +160,7 @@ final class ResumableUploadStore
         // so a request that acquires the per-upload lock afterward fails closed.
         $quotaLock = $this->acquireQuotaLock();
         try {
-            foreach (new \\FilesystemIterator($this->root, \\FilesystemIterator::SKIP_DOTS) as $entry) {
+            foreach (new \FilesystemIterator($this->root, \FilesystemIterator::SKIP_DOTS) as $entry) {
                 $id = $entry->getFilename();
                 if (!preg_match('/^[a-f0-9]{48}$/', $id)) continue;
                 if ($entry->isLink()) {
@@ -188,7 +188,7 @@ final class ResumableUploadStore
                     } else {
                         try {
                             $state = json_decode((string) file_get_contents($stateFile), true, 16, JSON_THROW_ON_ERROR);
-                        } catch (\\Throwable) {
+                        } catch (\Throwable) {
                             $remove = true;
                         }
                         if (is_array($state)) {
