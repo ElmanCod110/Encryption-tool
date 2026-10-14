@@ -173,7 +173,11 @@ final class PackageCatalog
 
     private function file(string $packageId): string
     {
-        PackageId::assert($packageId);
+        try {
+            PackageId::assert($packageId);
+        } catch (RuntimeException) {
+            throw new PackageNotAvailableException();
+        }
         return $this->directory . DIRECTORY_SEPARATOR . $packageId . '.json';
     }
 }
