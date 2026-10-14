@@ -27,7 +27,7 @@ final class V14PackageVerifier
         if (!is_array($header)) throw new PackageRestoreRejectedException('Unable to open package.');
         try {
             V14Descriptor::assertHeader($header);
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             throw new PackageRestoreRejectedException('Unable to open package.', 0, $exception);
         }
         $manifestSize = filesize($manifestPath);
