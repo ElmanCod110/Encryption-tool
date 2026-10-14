@@ -129,6 +129,14 @@ try {
     $expect(403, $request('api.php?action=login', 'POST', $common, '{}'), 'Missing CSRF token');
     $expect(403, $request('api.php?action=login', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf, 'Origin: https://attacker.example']), '{}'), 'Cross-origin request');
     $expect(400, $request('api.php?action=login', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf]), '{invalid-json'), 'Malformed JSON');
+    $invalidLogin = $request(
+        'api.php?action=login',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['username' => 'invalid username', 'password' => 'Cobalt!River72_Moon'], JSON_THROW_ON_ERROR)
+    );
+    $expect(401, $invalidLogin, 'Malformed username login');
+
     $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';
     if (!is_file($accountFile) || file_put_contents($accountFile, '{broken-account-store') === false) {
         throw new RuntimeException('Unable to prepare internal-error response fixture.');
