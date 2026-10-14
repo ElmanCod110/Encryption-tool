@@ -7,35 +7,64 @@ use RuntimeException;
 
 final class ResumableUploadStore
 {
-    public function __construct(private readonly string $root, private readonly int $maxBytes, private readonly int $ttlSeconds = 3600)
-    {
+    public function __construct(
+        private readonly string $root,
+        private readonly int $maxBytes,
+        private readonly int $ttlSeconds = 3600,
+        private readonly int $maxActiveUploadsPerOwner = 3,
+        private readonly int $maxActiveBytesPerOwner = 1_099_511_627_776
+    ) {
+        if ($maxBytes < 1 || $ttlSeconds < 1 || $maxActiveUploadsPerOwner < 1 || $maxActiveBytesPerOwner < 1) {
+            throw new RuntimeException('Invalid upload storage policy.');
+        }
         if (!is_dir($root) && !mkdir($root, 0700, true) && !is_dir($root)) {
             throw new RuntimeException('Unable to initialize upload storage.');
         }
+        @chmod($root, 0700);
     }
 
     public function initialize(int $totalBytes, string $ownerId, ?string $sha256 = null): array
     {
         if ($totalBytes <= 0 || $totalBytes > $this->maxBytes) throw new RuntimeException('Upload size is invalid.');
+        if ($ownerId === '') throw new RuntimeException('Upload owner is invalid.');
         if ($sha256 !== null && !preg_match('/^[a-f0-9]{64}$/', $sha256)) throw new RuntimeException('Upload checksum is invalid.');
-        do {
-            $id = bin2hex(random_bytes(24));
-            $dir = $this->directory($id);
-        } while (file_exists($dir));
-        if (!mkdir($dir, 0700, true)) throw new RuntimeException('Unable to create upload directory.');
-        touch($dir . DIRECTORY_SEPARATOR . 'upload.lock');
-        AtomicFile::write($dir . DIRECTORY_SEPARATOR . 'state.json', json_encode([
-            'id' => $id,
-            'total_bytes' => $totalBytes,
-            'received_bytes' => 0,
-            'created_at' => time(),
-            'owner_hash' => hash('sha256', $ownerId),
-            'sha256' => $sha256,
-        ], JSON_THROW_ON_ERROR));
-        $part = $dir . DIRECTORY_SEPARATOR . 'upload.part';
-        touch($part);
-        @chmod($part, 0600);
-        return ['id' => $id, 'received_bytes' => 0, 'total_bytes' => $totalBytes, 'sha256' => $sha256];
+
+        $ownerHash = hash('sha256', $ownerId);
+        $quotaLock = $this->acquireQuotaLock();
+        try {
+            $this->assertOwnerQuota($ownerHash, $totalBytes);
+            do {
+                $id = bin2hex(random_bytes(24));
+                $dir = $this->directory($id);
+            } while (file_exists($dir) || is_link($dir));
+
+            if (!mkdir($dir, 0700, true)) throw new RuntimeException('Unable to create upload directory.');
+            try {
+                if (!touch($dir . DIRECTORY_SEPARATOR . 'upload.lock')) {
+                    throw new RuntimeException('Unable to initialize upload lock.');
+                }
+                @chmod($dir . DIRECTORY_SEPARATOR . 'upload.lock', 0600);
+                AtomicFile::write($dir . DIRECTORY_SEPARATOR . 'state.json', json_encode([
+                    'id' => $id,
+                    'total_bytes' => $totalBytes,
+                    'received_bytes' => 0,
+                    'created_at' => time(),
+                    'owner_hash' => $ownerHash,
+                    'sha256' => $sha256,
+                ], JSON_THROW_ON_ERROR));
+                $part = $dir . DIRECTORY_SEPARATOR . 'upload.part';
+                $handle = @fopen($part, 'x+b');
+                if ($handle === false) throw new RuntimeException('Unable to initialize upload data.');
+                fclose($handle);
+                @chmod($part, 0600);
+                return ['id' => $id, 'received_bytes' => 0, 'total_bytes' => $totalBytes, 'sha256' => $sha256];
+            } catch (\\Throwable $exception) {
+                $this->remove($id);
+                throw $exception;
+            }
+        } finally {
+            $this->releaseQuotaLock($quotaLock);
+        }
     }
 
     public function append(string $id, int $offset, string $chunk, string $ownerId): array
@@ -162,7 +191,68 @@ final class ResumableUploadStore
         if (!hash_equals((string) ($state['owner_hash'] ?? ''), hash('sha256', $ownerId))) throw new RuntimeException('Upload does not exist.');
     }
 
+    private function assertOwnerQuota(string $ownerHash, int $newBytes): void
+    {
+        $count = 0;
+        $reservedBytes = 0;
+        $now = time();
+
+        foreach (new \\FilesystemIterator($this->root, \\FilesystemIterator::SKIP_DOTS) as $entry) {
+            $id = $entry->getFilename();
+            if (!preg_match('/^[a-f0-9]{48}$/', $id) || $entry->isLink() || !$entry->isDir()) continue;
+
+            $statePath = $entry->getPathname() . DIRECTORY_SEPARATOR . 'state.json';
+            if (is_link($statePath) || !is_file($statePath)) continue;
+            $raw = @file_get_contents($statePath);
+            if ($raw === false) throw new RuntimeException('Unable to verify active upload quota.');
+            try {
+                $state = json_decode($raw, true, 16, JSON_THROW_ON_ERROR);
+            } catch (\\JsonException) {
+                throw new RuntimeException('Unable to verify active upload quota.');
+            }
+            if (!is_array($state)
+                || !is_int($state['created_at'] ?? null)
+                || !is_int($state['total_bytes'] ?? null)
+                || !is_string($state['owner_hash'] ?? null)
+                || !preg_match('/^[a-f0-9]{64}$/', $state['owner_hash'])) {
+                throw new RuntimeException('Unable to verify active upload quota.');
+            }
+            if ($now - $state['created_at'] > $this->ttlSeconds) continue;
+            if (hash_equals($state['owner_hash'], $ownerHash)) {
+                $count++;
+                $reservedBytes += max(0, $state['total_bytes']);
+            }
+        }
+
+        if ($count >= $this->maxActiveUploadsPerOwner
+            || $reservedBytes + $newBytes > $this->maxActiveBytesPerOwner) {
+            throw new QuotaExceededException('Active upload quota exceeded.');
+        }
+    }
+
+    private function acquireQuotaLock()
+    {
+        $path = $this->root . DIRECTORY_SEPARATOR . '.quota.lock';
+        if (is_link($path)) throw new RuntimeException('Upload quota lock is invalid.');
+        $handle = @fopen($path, 'c+b');
+        if ($handle === false || !flock($handle, LOCK_EX)) {
+            if (is_resource($handle)) fclose($handle);
+            throw new RuntimeException('Unable to lock upload quota.');
+        }
+        @chmod($path, 0600);
+        return $handle;
+    }
+
+    private function releaseQuotaLock($handle): void
+    {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+    }
+
     private function directory(string $id): string
+    {
+        return $this->root . DIRECTORY_SEPARATOR . $id;
+    }    private function directory(string $id): string
     {
         return $this->root . DIRECTORY_SEPARATOR . $id;
     }
