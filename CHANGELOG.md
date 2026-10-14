@@ -6,6 +6,7 @@
 - Updated the API error audit to reflect the current centralized request policy and integration coverage, while documenting remaining broad controller catches.
 - Made the Composer lock refresh workflow report the dependency-audit outcome and fail the workflow after opening the review PR when the audit fails.
 - Added typed authentication-required handling (HTTP 401) and typed package-unavailable handling so package-management operations do not misreport catalog/storage failures as 404.
+- Separated package-build validation failures (422) from unexpected build/storage failures (500) and centralized cleanup for incomplete build artifacts.
 
 ## Unreleased — MVP readiness and repository maintenance
 
