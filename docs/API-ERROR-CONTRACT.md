@@ -7,7 +7,9 @@
 
 | Condition / action | Current response status | Public response | Audit note |
 | --- | ---: | --- | --- |
-| Unknown `action` | 404 | `Unknown action.` | Explicit route fallback. |
+| Unknown `action` | 404 | `Unknown action.` | Explicit action allowlist and route fallback. |
+| Known action with a non-POST method | 405 | `Method not allowed.` | All API actions require POST; response includes `Allow: POST`. |
+| Wrong or missing media type | 415 | `Unsupported media type.` | JSON actions require `application/json`; upload chunks require `application/octet-stream`; the token-free CSRF bootstrap action does not parse a body. |
 | Invalid JSON / non-array JSON | 400 | `Invalid JSON request.` | Implemented by `Request::json()`. |
 | Request JSON body exceeds configured parser limit | 413 | `Request body is too large.` | Checks declared and actual body length. |
 | CSRF token or same-origin validation failure | 403 | `Request validation failed.` or `Request origin is not allowed.` | Implemented with `HttpException`. |
