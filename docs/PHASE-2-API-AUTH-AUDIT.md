@@ -64,6 +64,18 @@
 
 **Status:** Fix and regression test committed on this branch; CI is required to validate them. Concurrent-process stress testing remains pending.
 
+### SPK-API-007 — Upload initialization had no per-owner reservation quota
+
+**Evidence:** Each upload was individually bounded, but a caller could create multiple active upload directories and reserve arbitrarily large declared totals. There was no atomic per-owner cap on concurrent uploads or aggregate reserved bytes.
+
+**Change:** Upload initialization now serializes quota checks with a root-level lock, enforces configured active-upload count and aggregate declared-byte limits per owner, and cleans up partially initialized upload directories. Upload creation is also rate-limited by a hashed remote-address key. Quota rejection returns 429.
+
+**Configuration:** `max_active_uploads_per_owner` defaults to 3; `max_active_upload_bytes_per_owner` defaults to 1 TiB, matching the current single-upload ceiling. Adjust these values to the actual deployment's disk budget.
+
+**Regression test:** `tests/ResumableUploadQuotaTest.php` covers active-count enforcement, aggregate-byte enforcement, and quota isolation between owners.
+
+**Status:** Fix and regression test committed on this branch; fresh CI is required.
+
 ## Remaining phase-2 work
 
 - Add live HTTP integration coverage for 405/415, CSRF/origin rejection, malformed JSON, and generic internal-error responses.
@@ -76,7 +88,7 @@
 ## Validation status
 
 - Source review: completed for the files named above.
-- Regression tests added: token replay, account-store corruption, session configuration, package catalog mutation/ownership, and API method/media-type policy.
+- Regression tests added: token replay, account-store corruption, session configuration, package catalog mutation/ownership, API method/media-type policy, and upload count/byte quotas.
 - CI passed for the code snapshot at `0ee2dd8248f26f3e79edbed06ab1a46d8f42db32`; subsequent changes include additional rate-limit and API-policy test code and require a fresh run.
 - Live HTTP integration tests: NOT RUN.
 - Windows/XAMPP and production-host checks: NOT RUN.
