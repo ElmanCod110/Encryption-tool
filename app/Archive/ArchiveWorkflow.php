@@ -143,9 +143,9 @@ final class ArchiveWorkflow
                     $relativeParent = str_replace('\\', '/', substr(dirname($target), strlen($jobPath) + 1));
                     $withoutZip = preg_replace('/\.zip$/i', '', $name);
                     $childDestination = ($relativeParent === '' ? '' : $relativeParent . '/') . $withoutZip;
+                    $newArchives[] = ['id' => $childId, 'file' => 'archives/' . $childId . '.zip', 'destination' => $childDestination, 'depth' => $childDepth, 'display_name' => $name];
                     $absoluteChildDestination = $jobPath . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $childDestination);
                     if (!is_dir($absoluteChildDestination) && !mkdir($absoluteChildDestination, 0700, true) && !is_dir($absoluteChildDestination)) throw new RuntimeException('Unable to prepare nested archive destination.');
-                    $newArchives[] = ['id' => $childId, 'file' => 'archives/' . $childId . '.zip', 'destination' => $childDestination, 'depth' => $childDepth, 'display_name' => $name];
                 }
             }
             $zip->close();
