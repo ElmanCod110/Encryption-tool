@@ -100,5 +100,8 @@ jobs:
       - name: Source security audit
         run: php bin/source-audit.php
 
+      - name: Full regression and security suite
+        run: php bin/security-test.php --full
+
       - name: Legacy browser V13 round-trip
         run: node tests/BrowserV13RoundTripTest.mjs
