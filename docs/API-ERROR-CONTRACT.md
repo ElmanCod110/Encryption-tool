@@ -55,5 +55,5 @@ Do not simply expose exception messages or stack traces to solve these issues. T
 
 - Source inspection: updated against public/api.php, app/Api/ApiRequestPolicy.php, app/Api/PackageController.php, and the current HTTP integration test.
 - Existing automated HTTP integration test: included in the repository security workflow; the current source has not been executed by this documentation update.
-- Windows/XAMPP and real-browser release QA: NOT RUN until evidence is recorded in docs/RELEASE-QA-MATRIX.md.
+- Windows/XAMPP and real-browser release QA: NOT RUN until evidence is recorded in docs/RELEASE-QA.md.
 - Composer lockfile and dependency audit: BLOCKED until the generated lockfile is reviewed and committed.
