@@ -28,6 +28,30 @@ try {
     JsonResponse::send(['ok' => false, 'error' => 'Internal server error.'], 500);
 }
 
+$action = (string) ($_GET['action'] ?? '');
+$actions = [
+    'me', 'register', 'login', 'logout', 'upload-init', 'upload-chunk',
+    'upload-complete', 'archive-step', 'build', 'decrypt', 'packages',
+    'access-token', 'set-expiry', 'revoke', 'delete', 'security-status', 'csrf',
+];
+if (!in_array($action, $actions, true)) {
+    JsonResponse::send(['ok' => false, 'error' => 'Unknown action.'], 404);
+}
+
+if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+    header('Allow: POST');
+    JsonResponse::send(['ok' => false, 'error' => 'Method not allowed.'], 405);
+}
+
+$contentType = strtolower(trim(explode(';', (string) ($_SERVER['CONTENT_TYPE'] ?? ''), 2)[0]));
+if ($action === 'upload-chunk') {
+    if ($contentType !== 'application/octet-stream') {
+        JsonResponse::send(['ok' => false, 'error' => 'Unsupported media type.'], 415);
+    }
+} elseif ($action !== 'csrf' && $contentType !== 'application/json') {
+    JsonResponse::send(['ok' => false, 'error' => 'Unsupported media type.'], 415);
+}
+
 $jobs = new JobStore($config['storage']['temp'] . DIRECTORY_SEPARATOR . 'jobs');
 $policy = new ArchivePolicy(
     $config['limits']['max_archive_entries'],
@@ -46,7 +70,7 @@ $audit = new AuditLogger($config['storage']['audit'] . DIRECTORY_SEPARATOR . 'ev
 $controller = new PackageController($config, $jobs, $limiter, $archives, $uploads, $catalog, $accessTokens, $accounts, $audit, new \SecurePackage\Security\AuthorizationService());
 
 try {
-    switch ((string) ($_GET['action'] ?? '')) {
+    switch ($action) {
         case 'me': $controller->me();
         case 'register': $controller->register();
         case 'login': $controller->login();
