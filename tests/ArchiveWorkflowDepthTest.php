@@ -5,6 +5,7 @@ require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
+use SecurePackage\Archive\ArchiveProcessingException;
 use SecurePackage\Storage\JobStore;
 
 if (!extension_loaded('zip') || !class_exists(ZipArchive::class)) {
@@ -44,7 +45,7 @@ try {
     $rejected = false;
     try {
         $workflow->process($job['job_id'], $archiveId, '');
-    } catch (RuntimeException $error) {
+    } catch (ArchiveProcessingException $error) {
         $rejected = str_contains($error->getMessage(), 'Unable to extract archive.');
     }
     if (!$rejected) {
