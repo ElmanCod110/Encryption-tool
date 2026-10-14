@@ -1,9 +1,9 @@
 # Initial Security Audit Findings
 
-**Audit status:** Initial fixes implemented; fresh CI verification in progress  
-**Reviewed baseline:** `master` at `d66aa69f735b6472ab9d55dab9673e1d3f2e4a95`  
-**Runtime validation:** CI is exercising regression tests; manual production-host validation remains NOT RUN  
-**Important:** Findings below distinguish source-level observations from fixes that still require the latest test run to pass.
+**Audit status:** Initial archive/storage fixes from PR #17 are merged to `master`; phase-2 API/auth fixes are under review in PR #18.  
+**Reviewed baseline:** `master` after merge commit `75c413172d39118e1b886166e3c96c4ca0aff494`; phase-2 findings are tracked separately in [Phase 2 API and Authentication Audit](PHASE-2-API-AUTH-AUDIT.md).  
+**Runtime validation:** CI is running for PR #18; manual production-host validation remains NOT RUN.  
+**Important:** Merged code and branch-only changes are distinguished below; a successful source review is not a substitute for passing tests.
 
 ## Finding SPK-SEC-001 — Extracted plaintext persists after package creation
 
