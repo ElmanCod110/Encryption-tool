@@ -76,7 +76,7 @@ final class V14Stream
             if (!hash_equals(self::MAGIC, substr($header, 0, strlen(self::MAGIC)))) throw new V14StreamRejectedException('Invalid encrypted stream.');
             try {
                 $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull(substr($header, strlen(self::MAGIC)), $key);
-            } catch (\\SodiumException $exception) {
+            } catch (\SodiumException $exception) {
                 throw new V14StreamRejectedException('Invalid encrypted stream header.', 0, $exception);
             }
             $written = 0;
