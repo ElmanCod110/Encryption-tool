@@ -26,9 +26,11 @@ Never attach real project data, passwords, recovery keys, session cookies, or un
 | Core regression suite | Run all PHP test scripts and the browser-format regression script | Pending current release candidate |
 | Self-check | Run php bin/self-check.php | Pending current release candidate |
 | Source security audit | Run php bin/source-audit.php | Pending current release candidate |
-| Composer manifest and lock | Run composer validate --strict --no-check-publish with a Composer-generated composer.lock | BLOCKED until the real lockfile is reviewed and committed |
-| Dependency audit | Run composer audit --no-interaction; investigate every finding | BLOCKED until the real lockfile is reviewed and committed |
+| Composer manifest and lock | Composer-generated lockfile; composer validate --strict --no-check-publish passed in the generator workflow; rerun on the merged readiness head | PASS for generation/validation; post-merge run pending |
+| Dependency audit | composer audit --no-interaction passed in the lockfile generator workflow; no advisories were reported by that run | PASS for generator run; post-merge run pending |
 | Release integrity | Run release-integrity tests and verify the built artifact/checksum | Pending current release candidate |
+
+Composer lockfile evidence: [generation, strict validation, and audit workflow](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38636009471). The generated-lock PR passed CI, Client Security, and Security and Release Integrity: [CI](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38636121662), [Client Security](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38636121633), [Security and Release Integrity](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38636121775). Re-run these checks on the merged readiness branch before release.
 
 CI green status is evidence only for the checks actually executed by that workflow; it does not imply that manual scenarios passed.
 
