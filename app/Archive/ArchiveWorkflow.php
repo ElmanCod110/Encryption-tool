@@ -163,6 +163,12 @@ final class ArchiveWorkflow
         } catch (\Throwable $e) {
             try { $zip->close(); } catch (\Throwable) {}
             $this->removeDirectory($stage);
+            // Nested archives moved out of staging are not committed to state until the whole
+            // parent archive succeeds; remove those orphan copies when processing fails.
+            foreach ($newArchives as $child) {
+                $childPath = $jobPath . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $child['file']);
+                if (is_link($childPath) || is_file($childPath)) @unlink($childPath);
+            }
             throw new RuntimeException('Unable to extract archive. The supplied archive password may be invalid.', 0, $e);
         }
     }
