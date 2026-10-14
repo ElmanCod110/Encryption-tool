@@ -16,9 +16,27 @@ $store = new RestoreTokenStore($root . '/tokens', 60);
 
 try {
     $token = $store->issue($restore);
-    $resolved = $store->consume($token);
-    if ($resolved !== realpath($restore)) {
-        throw new RuntimeException('Restore token resolution failed.');
+    $tokenFile = $root . '/tokens/' . hash('sha256', $token) . '.json';
+    $waitingHandle = fopen($tokenFile, 'r+');
+    if ($waitingHandle === false) {
+        throw new RuntimeException('Unable to open token inode for replay-race regression test.');
+    }
+
+    try {
+        $resolved = $store->consume($token);
+        if ($resolved !== realpath($restore)) {
+            throw new RuntimeException('Restore token resolution failed.');
+        }
+
+        // A concurrent request may already have opened the same inode before unlink.
+        // It must observe a consumed marker after it obtains the exclusive lock.
+        rewind($waitingHandle);
+        $waitingRecord = json_decode((string) stream_get_contents($waitingHandle), true);
+        if (!is_array($waitingRecord) || ($waitingRecord['consumed'] ?? false) !== true) {
+            throw new RuntimeException('An already-open token handle did not observe the consumed marker.');
+        }
+    } finally {
+        fclose($waitingHandle);
     }
 
     $reused = false;
