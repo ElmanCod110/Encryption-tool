@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — v1.0.0 release readiness
+
+- Added a reproducible release QA matrix covering Windows/XAMPP, V14 server packages, browser V13 compatibility, cleanup, and restore safety; manual scenarios remain explicitly NOT RUN until evidence is recorded.
+- Updated the API error audit to reflect the current centralized request policy and integration coverage, while documenting remaining broad controller catches.
+- Made the Composer lock refresh workflow report the dependency-audit outcome and fail the workflow after opening the review PR when the audit fails.
+
 ## Unreleased — MVP readiness and repository maintenance
 
 - Established `VERSION` as the single source of truth for the application release version and documented the distinction between application versioning and package-format identifiers.
