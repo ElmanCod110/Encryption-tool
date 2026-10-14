@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace SecurePackage\Api;
 
+use InvalidArgumentException;
 use RuntimeException;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
@@ -13,6 +14,7 @@ use SecurePackage\Project\V14PackageService;
 use SecurePackage\Security\AccessContext;
 use SecurePackage\Security\ApplicationSecrets;
 use SecurePackage\Security\AccountStore;
+use SecurePackage\Security\DuplicateAccountException;
 use SecurePackage\Security\AuthorizationService;
 use SecurePackage\Security\SecurityPolicy;
 use SecurePackage\Security\FileProjectNameRegistry;
@@ -63,9 +65,15 @@ final class PackageController
             $this->audit->event('account.registered', ['account_id' => $id]);
             sodium_memzero($password);
             JsonResponse::send(['ok' => true, 'authenticated' => true, 'account_id' => $id, 'csrf' => WebSecurity::csrfToken()], 201);
-        } catch (\Throwable) {
+        } catch (DuplicateAccountException) {
             sodium_memzero($password);
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to create account.'], 422);
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to create account.'], 409);
+        } catch (InvalidArgumentException) {
+            sodium_memzero($password);
+            JsonResponse::send(['ok' => false, 'error' => 'Invalid account details.'], 422);
+        } catch (\Throwable $exception) {
+            sodium_memzero($password);
+            throw $exception;
         }
     }
 
@@ -78,11 +86,16 @@ final class PackageController
         $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
         $userKey = 'login:user:' . hash('sha256', strtolower(trim($username)) . '|' . $ip);
         $ipKey = 'login:ip:' . hash('sha256', $ip);
-        if (!$this->rateLimiter->allow($ipKey) || !$this->rateLimiter->allow($userKey)) {
+        try {
+            if (!$this->rateLimiter->allow($ipKey) || !$this->rateLimiter->allow($userKey)) {
+                sodium_memzero($password);
+                JsonResponse::send(['ok' => false, 'error' => 'Too many login attempts.'], 429);
+            }
+            $id = $this->accounts->verify($username, $password);
+        } catch (\Throwable $exception) {
             sodium_memzero($password);
-            JsonResponse::send(['ok' => false, 'error' => 'Too many login attempts.'], 429);
+            throw $exception;
         }
-        $id = $this->accounts->verify($username, $password);
         sodium_memzero($password);
         if ($id === null) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to sign in.'], 401);
