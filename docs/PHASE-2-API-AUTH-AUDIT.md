@@ -46,6 +46,14 @@
 
 **Status:** Source change committed; live HTTP tests are still required to verify statuses, headers, and request behavior end-to-end.
 
+### SPK-API-006 — Archive and restore rate limits were scoped to an owner/session key
+
+**Evidence:** The per-job/per-package limiter keys included an owner identity that can differ across anonymous sessions. This left room to spread repeated attempts across fresh session identities from the same network address.
+
+**Change:** Archive-password and package-restore attempts now also use a hashed remote-address rate-limit key. Successful operations reset the corresponding scoped keys. The raw IP address is not written into the limiter filename.
+
+**Status:** Controller change committed on this branch; CI verification is pending. Proxy deployments must configure the web server so `REMOTE_ADDR` represents the intended client boundary; forwarded headers are deliberately not trusted directly.
+
 ### SPK-API-005 — Package catalog mutations could overwrite concurrent state
 
 **Evidence:** Package expiry and revocation used read-modify-write operations without a shared per-package lock. Concurrent updates could write stale records over one another. Package creation also replaced an existing record if an identifier collision or repeated create reached the same path.
@@ -68,8 +76,8 @@
 ## Validation status
 
 - Source review: completed for the files named above.
-- Regression tests added: token replay, account-store corruption, and session configuration.
-- CI for this branch: pending.
+- Regression tests added: token replay, account-store corruption, session configuration, package catalog mutation/ownership, and API method/media-type policy.
+- CI passed for the code snapshot at `0ee2dd8248f26f3e79edbed06ab1a46d8f42db32`; subsequent changes include additional rate-limit and API-policy test code and require a fresh run.
 - Live HTTP integration tests: NOT RUN.
 - Windows/XAMPP and production-host checks: NOT RUN.
 
