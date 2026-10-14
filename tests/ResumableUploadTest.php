@@ -15,5 +15,6 @@ $store->append($u['id'], 5, '67890', $ownerA);
 $path = $store->finalize($u['id'], $ownerA);
 if (!hash_equals('1234567890', (string) file_get_contents($path))) throw new RuntimeException('Upload assembly failed.');
 $store->remove($u['id']);
+@unlink($root . DIRECTORY_SEPARATOR . '.quota.lock');
 @rmdir($root);
 echo "Resumable upload tests passed.\n";

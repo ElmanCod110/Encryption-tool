@@ -16,11 +16,16 @@ final class WebSecurity
         if ($requireHttps && !$secure) {
             throw new HttpException(503, 'Service is not configured for this connection.');
         }
+        // session.cookie_name is not a PHP INI directive. Set the session
+        // name through the dedicated API before starting the session.
+        if (session_name() !== 'SECUREPKGSESSID') {
+            session_name('SECUREPKGSESSID');
+        }
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
+        ini_set('session.use_trans_sid', '0');
         ini_set('session.cookie_httponly', '1');
         ini_set('session.cookie_samesite', 'Strict');
-        ini_set('session.cookie_name', 'SECUREPKGSESSID');
         session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Strict']);
         session_start();
     }

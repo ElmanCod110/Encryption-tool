@@ -57,6 +57,20 @@ jobs:
           php tests/TamperDetectionTest.php
           php tests/ResumableUploadTest.php
           php tests/SecurityInvariantTest.php
+          php tests/ApiRequestPolicyTest.php
+          php tests/ApiHttpIntegrationTest.php
+          php tests/ArchiveWorkflowRollbackTest.php
+          php tests/RestoreTokenTest.php
+          php tests/RestoreTokenCleanupTest.php
+          php tests/RestoreFailureCleanupTest.php
+          php tests/RestoredDownloadSafetyTest.php
+          php tests/AccountStoreCorruptionTest.php
+          php tests/AccountStoreBehaviorTest.php
+          php tests/PackageAccessTokenStoreTest.php
+          php tests/PackageCatalogMutationTest.php
+          php tests/ResumableUploadQuotaTest.php
+          php tests/WebSecuritySessionConfigurationTest.php
+          php tests/RateLimiterTest.php
           php tests/SignedStateTest.php
           php tests/ReleaseIntegrityTest.php
           php tests/ReleaseVerifierTrustRootTest.php

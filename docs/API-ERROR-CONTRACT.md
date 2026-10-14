@@ -7,7 +7,9 @@
 
 | Condition / action | Current response status | Public response | Audit note |
 | --- | ---: | --- | --- |
-| Unknown `action` | 404 | `Unknown action.` | Explicit route fallback. |
+| Unknown `action` | 404 | `Unknown action.` | Explicit action allowlist and route fallback. |
+| Known action with a non-POST method | 405 | `Method not allowed.` | All API actions require POST; response includes `Allow: POST`. |
+| Wrong or missing media type | 415 | `Unsupported media type.` | JSON actions require `application/json`; upload chunks require `application/octet-stream`; the token-free CSRF bootstrap action does not parse a body. |
 | Invalid JSON / non-array JSON | 400 | `Invalid JSON request.` | Implemented by `Request::json()`. |
 | Request JSON body exceeds configured parser limit | 413 | `Request body is too large.` | Checks declared and actual body length. |
 | CSRF token or same-origin validation failure | 403 | `Request validation failed.` or `Request origin is not allowed.` | Implemented with `HttpException`. |
@@ -16,8 +18,12 @@
 | Archive password attempt rate limit | 429 | `Too many archive password attempts.` | Controller sends response directly. |
 | Package restore rate limit | 429 | `Too many failed attempts.` | Controller sends response directly. |
 | Unhandled API exception | 500 | `Internal server error.` | API boundary logs exception class only. |
-| Registration exception | 422 | `Unable to create account.` | Broad catch currently also maps unexpected failures to 422. |
-| Upload initialization exception | 422 | `Unable to initialize upload.` | Broad catch currently also maps unexpected failures to 422. |
+| Invalid registration input | 422 | `Invalid account details.` | Input validation failures are distinguished from storage failures. |
+| Duplicate account registration | 409 | `Unable to create account.` | Duplicate account is a typed conflict; response avoids echoing the username. |
+| Unexpected account-store failure | 500 | `Internal server error.` | Unexpected failures reach the API boundary, which logs the exception class only. |
+| Malformed login username | 401 | `Unable to sign in.` | Invalid usernames take the dummy password-verification path and do not become 500 responses. |
+| Active upload quota or upload-init rate limit | 429 | `Active upload quota exceeded.` or `Too many upload initialization attempts.` | Per-owner reservation limits and per-IP initialization throttling. |
+| Upload initialization input/storage exception | 422 | `Unable to initialize upload.` | Some non-quota storage failures still need typed classification. |
 | Upload chunk exception | 409 | `Upload chunk rejected.` | Broad catch currently also maps unexpected failures to 409. |
 | Upload finalization exception | 422 | `Unable to finalize upload.` | Broad catch currently also maps unexpected failures to 422. |
 | Archive processing failure | 422 | `Unable to open archive with the supplied password.` | Broad catch; does not distinguish invalid input from server/storage failures. |

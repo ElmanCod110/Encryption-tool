@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace SecurePackage\Security;
 
+use InvalidArgumentException;
 use RuntimeException;
 use SecurePackage\Storage\AtomicFile;
 
@@ -37,7 +38,7 @@ final class AccountStore
         $accounts = $this->read();
         foreach ($accounts as $account) {
             if (hash_equals((string) $account['username_hash'], $this->usernameHash($username))) {
-                throw new RuntimeException('Account already exists.');
+                throw new DuplicateAccountException('Account already exists.');
             }
         }
         $id = bin2hex(random_bytes(16));
@@ -58,7 +59,13 @@ final class AccountStore
 
     public function verify(string $username, string $password): ?string
     {
-        $username = $this->normalizeUsername($username);
+        try {
+            $username = $this->normalizeUsername($username);
+        } catch (InvalidArgumentException) {
+            // Keep malformed and unknown usernames on the same expensive path.
+            password_verify($password, self::DUMMY_PASSWORD_HASH);
+            return null;
+        }
         $usernameHash = $this->usernameHash($username);
         foreach ($this->read() as $account) {
             if (!hash_equals((string) $account['username_hash'], $usernameHash)) {
@@ -93,7 +100,7 @@ final class AccountStore
     {
         $username = trim($username);
         if ($username === '' || strlen($username) < 3 || strlen($username) > 80 || preg_match('/[^A-Za-z0-9_.@-]/', $username)) {
-            throw new RuntimeException('Username is invalid.');
+            throw new InvalidArgumentException('Username is invalid.');
         }
         return strtolower($username);
     }
@@ -107,9 +114,36 @@ final class AccountStore
 
     private function read(): array
     {
-        $raw = file_get_contents($this->file);
-        $data = json_decode((string) $raw, true);
-        return is_array($data) ? $data : [];
+        $raw = @file_get_contents($this->file);
+        if ($raw === false) {
+            throw new RuntimeException('Unable to read account storage.');
+        }
+
+        try {
+            $data = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            throw new RuntimeException('Account storage is invalid.');
+        }
+
+        if (!is_array($data) || !array_is_list($data)) {
+            throw new RuntimeException('Account storage is invalid.');
+        }
+
+        foreach ($data as $account) {
+            if (!is_array($account)
+                || !is_string($account['id'] ?? null)
+                || !preg_match('/^[a-f0-9]{32}$/', $account['id'])
+                || !is_string($account['username_hash'] ?? null)
+                || !preg_match('/^[a-f0-9]{64}$/', $account['username_hash'])
+                || !is_string($account['password_hash'] ?? null)
+                || $account['password_hash'] === ''
+                || !is_string($account['username_hint'] ?? null)
+                || !is_int($account['created_at'] ?? null)) {
+                throw new RuntimeException('Account storage is invalid.');
+            }
+        }
+
+        return $data;
     }
 
     private function write(array $accounts): void
@@ -119,13 +153,24 @@ final class AccountStore
 
     private function replace(string $id, array $replacement): void
     {
-        $accounts = $this->read();
-        foreach ($accounts as $index => $account) {
-            if (($account['id'] ?? '') === $id) {
-                $accounts[$index] = $replacement;
-                $this->write($accounts);
-                return;
+        $lock = fopen($this->file . '.lock', 'c+b');
+        if ($lock === false || !flock($lock, LOCK_EX)) {
+            if (is_resource($lock)) fclose($lock);
+            throw new RuntimeException('Unable to lock account store.');
+        }
+
+        try {
+            $accounts = $this->read();
+            foreach ($accounts as $index => $account) {
+                if (($account['id'] ?? '') === $id) {
+                    $accounts[$index] = $replacement;
+                    $this->write($accounts);
+                    return;
+                }
             }
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
         }
     }
 }

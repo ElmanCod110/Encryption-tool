@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace SecurePackage\Api;
 
+use InvalidArgumentException;
 use RuntimeException;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
@@ -13,6 +14,7 @@ use SecurePackage\Project\V14PackageService;
 use SecurePackage\Security\AccessContext;
 use SecurePackage\Security\ApplicationSecrets;
 use SecurePackage\Security\AccountStore;
+use SecurePackage\Security\DuplicateAccountException;
 use SecurePackage\Security\AuthorizationService;
 use SecurePackage\Security\SecurityPolicy;
 use SecurePackage\Security\FileProjectNameRegistry;
@@ -25,6 +27,8 @@ use SecurePackage\Storage\AuditLogger;
 use SecurePackage\Storage\FileStore;
 use SecurePackage\Storage\JobStore;
 use SecurePackage\Storage\ResumableUploadStore;
+use SecurePackage\Storage\QuotaExceededException;
+use SecurePackage\Storage\UploadException;
 
 final class PackageController
 {
@@ -62,9 +66,15 @@ final class PackageController
             $this->audit->event('account.registered', ['account_id' => $id]);
             sodium_memzero($password);
             JsonResponse::send(['ok' => true, 'authenticated' => true, 'account_id' => $id, 'csrf' => WebSecurity::csrfToken()], 201);
-        } catch (\Throwable) {
+        } catch (DuplicateAccountException) {
             sodium_memzero($password);
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to create account.'], 422);
+            JsonResponse::send(['ok' => false, 'error' => 'Unable to create account.'], 409);
+        } catch (InvalidArgumentException) {
+            sodium_memzero($password);
+            JsonResponse::send(['ok' => false, 'error' => 'Invalid account details.'], 422);
+        } catch (\Throwable $exception) {
+            sodium_memzero($password);
+            throw $exception;
         }
     }
 
@@ -77,11 +87,16 @@ final class PackageController
         $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
         $userKey = 'login:user:' . hash('sha256', strtolower(trim($username)) . '|' . $ip);
         $ipKey = 'login:ip:' . hash('sha256', $ip);
-        if (!$this->rateLimiter->allow($ipKey) || !$this->rateLimiter->allow($userKey)) {
+        try {
+            if (!$this->rateLimiter->allow($ipKey) || !$this->rateLimiter->allow($userKey)) {
+                sodium_memzero($password);
+                JsonResponse::send(['ok' => false, 'error' => 'Too many login attempts.'], 429);
+            }
+            $id = $this->accounts->verify($username, $password);
+        } catch (\Throwable $exception) {
             sodium_memzero($password);
-            JsonResponse::send(['ok' => false, 'error' => 'Too many login attempts.'], 429);
+            throw $exception;
         }
-        $id = $this->accounts->verify($username, $password);
         sodium_memzero($password);
         if ($id === null) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to sign in.'], 401);
@@ -108,11 +123,22 @@ final class PackageController
         $input = Request::json();
         $total = (int) ($input['total_bytes'] ?? 0);
         $sha256 = isset($input['sha256']) ? strtolower((string) $input['sha256']) : null;
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $ipRateKey = 'upload-init:ip:' . hash('sha256', $ip);
+        if (!$this->rateLimiter->allow($ipRateKey)) {
+            JsonResponse::send(['ok' => false, 'error' => 'Too many upload initialization attempts.'], 429);
+        }
         try {
+            // Purge expired upload reservations before enforcing per-owner quotas.
+            $this->uploads->cleanup();
             $result = $this->uploads->initialize($total, AccessContext::ownerId(), $sha256);
             JsonResponse::send(['ok' => true, 'upload' => $result], 201);
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to initialize upload.'], 422);
+        } catch (QuotaExceededException) {
+            JsonResponse::send(['ok' => false, 'error' => 'Active upload quota exceeded.'], 429);
+        } catch (UploadException $exception) {
+            JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+        } catch (\Throwable $exception) {
+            throw $exception;
         }
     }
 
@@ -132,8 +158,10 @@ final class PackageController
         try {
             $state = $this->uploads->append($id, $offset, $chunk, AccessContext::ownerId());
             JsonResponse::send(['ok' => true, 'upload' => $state]);
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Upload chunk rejected.'], 409);
+        } catch (UploadException $exception) {
+            JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+        } catch (\Throwable $exception) {
+            throw $exception;
         }
     }
 
@@ -154,9 +182,12 @@ final class PackageController
             } finally {
                 $this->uploads->remove($uploadId);
             }
-        } catch (\Throwable) {
+        } catch (UploadException $exception) {
             $this->uploads->remove($uploadId);
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to finalize upload.'], 422);
+            JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+        } catch (\Throwable $exception) {
+            $this->uploads->remove($uploadId);
+            throw $exception;
         }
     }
 
@@ -170,13 +201,16 @@ final class PackageController
         try {
             $this->jobs->assertOwner($jobId, AccessContext::ownerId());
             $rateKey = 'archive:' . $jobId . ':' . $archiveId . ':' . hash('sha256', AccessContext::ownerId());
-            if (!$this->rateLimiter->allow($rateKey)) {
+            $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+            $ipRateKey = 'archive:ip:' . hash('sha256', $ip);
+            if (!$this->rateLimiter->allow($ipRateKey) || !$this->rateLimiter->allow($rateKey)) {
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => false, 'error' => 'Too many archive password attempts.'], 429);
             }
             try {
                 $state = $this->archives->process($jobId, $archiveId, $password);
                 $this->rateLimiter->success($rateKey);
+                $this->rateLimiter->success($ipRateKey);
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => true, 'state' => $state]);
             } catch (\Throwable) {
@@ -198,27 +232,30 @@ final class PackageController
         $password = (string) ($input['password'] ?? '');
         $pattern = (string) ($input['pattern'] ?? '');
         $createRecovery = (bool) ($input['create_recovery'] ?? true);
-        $buildStarted = false;
+        $packageCreated = false;
+        $packageDirectory = null;
+        $portableArchive = null;
         try {
             $this->jobs->assertOwner($jobId, AccessContext::ownerId());
             $state = $this->jobs->readState($jobId);
             if (($state['status'] ?? '') !== 'ready_to_build') JsonResponse::send(['ok' => false, 'error' => 'Archive extraction is not complete.'], 409);
             Validator::validateProjectName($name); Validator::validatePassword($password); Validator::validatePattern($pattern);
-            $buildStarted = true;
             $service = $this->makePackageService();
             $result = $service->build($this->archives->sourceDirectory($jobId), $name, $password, $pattern, $createRecovery);
-            $portable = $result['package_dir'] . '.spkg14';
+            $packageDirectory = $result['package_dir'];
+            $portableArchive = $packageDirectory . '.spkg14';
             try {
-                (new PackageArchive())->create($result['package_dir'], $portable);
+                (new PackageArchive())->create($packageDirectory, $portableArchive);
             } catch (\Throwable $archiveError) {
-                $this->removePath($portable);
-                $this->removePath($result['package_dir']);
+                $this->removePath($portableArchive);
+                $this->removePath($packageDirectory);
                 throw $archiveError;
             }
             // The portable archive is the canonical stored package. Keeping both the extracted
             // package directory and .spkg14 duplicates encrypted bytes and wastes disk space.
             $this->removePath($result['package_dir']);
             $this->catalog->create($result['package_id'], AccessContext::ownerId(), $name);
+            $packageCreated = true;
             $token = $this->accessTokens->issue($result['package_id'], AccessContext::ownerId(), false);
             $this->audit->event('package.created', ['package_id' => $result['package_id'], 'account_id' => AccessContext::accountId(), 'nodes' => $result['stats']['nodes'] ?? null, 'format' => 'SECURE-PKG-V14']);
             // The encrypted package is now stored and catalogued; remove the plaintext extraction job.
@@ -234,8 +271,16 @@ final class PackageController
                 'format' => 'SECURE-PKG-V14',
             ], 201);
         } catch (\Throwable) {
-            if ($buildStarted) {
-                try { $this->removeJobDirectory($jobId); } catch (\Throwable) {}
+            // Never discard the only plaintext source copy when packaging fails. If catalog
+            // creation did not complete, remove incomplete encrypted artifacts; once catalogued,
+            // retain the package so a transient token/audit failure cannot destroy user data.
+            if (!$packageCreated) {
+                if (is_string($portableArchive)) {
+                    try { $this->removePath($portableArchive); } catch (\Throwable) {}
+                }
+                if (is_string($packageDirectory)) {
+                    try { $this->removePath($packageDirectory); } catch (\Throwable) {}
+                }
             }
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
@@ -251,8 +296,11 @@ final class PackageController
         $pattern = (string) ($input['pattern'] ?? '');
         $recoveryKey = isset($input['recovery_key']) ? trim((string) $input['recovery_key']) : null;
         $rateKey = 'package:' . $packageId . ':' . hash('sha256', AccessContext::ownerId());
-        if (!$this->rateLimiter->allow($rateKey)) {
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $ipRateKey = 'package:ip:' . hash('sha256', $ip);
+        if (!$this->rateLimiter->allow($ipRateKey) || !$this->rateLimiter->allow($rateKey)) {
             sodium_memzero($password); sodium_memzero($pattern);
+            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Too many failed attempts.'], 429);
         }
         $outputDir = null;
@@ -261,8 +309,8 @@ final class PackageController
                 Validator::validatePassword($password);
                 Validator::validatePattern($pattern);
             }
-            $record = $this->catalog->get($packageId);
-            if (($record['revoked_at'] ?? null) !== null || ($record['expires_at'] ?? null) !== null && (int) $record['expires_at'] < time()) throw new RuntimeException('Unavailable.');
+            // Centralize revocation and expiry checks so decrypt uses the same boundary as downloads.
+            $this->catalog->assertAvailable($packageId);
             $packageDir = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
             $temporaryPackageDir = null;
             $portable = $packageDir . '.spkg14';
@@ -281,6 +329,7 @@ final class PackageController
             $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
             $restoreToken = $tokenStore->issue($outputDir);
             $this->rateLimiter->success($rateKey);
+            $this->rateLimiter->success($ipRateKey);
             $this->audit->event('package.restored', ['package_id' => $packageId, 'account_id' => AccessContext::accountId(), 'files' => $result['files'] ?? null]);
             sodium_memzero($password); sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);

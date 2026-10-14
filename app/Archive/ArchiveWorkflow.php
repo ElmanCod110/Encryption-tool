@@ -85,6 +85,7 @@ final class ArchiveWorkflow
         $localFiles = 0;
         $localBytes = 0;
         $newArchives = [];
+        $mergedEntries = [];
         try {
             if ($zip->open($archivePath) !== true) {
                 throw new RuntimeException('Unable to open archive.');
@@ -149,7 +150,7 @@ final class ArchiveWorkflow
                 }
             }
             $zip->close();
-            $this->mergeDirectory($stage, $destination);
+            $mergedEntries = $this->mergeDirectory($stage, $destination);
             $state['stats']['archives']++;
             $state['stats']['files'] += $localFiles;
             $state['stats']['bytes'] += $localBytes;
@@ -162,6 +163,7 @@ final class ArchiveWorkflow
             return $this->publicState($state);
         } catch (\Throwable $e) {
             try { $zip->close(); } catch (\Throwable) {}
+            $this->rollbackMergedEntries($mergedEntries);
             $this->removeDirectory($stage);
             // Nested archives moved out of staging are not committed to state until the whole
             // parent archive succeeds; remove those orphan copies when processing fails.
@@ -194,19 +196,51 @@ final class ArchiveWorkflow
         ];
     }
 
-    private function mergeDirectory(string $source, string $target): void
+    /**
+     * Move staged entries into the job source and return enough information to roll
+     * the move back if committing the job state fails.
+     */
+    private function mergeDirectory(string $source, string $target): array
     {
         if (!is_dir($target) && !mkdir($target, 0700, true) && !is_dir($target)) {
             throw new RuntimeException('Unable to create destination directory.');
         }
-        $iterator = new \FilesystemIterator($source, \FilesystemIterator::SKIP_DOTS);
-        foreach ($iterator as $item) {
+
+        $moves = [];
+        foreach (new \FilesystemIterator($source, \FilesystemIterator::SKIP_DOTS) as $item) {
             $destination = $target . DIRECTORY_SEPARATOR . $item->getFilename();
-            if (file_exists($destination)) {
+            if (file_exists($destination) || is_link($destination)) {
                 throw new RuntimeException('Archive output path collision detected.');
             }
-            if (!rename($item->getPathname(), $destination)) {
-                throw new RuntimeException('Unable to finalize extracted content.');
+            $moves[] = ['source' => $item->getPathname(), 'destination' => $destination];
+        }
+
+        $moved = [];
+        try {
+            foreach ($moves as $move) {
+                if (!rename($move['source'], $move['destination'])) {
+                    throw new RuntimeException('Unable to finalize extracted content.');
+                }
+                $moved[] = $move;
+            }
+        } catch (\Throwable $error) {
+            $this->rollbackMergedEntries($moved);
+            throw $error;
+        }
+
+        return $moved;
+    }
+
+    private function rollbackMergedEntries(array $moves): void
+    {
+        foreach (array_reverse($moves) as $move) {
+            $source = (string) ($move['source'] ?? '');
+            $destination = (string) ($move['destination'] ?? '');
+            if ($source === '' || $destination === '' || (!file_exists($destination) && !is_link($destination))) {
+                continue;
+            }
+            if (!file_exists($source) && !is_link($source)) {
+                @rename($destination, $source);
             }
         }
     }

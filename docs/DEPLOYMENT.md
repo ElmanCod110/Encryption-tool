@@ -37,6 +37,10 @@ composer audit --no-interaction
 
 Keep the Ed25519 private release key outside the repository. After signing the active source tree, distribute the exact SHA-256 archive checksum and the public trust key through an independent channel.
 
+## Upload quotas
+
+The server enforces both a per-upload size limit and active upload reservations per owner. The current configuration defaults to at most **3 active uploads** and **1 TiB of aggregate declared upload bytes per owner**. Upload initialization is also rate-limited by a hashed remote-address key. Tune `max_active_uploads_per_owner`, `max_active_upload_bytes_per_owner`, `max_upload_bytes`, and the upload TTL in `config/config.php` to fit the actual disk budget and expected workload. These controls complement, but do not replace, filesystem quotas and monitoring.
+
 ## Storage permissions
 
 Use restrictive filesystem permissions for package, upload, temporary, catalog, account, rate-limit, and audit directories. Package files should not be executable.

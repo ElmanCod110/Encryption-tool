@@ -12,7 +12,22 @@
 - Added a build-cleanup regression check.
 - Added the missing archive staging-directory cleanup method after the integration test exposed its absence.
 
-**Validation note:** An earlier CI run exposed a missing cleanup method and a later run exposed a PHP namespace-separator syntax error in that method. Both were corrected in subsequent commits. The latest branch still requires a fresh successful CI run before these changes can be considered validated.
+**Validation note:** An earlier CI run exposed a missing cleanup method and a PHP namespace-separator syntax error; both were corrected. The initial archive/storage changes were merged by PR #17. Phase-2 CI evidence is recorded separately below.
+
+## Phase 2 progress — 2026-10-14
+
+The first API/authentication hardening pass is being reviewed in PR #18 (`security/phase-2-api-auth-hardening`).
+
+- Single-use download tokens now persist a consumed marker while holding the exclusive lock, preventing concurrent replay against an already-open inode.
+- Account storage now rejects malformed or structurally invalid JSON rather than treating it as an empty account list; password-hash rehash writes use the account-store lock.
+- Session naming now uses PHP's `session_name()` API; URL-based session propagation is disabled.
+- API actions enforce POST and the expected request media type.
+- Package catalog create/expiry/revoke/delete operations serialize with per-package locks, and catalog reads validate record shape.
+- Upload initialization now enforces per-owner active-upload count and reserved-byte quotas under a global quota lock; upload creation is also rate-limited per IP.
+- Regression tests cover token replay, corrupt account storage, session settings, catalog mutation/ownership, API request policy, and upload quotas.
+- CI passed for the phase-2 code at `1b8980e7e07f24c52ae184354940cb1cb6fa589d`: CI, Security and Release Integrity, and Client Security all succeeded. The isolated live HTTP regression test is included. Manual deployment checks and the remaining typed-error-classification review are still open.
+
+See [Phase 2 API and Authentication Audit](PHASE-2-API-AUTH-AUDIT.md) for finding-level evidence and remaining work.
 
 ## Goals
 
