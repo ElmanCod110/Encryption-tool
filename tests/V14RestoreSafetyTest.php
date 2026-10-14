@@ -5,6 +5,7 @@ require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Project\V14PackageBuilder;
 use SecurePackage\Project\V14PackageReader;
+use SecurePackage\Project\PackageRestoreRejectedException;
 
 $root = sys_get_temp_dir() . '/securepkg-v14-restore-safe-' . bin2hex(random_bytes(6));
 $source = $root . '/source';
@@ -23,6 +24,15 @@ try {
     $actual = hash_file('sha256', $restore . '/docs/deep/readme.txt');
     if ($expected === false || $actual === false || !hash_equals($expected, $actual)) throw new RuntimeException('Restore round-trip failed.');
     if (file_get_contents($restore . '/docs/deep/zero.bin') !== '') throw new RuntimeException('Empty file restore failed.');
+
+    $wrongCredentialRestore = $root . '/wrong-credential-restore';
+    try {
+        (new V14PackageReader())->restore($package, $wrongCredentialRestore, 'V14-Other-Strong-Password-2026!', $pattern);
+        throw new RuntimeException('Wrong credentials were accepted.');
+    } catch (PackageRestoreRejectedException) {
+        // Invalid credentials are expected input/package failures, not server errors.
+    }
+    if (file_exists($wrongCredentialRestore)) throw new RuntimeException('Wrong credentials left a restore destination behind.');
 
     try {
         (new V14PackageReader())->restore($package, $restore, $password, $pattern);
