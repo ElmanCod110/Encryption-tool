@@ -222,4 +222,33 @@ final class ArchiveWorkflow
         fclose($handle);
         return in_array($signature, ["PK\x03\x04", "PK\x05\x06", "PK\x07\x08"], true);
     }
+    private function removeDirectory(string $path): void
+    {
+        if (is_link($path)) {
+            @unlink($path);
+            return;
+        }
+        if (is_file($path)) {
+            @unlink($path);
+            return;
+        }
+        if (!is_dir($path)) {
+            return;
+        }
+
+        $iterator = new \\RecursiveIteratorIterator(
+            new \\RecursiveDirectoryIterator($path, \\FilesystemIterator::SKIP_DOTS),
+            \\RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            $itemPath = $item->getPathname();
+            if ($item->isLink() || !$item->isDir()) {
+                @unlink($itemPath);
+            } else {
+                @rmdir($itemPath);
+            }
+        }
+        @rmdir($path);
+    }
+
 }
