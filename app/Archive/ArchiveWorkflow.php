@@ -116,8 +116,13 @@ final class ArchiveWorkflow
                 $out = fopen($target, 'xb');
                 if ($out === false) { fclose($stream); throw new RuntimeException('Unable to create extracted file.'); }
                 try {
-                    $copied = stream_copy_to_stream($stream, $out);
-                    if ($copied === false) throw new RuntimeException('Unable to extract archive content.');
+                    $remainingTotal = $this->policy->maxTotalUncompressedBytes - (int) $state['stats']['bytes'] - $localBytes;
+                    $copied = (new BoundedStreamCopier())->copy(
+                        $stream,
+                        $out,
+                        $this->policy->maxSingleFileBytes,
+                        max(0, $remainingTotal)
+                    );
                 } finally { fclose($stream); fclose($out); }
                 $localFiles++;
                 $localBytes += $copied;
