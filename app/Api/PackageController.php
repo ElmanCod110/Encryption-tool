@@ -25,6 +25,7 @@ use SecurePackage\Storage\AuditLogger;
 use SecurePackage\Storage\FileStore;
 use SecurePackage\Storage\JobStore;
 use SecurePackage\Storage\ResumableUploadStore;
+use SecurePackage\Storage\QuotaExceededException;
 
 final class PackageController
 {
@@ -108,9 +109,16 @@ final class PackageController
         $input = Request::json();
         $total = (int) ($input['total_bytes'] ?? 0);
         $sha256 = isset($input['sha256']) ? strtolower((string) $input['sha256']) : null;
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $ipRateKey = 'upload-init:ip:' . hash('sha256', $ip);
+        if (!$this->rateLimiter->allow($ipRateKey)) {
+            JsonResponse::send(['ok' => false, 'error' => 'Too many upload initialization attempts.'], 429);
+        }
         try {
             $result = $this->uploads->initialize($total, AccessContext::ownerId(), $sha256);
             JsonResponse::send(['ok' => true, 'upload' => $result], 201);
+        } catch (QuotaExceededException) {
+            JsonResponse::send(['ok' => false, 'error' => 'Active upload quota exceeded.'], 429);
         } catch (\Throwable) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to initialize upload.'], 422);
         }
