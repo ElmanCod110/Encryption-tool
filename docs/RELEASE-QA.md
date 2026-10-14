@@ -17,8 +17,8 @@ For a local checkout with PHP 8.2+ and the required extensions:
 
 | Check | Procedure | Expected result | Result / evidence |
 | --- | --- | --- | --- |
-| Composer manifest | `composer validate --strict --no-check-publish` | Manifest validates strictly | NOT RUN — record CI run |
-| Dependency audit | `composer audit --no-interaction` | No unreviewed advisories | BLOCKED until a real `composer.lock` is committed |
+| Composer manifest | `composer validate --strict --no-check-publish` | Manifest validates strictly | PASS in lockfile generator run; rerun on final candidate |
+| Dependency audit | `composer audit --no-interaction` | No unreviewed advisories | PASS in lockfile generator run; no advisories reported; rerun on final candidate |
 | PHP syntax | `find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l` | Every PHP file parses | NOT RUN — record CI run |
 | JavaScript syntax | `find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check` | Every JavaScript file parses | NOT RUN — record CI run |
 | Runtime self-check | `php bin/self-check.php` | Required runtime capabilities pass | NOT RUN — record CI run |
@@ -27,7 +27,7 @@ For a local checkout with PHP 8.2+ and the required extensions:
 | PHP regression tests | `for test in tests/*.php; do php "$test" || exit 1; done` | Every PHP test exits successfully | NOT RUN — record CI run |
 | Browser V13 round-trip | `node tests/BrowserV13RoundTripTest.mjs` | Compatibility test passes | NOT RUN — record CI run |
 
-The CI workflow may run some of these checks automatically. Link the actual Actions run rather than copying a previous result or marking this table PASS by assumption. The current endpoint response mapping and known error-contract gaps are tracked in [API Error Contract Audit](API-ERROR-CONTRACT.md); use that audit to add concrete integration scenarios rather than treating source-text checks as end-to-end proof.
+The Composer-generated lockfile was strictly validated and audited in [the lockfile generation workflow](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38636009471). The generated-lock PR passed [CI](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38636121662), [Client Security](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38636121633), and [Security and Release Integrity](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38636121775). These results apply to the generated-lock PR head; rerun checks on the final candidate commit. The CI workflow may run some of these checks automatically. Link the actual Actions run rather than copying a previous result or marking this table PASS by assumption. The current endpoint response mapping and known error-contract gaps are tracked in [API Error Contract Audit](API-ERROR-CONTRACT.md); use that audit to add concrete integration scenarios rather than treating source-text checks as end-to-end proof.
 
 ## Windows / XAMPP deployment
 
@@ -87,4 +87,4 @@ Before marking a release ready, attach or link:
 - Reproducible steps and sanitized logs for any FAIL or BLOCKED result.
 - A release note listing any untested platforms, known limitations, and outstanding blockers.
 
-**Current status:** this document is a test plan, not a claim that the listed manual scenarios have passed. The missing root `composer.lock` remains a release blocker until a genuine lockfile is generated with Composer, reviewed, and committed.
+**Current status:** this document is a test plan, not a claim that the listed manual scenarios have passed. A genuine Composer-generated `composer.lock` is present on the release-readiness branch, and its generator validation/audit plus PR CI passed. Re-run automated checks on the final candidate. Windows/XAMPP and real-browser scenarios remain **NOT RUN** until evidence is recorded.
