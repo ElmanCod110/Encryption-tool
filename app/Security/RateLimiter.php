@@ -142,9 +142,11 @@ final class RateLimiter
         if (!is_file($file)) {
             return ['failures' => 0, 'window_start' => time()];
         }
-        $record = json_decode((string) file_get_contents($file), true);
+        $contents = (string) file_get_contents($file);
+        $record = json_decode($contents, true);
         if (!is_array($record)) {
-            return ['failures' => 0, 'window_start' => time()];
+            // Treat unreadable state as blocked until a fresh window can be established.
+            return ['failures' => $this->maxFailures, 'window_start' => (int) @filemtime($file) ?: time()];
         }
         return [
             'failures' => max(0, (int) ($record['failures'] ?? 0)),
