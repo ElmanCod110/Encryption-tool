@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace SecurePackage\Security;
 
+use InvalidArgumentException;
 use RuntimeException;
 use SecurePackage\Storage\AtomicFile;
 
@@ -37,7 +38,7 @@ final class AccountStore
         $accounts = $this->read();
         foreach ($accounts as $account) {
             if (hash_equals((string) $account['username_hash'], $this->usernameHash($username))) {
-                throw new RuntimeException('Account already exists.');
+                throw new DuplicateAccountException('Account already exists.');
             }
         }
         $id = bin2hex(random_bytes(16));
@@ -58,7 +59,13 @@ final class AccountStore
 
     public function verify(string $username, string $password): ?string
     {
-        $username = $this->normalizeUsername($username);
+        try {
+            $username = $this->normalizeUsername($username);
+        } catch (InvalidArgumentException) {
+            // Keep malformed and unknown usernames on the same expensive path.
+            password_verify($password, self::DUMMY_PASSWORD_HASH);
+            return null;
+        }
         $usernameHash = $this->usernameHash($username);
         foreach ($this->read() as $account) {
             if (!hash_equals((string) $account['username_hash'], $usernameHash)) {
@@ -93,7 +100,7 @@ final class AccountStore
     {
         $username = trim($username);
         if ($username === '' || strlen($username) < 3 || strlen($username) > 80 || preg_match('/[^A-Za-z0-9_.@-]/', $username)) {
-            throw new RuntimeException('Username is invalid.');
+            throw new InvalidArgumentException('Username is invalid.');
         }
         return strtolower($username);
     }
