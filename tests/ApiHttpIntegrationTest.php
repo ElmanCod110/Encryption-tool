@@ -157,6 +157,7 @@ try {
         throw new RuntimeException('Registration did not return a CSRF token.');
     }
     $csrf = $registration['csrf'];
+    $cookie = '';
     foreach ($registerResponse['headers'] as $header) {
         if (stripos($header, 'Set-Cookie: SECUREPKGSESSID=') === 0
             && preg_match('/SECUREPKGSESSID=([^;]+)/', $header, $cookieMatch)) {
