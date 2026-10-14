@@ -38,15 +38,15 @@ try {
         $config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens',
         (int) $config['limits']['restore_ttl_seconds']
     );
-    $directory = $store->consume($token);
+    $candidateDirectory = $store->consume($token);
 
-    // Restore tokens may only point to generated restore-* directories directly under temp.
+    // Validate the token target before allowing cleanup to touch the directory.
     $tempRoot = realpath($config['storage']['temp']);
-    $restorePath = realpath($directory);
+    $restorePath = realpath($candidateDirectory);
     if ($tempRoot === false || $restorePath === false
         || dirname($restorePath) !== $tempRoot
         || !str_starts_with(basename($restorePath), 'restore-')
-        || is_link($directory)) {
+        || is_link($candidateDirectory)) {
         throw new RuntimeException('Restore directory is invalid.');
     }
     $directory = $restorePath;
