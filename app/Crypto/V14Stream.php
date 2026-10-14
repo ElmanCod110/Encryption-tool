@@ -5,6 +5,7 @@ namespace SecurePackage\Crypto;
 
 use RuntimeException;
 use SecurePackage\Project\V14Descriptor;
+use SecurePackage\Project\PackageStorageException;
 
 final class V14Stream
 {
@@ -15,13 +16,13 @@ final class V14Stream
     public static function encryptFile(string $source, string $destination, string $key, string $aad, int $plainSize, int $chunkBytes = 4 * 1024 * 1024): void
     {
         if (strlen($key) !== V14Descriptor::KEY_BYTES || $plainSize < 0 || $chunkBytes < 64 * 1024 || $chunkBytes > 8 * 1024 * 1024) throw new RuntimeException('Invalid stream configuration.');
-        if (!is_file($source)) throw new RuntimeException('Source file does not exist.');
+        if (!is_file($source)) throw new PackageStorageException('Source file does not exist.');
         $in = fopen($source, 'rb');
-        if ($in === false) throw new RuntimeException('Unable to open source file.');
+        if ($in === false) throw new PackageStorageException('Unable to open source file.');
         $tmp = $destination . '.partial.' . bin2hex(random_bytes(12));
         self::ensureParent($destination);
         $out = fopen($tmp, 'wb');
-        if ($out === false) { fclose($in); throw new RuntimeException('Unable to create encrypted file.'); }
+        if ($out === false) { fclose($in); throw new PackageStorageException('Unable to create encrypted file.'); }
         try {
             [$state, $header] = sodium_crypto_secretstream_xchacha20poly1305_init_push($key);
             self::writeAll($out, self::MAGIC . $header);
@@ -46,7 +47,7 @@ final class V14Stream
             fflush($out);
             fclose($out); $out = null;
             fclose($in); $in = null;
-            if (!rename($tmp, $destination)) throw new RuntimeException('Unable to finalize encrypted file.');
+            if (!rename($tmp, $destination)) throw new PackageStorageException('Unable to finalize encrypted file.');
             @chmod($destination, 0600);
         } catch (\Throwable $e) {
             if (is_resource($in)) fclose($in);
@@ -61,11 +62,11 @@ final class V14Stream
     {
         if (strlen($key) !== V14Descriptor::KEY_BYTES || $expectedPlainSize < 0) throw new RuntimeException('Invalid stream configuration.');
         $in = fopen($source, 'rb');
-        if ($in === false) throw new RuntimeException('Unable to open encrypted file.');
+        if ($in === false) throw new PackageStorageException('Unable to open encrypted file.');
         $tmp = $destination . '.partial.' . bin2hex(random_bytes(12));
         self::ensureParent($destination);
         $out = fopen($tmp, 'wb');
-        if ($out === false) { fclose($in); throw new RuntimeException('Unable to create restored file.'); }
+        if ($out === false) { fclose($in); throw new PackageStorageException('Unable to create restored file.'); }
         try {
             $header = self::readExact($in, strlen(self::MAGIC) + SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES);
             if (!hash_equals(self::MAGIC, substr($header, 0, strlen(self::MAGIC)))) throw new RuntimeException('Invalid encrypted stream.');
@@ -100,7 +101,7 @@ final class V14Stream
             fflush($out);
             fclose($out); $out = null;
             fclose($in); $in = null;
-            if (!rename($tmp, $destination)) throw new RuntimeException('Unable to finalize restored file.');
+            if (!rename($tmp, $destination)) throw new PackageStorageException('Unable to finalize restored file.');
             @chmod($destination, 0600);
         } catch (\Throwable $e) {
             if (is_resource($in)) fclose($in);
@@ -120,7 +121,7 @@ final class V14Stream
     private static function ensureParent(string $path): void
     {
         $dir = dirname($path);
-        if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) throw new RuntimeException('Unable to initialize destination directory.');
+        if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) throw new PackageStorageException('Unable to initialize destination directory.');
     }
 
     private static function writeAll($handle, string $data): void
@@ -129,7 +130,7 @@ final class V14Stream
         $len = strlen($data);
         while ($offset < $len) {
             $n = fwrite($handle, substr($data, $offset));
-            if ($n === false || $n === 0) throw new RuntimeException('Unable to write encrypted data.');
+            if ($n === false || $n === 0) throw new PackageStorageException('Unable to write encrypted data.');
             $offset += $n;
         }
     }
