@@ -54,7 +54,7 @@ final class PackageCatalog
         }
         try {
             $data = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
-        } catch (\\JsonException) {
+        } catch (\JsonException) {
             throw new RuntimeException('Package record is invalid.');
         }
         if (!is_array($data)
