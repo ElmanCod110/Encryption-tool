@@ -33,6 +33,19 @@ final class RateLimiter
             $contents = stream_get_contents($handle) ?: '';
             $record = json_decode($contents, true);
             $now = time();
+            if ($contents !== '' && !is_array($record)) {
+                // Corrupt limiter state must not silently reset the attempt counter.
+                $record = ['failures' => $this->maxFailures, 'window_start' => $now];
+                rewind($handle);
+                ftruncate($handle, 0);
+                $encoded = json_encode($record, JSON_THROW_ON_ERROR);
+                if (fwrite($handle, $encoded) !== strlen($encoded)) {
+                    throw new RuntimeException('Unable to persist rate-limit state.');
+                }
+                fflush($handle);
+                @chmod($file, 0600);
+                return false;
+            }
             if (!is_array($record) || ($now - (int) ($record['window_start'] ?? $now)) >= $this->windowSeconds) {
                 $record = ['failures' => 0, 'window_start' => $now];
             }
@@ -100,7 +113,27 @@ final class RateLimiter
 
     public function success(string $key): void
     {
-        @unlink($this->file($key));
+        $file = $this->file($key);
+        if (is_link($file)) return;
+        $handle = fopen($file, 'c+');
+        if ($handle === false) return;
+        if (!flock($handle, LOCK_EX)) {
+            fclose($handle);
+            return;
+        }
+        try {
+            $encoded = json_encode(['failures' => 0, 'window_start' => time()], JSON_THROW_ON_ERROR);
+            rewind($handle);
+            ftruncate($handle, 0);
+            if (fwrite($handle, $encoded) !== strlen($encoded)) {
+                throw new RuntimeException('Unable to reset rate-limit state.');
+            }
+            fflush($handle);
+            @chmod($file, 0600);
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
     }
 
     private function read(string $key): array
@@ -109,9 +142,11 @@ final class RateLimiter
         if (!is_file($file)) {
             return ['failures' => 0, 'window_start' => time()];
         }
-        $record = json_decode((string) file_get_contents($file), true);
+        $contents = (string) file_get_contents($file);
+        $record = json_decode($contents, true);
         if (!is_array($record)) {
-            return ['failures' => 0, 'window_start' => time()];
+            // Treat unreadable state as blocked until a fresh window can be established.
+            return ['failures' => $this->maxFailures, 'window_start' => (int) @filemtime($file) ?: time()];
         }
         return [
             'failures' => max(0, (int) ($record['failures'] ?? 0)),

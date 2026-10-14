@@ -46,10 +46,12 @@ function requireAuth() {
   return false;
 }
 
-function strength(input, output) {
+function updateLengthIndicator(input, output) {
   const value = $(input).value;
   const score = Math.min(100, Math.round((value.length / 32) * 100));
-  $(output).style.width = `${score}%`;
+  const indicator = $(output);
+  indicator.style.width = `${score}%`;
+  indicator.setAttribute('aria-label', `Length indicator: ${value.length} characters. Server-side validation is authoritative.`);
 }
 
 function toggleSecret(inputId) {
@@ -63,8 +65,8 @@ function addLink(label, url) {
 
 $('showPassword').onclick = () => toggleSecret('password');
 $('showPattern').onclick = () => toggleSecret('pattern');
-$('password').oninput = () => strength('password', 'passwordStrength');
-$('pattern').oninput = () => strength('pattern', 'patternStrength');
+$('password').oninput = () => updateLengthIndicator('password', 'passwordStrength');
+$('pattern').oninput = () => updateLengthIndicator('pattern', 'patternStrength');
 
 const zone = $('dropzone');
 const fileInput = $('archive');

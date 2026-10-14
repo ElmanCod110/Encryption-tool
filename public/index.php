@@ -81,11 +81,13 @@ $csrf = WebSecurity::csrfToken();
         <span>Encryption password</span><strong>Argon2id credential wrapping</strong>
         <div class="secret-row"><input class="text-input" id="password" type="password" autocomplete="new-password" placeholder="Strong password"><button class="icon-button" id="showPassword" type="button" aria-label="Show password">◉</button></div>
         <div class="strength"><span id="passwordStrength"></span></div>
+        <small class="helper">Length indicator only; server-side validation is authoritative.</small>
       </div>
       <div class="field-card">
         <span>Encryption pattern</span><strong>Independent Argon2id input</strong>
         <div class="secret-row"><input class="text-input" id="pattern" type="password" autocomplete="new-password" placeholder="High-entropy pattern"><button class="icon-button" id="showPattern" type="button" aria-label="Show pattern">◉</button></div>
         <div class="strength"><span id="patternStrength"></span></div>
+        <small class="helper">Length indicator only; server-side validation is authoritative.</small>
       </div>
       <div class="field-card full-card">
         <span>Recovery policy</span><strong>Independent random recovery key</strong>

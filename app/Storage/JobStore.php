@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace SecurePackage\Storage;
 
+use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 
 final class JobStore
@@ -35,10 +38,40 @@ final class JobStore
             throw new RuntimeException('Invalid job identifier.');
         }
         $path = $this->root . DIRECTORY_SEPARATOR . $id;
-        if (!is_dir($path)) {
+        if (!is_dir($path) || is_link($path)) {
             throw new RuntimeException('Job does not exist.');
         }
         return $path;
+    }
+
+    /**
+     * Remove one validated job without following symlinks inside its directory.
+     */
+    public function remove(string $id): void
+    {
+        if (!preg_match('/^[a-f0-9]{48}$/', $id)) {
+            throw new RuntimeException('Invalid job identifier.');
+        }
+        $path = $this->root . DIRECTORY_SEPARATOR . $id;
+        if (is_link($path)) {
+            if (!unlink($path)) throw new RuntimeException('Unable to remove job link.');
+            return;
+        }
+        if (!is_dir($path)) return;
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            $itemPath = $item->getPathname();
+            if ($item->isLink() || !$item->isDir()) {
+                if (!unlink($itemPath)) throw new RuntimeException('Unable to remove job file.');
+            } elseif (!rmdir($itemPath)) {
+                throw new RuntimeException('Unable to remove job directory.');
+            }
+        }
+        if (!rmdir($path)) throw new RuntimeException('Unable to remove job.');
     }
 
     public function assertOwner(string $id, string $ownerToken): void
@@ -67,8 +100,14 @@ final class JobStore
     {
         $path = $this->path($id) . DIRECTORY_SEPARATOR . 'state.json';
         $tmp = $path . '.partial.' . bin2hex(random_bytes(6));
-        file_put_contents($tmp, json_encode($state, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), LOCK_EX);
-        rename($tmp, $path);
+        if (file_put_contents($tmp, json_encode($state, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), LOCK_EX) === false) {
+            @unlink($tmp);
+            throw new RuntimeException('Unable to write job state.');
+        }
+        if (!rename($tmp, $path)) {
+            @unlink($tmp);
+            throw new RuntimeException('Unable to commit job state.');
+        }
         @chmod($path, 0600);
     }
 }

@@ -20,26 +20,33 @@ final class ArchiveWorkflow
             throw new RuntimeException('PHP Zip extension is required.');
         }
         $job = $this->jobs->create();
-        $archiveId = bin2hex(random_bytes(16));
-        $archivePath = $job['path'] . DIRECTORY_SEPARATOR . 'archives' . DIRECTORY_SEPARATOR . $archiveId . '.zip';
-        if (!copy($uploadedZip, $archivePath)) {
-            throw new RuntimeException('Unable to initialize archive job.');
+        try {
+            $archiveId = bin2hex(random_bytes(16));
+            $archivePath = $job['path'] . DIRECTORY_SEPARATOR . 'archives' . DIRECTORY_SEPARATOR . $archiveId . '.zip';
+            if (!@copy($uploadedZip, $archivePath)) {
+                throw new RuntimeException('Unable to initialize archive job.');
+            }
+            @chmod($archivePath, 0600);
+            $state = [
+                'status' => 'awaiting_archive_password',
+                'root_archive' => $archiveId,
+                'pending' => [[
+                    'id' => $archiveId,
+                    'file' => 'archives/' . $archiveId . '.zip',
+                    'destination' => 'source',
+                    'depth' => 0,
+                    'display_name' => 'Root archive',
+                ]],
+                'completed' => [],
+                'stats' => ['archives' => 0, 'files' => 0, 'bytes' => 0],
+                'created_at' => time(),
+            ];
+            $this->jobs->writeState($job['id'], $state);
+            return ['job_id' => $job['id'], 'state' => $this->publicState($state)];
+        } catch (\Throwable $error) {
+            try { $this->jobs->remove($job['id']); } catch (\Throwable) {}
+            throw $error;
         }
-        $state = [
-            'status' => 'awaiting_archive_password',
-            'root_archive' => $archiveId,
-            'pending' => [[
-                'id' => $archiveId,
-                'file' => 'archives/' . $archiveId . '.zip',
-                'destination' => 'source',
-                'display_name' => 'Root archive',
-            ]],
-            'completed' => [],
-            'stats' => ['archives' => 0, 'files' => 0, 'bytes' => 0],
-            'created_at' => time(),
-        ];
-        $this->jobs->writeState($job['id'], $state);
-        return ['job_id' => $job['id'], 'state' => $this->publicState($state)];
     }
 
     public function process(string $jobId, string $archiveId, string $password): array
@@ -91,6 +98,7 @@ final class ArchiveWorkflow
                 if ($stat === false) throw new RuntimeException('Unable to inspect archive entry.');
                 $name = str_replace('\\', '/', (string) ($stat['name'] ?? ''));
                 $this->validateEntryPath($name);
+                $this->policy->assertSafePath($name);
                 if (strlen($name) > $this->policy->maxPathLength) throw new RuntimeException('Archive path is too long.');
                 if ($this->isSymbolicLink($zip, $i)) throw new RuntimeException('Symbolic links are not supported.');
 
@@ -114,13 +122,20 @@ final class ArchiveWorkflow
                 $out = fopen($target, 'xb');
                 if ($out === false) { fclose($stream); throw new RuntimeException('Unable to create extracted file.'); }
                 try {
-                    $copied = stream_copy_to_stream($stream, $out);
-                    if ($copied === false) throw new RuntimeException('Unable to extract archive content.');
+                    $remainingTotal = $this->policy->maxTotalUncompressedBytes - (int) $state['stats']['bytes'] - $localBytes;
+                    $copied = (new BoundedStreamCopier())->copy(
+                        $stream,
+                        $out,
+                        $this->policy->maxSingleFileBytes,
+                        max(0, $remainingTotal)
+                    );
                 } finally { fclose($stream); fclose($out); }
                 $localFiles++;
                 $localBytes += $copied;
 
                 if ($this->looksLikeZip($target)) {
+                    $childDepth = (int) ($state['pending'][$pendingIndex]['depth'] ?? 0) + 1;
+                    if ($childDepth > $this->policy->maxDepth) throw new RuntimeException('Nested archive depth limit exceeded.');
                     if (count($state['pending']) + count($newArchives) >= $this->policy->maxNestedArchives) throw new RuntimeException('Nested archive count limit exceeded.');
                     $childId = bin2hex(random_bytes(16));
                     $stored = $jobPath . DIRECTORY_SEPARATOR . 'archives' . DIRECTORY_SEPARATOR . $childId . '.zip';
@@ -128,9 +143,9 @@ final class ArchiveWorkflow
                     $relativeParent = str_replace('\\', '/', substr(dirname($target), strlen($jobPath) + 1));
                     $withoutZip = preg_replace('/\.zip$/i', '', $name);
                     $childDestination = ($relativeParent === '' ? '' : $relativeParent . '/') . $withoutZip;
+                    $newArchives[] = ['id' => $childId, 'file' => 'archives/' . $childId . '.zip', 'destination' => $childDestination, 'depth' => $childDepth, 'display_name' => $name];
                     $absoluteChildDestination = $jobPath . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $childDestination);
                     if (!is_dir($absoluteChildDestination) && !mkdir($absoluteChildDestination, 0700, true) && !is_dir($absoluteChildDestination)) throw new RuntimeException('Unable to prepare nested archive destination.');
-                    $newArchives[] = ['id' => $childId, 'file' => 'archives/' . $childId . '.zip', 'destination' => $childDestination, 'display_name' => $name];
                 }
             }
             $zip->close();
@@ -148,6 +163,12 @@ final class ArchiveWorkflow
         } catch (\Throwable $e) {
             try { $zip->close(); } catch (\Throwable) {}
             $this->removeDirectory($stage);
+            // Nested archives moved out of staging are not committed to state until the whole
+            // parent archive succeeds; remove those orphan copies when processing fails.
+            foreach ($newArchives as $child) {
+                $childPath = $jobPath . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $child['file']);
+                if (is_link($childPath) || is_file($childPath)) @unlink($childPath);
+            }
             throw new RuntimeException('Unable to extract archive. The supplied archive password may be invalid.', 0, $e);
         }
     }
@@ -221,4 +242,33 @@ final class ArchiveWorkflow
         fclose($handle);
         return in_array($signature, ["PK\x03\x04", "PK\x05\x06", "PK\x07\x08"], true);
     }
+    private function removeDirectory(string $path): void
+    {
+        if (is_link($path)) {
+            @unlink($path);
+            return;
+        }
+        if (is_file($path)) {
+            @unlink($path);
+            return;
+        }
+        if (!is_dir($path)) {
+            return;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            $itemPath = $item->getPathname();
+            if ($item->isLink() || !$item->isDir()) {
+                @unlink($itemPath);
+            } else {
+                @rmdir($itemPath);
+            }
+        }
+        @rmdir($path);
+    }
+
 }
