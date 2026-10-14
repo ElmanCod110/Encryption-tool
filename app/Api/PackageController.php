@@ -219,6 +219,8 @@ final class PackageController
             $this->catalog->create($result['package_id'], AccessContext::ownerId(), $name);
             $token = $this->accessTokens->issue($result['package_id'], AccessContext::ownerId(), false);
             $this->audit->event('package.created', ['package_id' => $result['package_id'], 'account_id' => AccessContext::accountId(), 'nodes' => $result['stats']['nodes'] ?? null, 'format' => 'SECURE-PKG-V14']);
+            // The encrypted package is now stored and catalogued; remove the plaintext extraction job.
+            $this->removePath($this->jobs->path($jobId));
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send([
                 'ok' => true,
