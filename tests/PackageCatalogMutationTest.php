@@ -91,10 +91,15 @@ try {
     if ($successes !== 1 || $duplicates !== 7) {
         throw new RuntimeException('Concurrent catalog creation did not serialize exactly one winner.');
     }
-    if (!hash_equals(hash('sha256', 'race-owner-' . array_search(true, array_map(
-        static fn(string $owner): bool => hash_equals(hash('sha256', $owner), (string) ($catalog->get($raceId)['owner_hash'] ?? '')),
-        array_map(static fn(int $i): string => 'race-owner-' . $i, range(0, 7))
-    ), true)), (string) ($catalog->get($raceId)['owner_hash'] ?? ''))) {
+    $raceRecord = $catalog->get($raceId);
+    $ownerMatched = false;
+    for ($i = 0; $i < 8; $i++) {
+        if (hash_equals((string) $raceRecord['owner_hash'], hash('sha256', 'race-owner-' . $i))) {
+            $ownerMatched = true;
+            break;
+        }
+    }
+    if (!$ownerMatched) {
         throw new RuntimeException('Concurrent catalog record owner hash is inconsistent.');
     }
 
