@@ -222,27 +222,30 @@ final class PackageController
         $password = (string) ($input['password'] ?? '');
         $pattern = (string) ($input['pattern'] ?? '');
         $createRecovery = (bool) ($input['create_recovery'] ?? true);
-        $buildStarted = false;
+        $packageCreated = false;
+        $packageDirectory = null;
+        $portableArchive = null;
         try {
             $this->jobs->assertOwner($jobId, AccessContext::ownerId());
             $state = $this->jobs->readState($jobId);
             if (($state['status'] ?? '') !== 'ready_to_build') JsonResponse::send(['ok' => false, 'error' => 'Archive extraction is not complete.'], 409);
             Validator::validateProjectName($name); Validator::validatePassword($password); Validator::validatePattern($pattern);
-            $buildStarted = true;
             $service = $this->makePackageService();
             $result = $service->build($this->archives->sourceDirectory($jobId), $name, $password, $pattern, $createRecovery);
-            $portable = $result['package_dir'] . '.spkg14';
+            $packageDirectory = $result['package_dir'];
+            $portableArchive = $packageDirectory . '.spkg14';
             try {
-                (new PackageArchive())->create($result['package_dir'], $portable);
+                (new PackageArchive())->create($packageDirectory, $portableArchive);
             } catch (\Throwable $archiveError) {
-                $this->removePath($portable);
-                $this->removePath($result['package_dir']);
+                $this->removePath($portableArchive);
+                $this->removePath($packageDirectory);
                 throw $archiveError;
             }
             // The portable archive is the canonical stored package. Keeping both the extracted
             // package directory and .spkg14 duplicates encrypted bytes and wastes disk space.
             $this->removePath($result['package_dir']);
             $this->catalog->create($result['package_id'], AccessContext::ownerId(), $name);
+            $packageCreated = true;
             $token = $this->accessTokens->issue($result['package_id'], AccessContext::ownerId(), false);
             $this->audit->event('package.created', ['package_id' => $result['package_id'], 'account_id' => AccessContext::accountId(), 'nodes' => $result['stats']['nodes'] ?? null, 'format' => 'SECURE-PKG-V14']);
             // The encrypted package is now stored and catalogued; remove the plaintext extraction job.
@@ -258,8 +261,16 @@ final class PackageController
                 'format' => 'SECURE-PKG-V14',
             ], 201);
         } catch (\Throwable) {
-            if ($buildStarted) {
-                try { $this->removeJobDirectory($jobId); } catch (\Throwable) {}
+            // Never discard the only plaintext source copy when packaging fails. If catalog
+            // creation did not complete, remove incomplete encrypted artifacts; once catalogued,
+            // retain the package so a transient token/audit failure cannot destroy user data.
+            if (!$packageCreated) {
+                if (is_string($portableArchive)) {
+                    try { $this->removePath($portableArchive); } catch (\Throwable) {}
+                }
+                if (is_string($packageDirectory)) {
+                    try { $this->removePath($packageDirectory); } catch (\Throwable) {}
+                }
             }
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
