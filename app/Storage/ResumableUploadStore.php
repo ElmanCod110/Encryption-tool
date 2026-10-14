@@ -107,9 +107,9 @@ final class ResumableUploadStore
             if (is_link($file) || is_file($file)) {
                 @unlink($file);
             } elseif (is_dir($file)) {
-                $iterator = new \\RecursiveIteratorIterator(
-                    new \\RecursiveDirectoryIterator($file, \\FilesystemIterator::SKIP_DOTS),
-                    \\RecursiveIteratorIterator::CHILD_FIRST
+                $iterator = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($file, \FilesystemIterator::SKIP_DOTS),
+                    \RecursiveIteratorIterator::CHILD_FIRST
                 );
                 foreach ($iterator as $item) {
                     $item->isLink() || !$item->isDir()
@@ -125,7 +125,7 @@ final class ResumableUploadStore
     public function cleanup(): void
     {
         if (is_link($this->root) || !is_dir($this->root)) return;
-        $iterator = new \\FilesystemIterator($this->root, \\FilesystemIterator::SKIP_DOTS);
+        $iterator = new \FilesystemIterator($this->root, \FilesystemIterator::SKIP_DOTS);
         foreach ($iterator as $entry) {
             $id = $entry->getFilename();
             if (!preg_match('/^[a-f0-9]{48}$/', $id)) continue;
