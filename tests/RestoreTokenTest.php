@@ -16,6 +16,10 @@ $store = new RestoreTokenStore($root . '/tokens', 60);
 
 try {
     $token = $store->issue($restore);
+    $preview = $store->resolve($token);
+    if ($preview !== realpath($restore)) {
+        throw new RuntimeException('Non-consuming restore-token resolution failed.');
+    }
     $tokenFile = $root . '/tokens/' . hash('sha256', $token) . '.json';
     $waitingHandle = fopen($tokenFile, 'r+');
     if ($waitingHandle === false) {
