@@ -27,8 +27,8 @@ The following broad catches remain and should be replaced with typed domain fail
 
 - **archive-step:** a nested catch maps any Throwable from archive processing to 422, while an outer catch maps any Throwable (including storage/programming failures) to 404. This can mislabel an internal outage as invalid archive input or not-found.
 - **build:** a broad catch returns 422 for validation, archive/ZIP, storage, catalog, and other failures. Cleanup behavior must be preserved while separating expected package/input failures from internal failures.
-- **decrypt:** a broad catch returns 422 for all restore failures. Public privacy should remain generic, but internal failures must not be represented as client errors without a typed reason.
-- **package availability / expiry / revoke / delete:** broad catches return 404 for any failure. A 404 may be appropriate for missing or unauthorized resources to prevent enumeration, but disk and programming errors should reach the internal-error boundary.
+- **decrypt:** unavailable catalog records now return a privacy-preserving 404, but a broad catch still returns 422 for other restore failures. Invalid package/credential failures need typed classification separate from disk, permission, and programming failures.
+- **package availability / expiry / revoke / delete:** these management handlers now classify missing, expired, revoked, invalid-ID, and wrong-owner cases through PackageNotAvailableException and allow unexpected failures to reach the API boundary. Continue checking cleanup/partial-mutation behavior, especially delete operations.
 - **upload paths:** UploadException and QuotaExceededException already provide a better basis for classification; unexpected exceptions are rethrown to the API boundary. Keep this typed approach consistent.
 
 Do not simply expose exception messages or stack traces to solve these issues. They may contain filesystem paths, credentials, recovery material, or attacker-controlled input.
