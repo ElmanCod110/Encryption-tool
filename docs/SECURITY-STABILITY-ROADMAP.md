@@ -23,7 +23,8 @@ The first API/authentication hardening pass is being reviewed in PR #18 (`securi
 - Session naming now uses PHP's `session_name()` API; URL-based session propagation is disabled.
 - API actions enforce POST and the expected request media type.
 - Package catalog create/expiry/revoke/delete operations serialize with per-package locks, and catalog reads validate record shape.
-- Regression tests cover token replay, corrupt account storage, session settings, and catalog mutation/ownership.
+- Upload initialization now enforces per-owner active-upload count and reserved-byte quotas under a global quota lock; upload creation is also rate-limited per IP.
+- Regression tests cover token replay, corrupt account storage, session settings, catalog mutation/ownership, API request policy, and upload quotas.
 - CI has started for PR #18. The phase is not considered verified until the latest branch head passes all applicable workflows and live HTTP tests are added.
 
 See [Phase 2 API and Authentication Audit](PHASE-2-API-AUTH-AUDIT.md) for finding-level evidence and remaining work.
