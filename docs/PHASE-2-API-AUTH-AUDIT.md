@@ -1,6 +1,6 @@
 # Phase 2 — API and Authentication Audit
 
-**Status:** Source review and initial fixes implemented on `security/phase-2-api-auth-hardening`; CI and live HTTP verification pending.  
+**Status:** Phase-2 fixes and regression tests implemented on `security/phase-2-api-auth-hardening`; current CI and live HTTP integration checks passed at `a246eafbb613178a3f8b4eaba5e705c91924f965`.  
 **Baseline:** `master` after the V1.0.0 initial-security PR merge.  
 **Scope:** API action dispatch, request methods and media types, session setup, account-store integrity, and package download-token consumption.
 
@@ -76,14 +76,12 @@
 
 **Status:** Fix and regression test committed on this branch; fresh CI is required.
 
-## Remaining phase-2 work
+## Follow-up hardening (not covered by the passing CI claim)
 
-- Run the isolated live HTTP integration test for 404/405/415, CSRF/origin rejection, malformed JSON, and generic internal-error responses; keep deployment-specific behavior separate.
-- Continue reviewing ownership enforcement and account/session boundaries across every management action.
-- Review rate-limit identity scope and storage/quota exhaustion behavior.
-- Perform concurrent-process stress testing for catalog mutation races, expiry/revocation behavior, and cleanup after failed operations.
-- Distinguish expected domain errors from unexpected storage/programming failures without leaking internal details.
-- Record actual CI run links and outcomes for the exact branch head; do not mark this phase verified until the checks finish successfully.
+- Expand typed HTTP error classification for upload chunks, archive processing, package build/restore, and management actions. Current responses remain generic and do not intentionally expose internal details, but some internal failures can still be classified as client errors.
+- Add multi-process stress tests for catalog mutation races, expiry/revocation, and cleanup behavior under simultaneous requests.
+- Validate deployment-specific reverse-proxy, filesystem-permission, and disk-exhaustion behavior on the actual hosting environment. These checks are not reproducible from repository CI alone.
+- Continue monitoring rate-limit and quota behavior under realistic deployment load.
 
 ## Validation status
 
