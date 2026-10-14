@@ -58,7 +58,7 @@ final class ResumableUploadStore
                 fclose($handle);
                 @chmod($part, 0600);
                 return ['id' => $id, 'received_bytes' => 0, 'total_bytes' => $totalBytes, 'sha256' => $sha256];
-            } catch (\\Throwable $exception) {
+            } catch (\Throwable $exception) {
                 $this->remove($id);
                 throw $exception;
             }
@@ -197,7 +197,7 @@ final class ResumableUploadStore
         $reservedBytes = 0;
         $now = time();
 
-        foreach (new \\FilesystemIterator($this->root, \\FilesystemIterator::SKIP_DOTS) as $entry) {
+        foreach (new \FilesystemIterator($this->root, \FilesystemIterator::SKIP_DOTS) as $entry) {
             $id = $entry->getFilename();
             if (!preg_match('/^[a-f0-9]{48}$/', $id) || $entry->isLink() || !$entry->isDir()) continue;
 
@@ -207,7 +207,7 @@ final class ResumableUploadStore
             if ($raw === false) throw new RuntimeException('Unable to verify active upload quota.');
             try {
                 $state = json_decode($raw, true, 16, JSON_THROW_ON_ERROR);
-            } catch (\\JsonException) {
+            } catch (\JsonException) {
                 throw new RuntimeException('Unable to verify active upload quota.');
             }
             if (!is_array($state)
@@ -250,9 +250,6 @@ final class ResumableUploadStore
     }
 
     private function directory(string $id): string
-    {
-        return $this->root . DIRECTORY_SEPARATOR . $id;
-    }    private function directory(string $id): string
     {
         return $this->root . DIRECTORY_SEPARATOR . $id;
     }
