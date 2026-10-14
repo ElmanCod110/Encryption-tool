@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use InvalidArgumentException;
 use SecurePackage\Security\AccountStore;
 use SecurePackage\Security\DuplicateAccountException;
 
