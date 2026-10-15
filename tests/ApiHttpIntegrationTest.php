@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
+use SecurePackage\\Project\\PackageCatalog;
+use SecurePackage\\Project\\PackageId;
+use SecurePackage\\Project\\V14PackageBuilder;
+
 $sourceRoot = dirname(__DIR__);
 $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'spk-api-http-' . bin2hex(random_bytes(8));
 $fixture = $base . DIRECTORY_SEPARATOR . 'fixture';
@@ -192,6 +196,58 @@ try {
     } finally {
         if (is_file($catalogPath) || is_link($catalogPath)) @unlink($catalogPath);
         if (is_dir($catalogBackup)) @rename($catalogBackup, $catalogPath);
+    }
+
+    // Exercise the actual HTTP restore boundary with a valid package and a blocked temp directory.
+    $packageId = PackageId::generate();
+    $packageSource = $base . DIRECTORY_SEPARATOR . 'restore-source';
+    $packageDirectory = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'packages' . DIRECTORY_SEPARATOR . $packageId;
+    if (!mkdir($packageSource, 0700, true)) {
+        throw new RuntimeException('Unable to prepare restore source fixture.');
+    }
+    if (file_put_contents($packageSource . DIRECTORY_SEPARATOR . 'restore-fixture.txt', "restore storage test\\n") === false) {
+        throw new RuntimeException('Unable to write restore source fixture.');
+    }
+    $restorePassword = 'Strong!Password2026#';
+    $restorePattern = 'Az!71_xYp#42Qw9';
+    try {
+        (new V14PackageBuilder())->build($packageSource, $packageDirectory, $restorePassword, $restorePattern, $packageId, true);
+    } finally {
+        sodium_memzero($restorePassword);
+        sodium_memzero($restorePattern);
+    }
+    (new PackageCatalog($catalogPath))->create($packageId, 'account:' . $registration['account_id'], 'restore-failure-fixture');
+
+    $tempPath = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'temp';
+    $tempBackup = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'temp-backup';
+    if (!is_dir($tempPath) || !rename($tempPath, $tempBackup)) {
+        throw new RuntimeException('Unable to prepare restore destination failure fixture.');
+    }
+    try {
+        if (file_put_contents($tempPath, 'not-a-directory') === false) {
+            throw new RuntimeException('Unable to prepare restore destination failure fixture.');
+        }
+        $restoreFailure = $request(
+            'api.php?action=decrypt',
+            'POST',
+            array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+            json_encode([
+                'package_id' => $packageId,
+                'password' => 'Strong!Password2026#',
+                'pattern' => 'Az!71_xYp#42Qw9',
+            ], JSON_THROW_ON_ERROR)
+        );
+        $expect(500, $restoreFailure, 'Restore destination storage failure');
+        if (!str_contains($restoreFailure['body'], 'Internal server error.')
+            || str_contains($restoreFailure['body'], 'PackageStorageException')
+            || str_contains($restoreFailure['body'], 'restore')
+            || str_contains($restoreFailure['body'], $fixture)
+            || str_contains($restoreFailure['body'], $packageId)) {
+            throw new RuntimeException('Restore storage failure exposed implementation details.');
+        }
+    } finally {
+        if (is_file($tempPath) || is_link($tempPath)) @unlink($tempPath);
+        if (is_dir($tempBackup)) @rename($tempBackup, $tempPath);
     }
 
     $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';
