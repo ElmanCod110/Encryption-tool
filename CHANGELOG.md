@@ -13,6 +13,8 @@
 - Aligned VERSION and the changelog with the published v0.14.1 tag, separated application release version from the SECURE-PKG-V14 format identifier, and added consistency tests.
 - Added a release-readiness lockfile gate and an explicit full regression/security-suite step to the release security workflow.
 - Added a real HTTP regression test for restore-destination storage failure using a valid disposable V14 package; the response must remain a generic HTTP 500 without exposing package IDs, filesystem paths, or exception types.
+- Made portable archive publication atomic and no-overwrite; added regression coverage that an existing destination remains byte-for-byte unchanged when archive creation is rejected.
+- Made incomplete package-build cleanup fail closed and surface a typed storage error if generated artifacts cannot be removed; added an HTTP assertion that 405 responses advertise `Allow: POST`.
 - Added a Windows CI smoke job covering Composer validation/audit, PHP syntax, runtime and source checks, V14 package round-trip/restore safety, archive handling, and automated browser V13 compatibility.
 - Established VERSION as the single source of truth for the application release version and documented the distinction between application versioning and package-format identifiers.
 - Updated the main UI to display the canonical application version from shared configuration.
