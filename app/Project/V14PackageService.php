@@ -36,7 +36,7 @@ final class V14PackageService
         } catch (\Throwable $exception) {
             try {
                 $this->removeDirectory($packageDir);
-            } catch (\\Throwable $cleanupException) {
+            } catch (\Throwable $cleanupException) {
                 throw new PackageStorageException('Unable to clean incomplete package build.', 0, $cleanupException);
             }
             throw $exception;
