@@ -52,7 +52,7 @@ Run this installer on each Windows computer where Explorer should display the ic
 
 ### Windows `Open with` / VS Code limitation
 
-Windows can store a per-user choice for `.spk13` under `Explorer\\FileExts\\.spk13\\UserChoice`. If that choice points directly to an application such as `Applications\\Code.exe`, Explorer may use that application's registered icon instead of the extension-specific or extension-ProgID icon. In that case, installing the embedded ICO can succeed while Explorer continues showing the VS Code icon.
+Windows can store a per-user choice for `.spk13` under `Explorer\FileExts\.spk13\UserChoice`. If that choice points directly to an application such as `Applications\Code.exe`, Explorer may use that application's registered icon instead of the extension-specific or extension-ProgID icon. In that case, installing the embedded ICO can succeed while Explorer continues showing the VS Code icon.
 
 The installer detects this mismatch and prints a warning. It deliberately does not edit the protected `UserChoice` value or change the global icon for VS Code, because either a manual override of the protected association or changing VS Code's shared icon could break or affect other file types. Windows does not provide a supported registry-only per-extension override for an app-level `UserChoice` selection. Therefore, when `.spk13` is explicitly associated with VS Code this installer cannot guarantee a custom Explorer icon while leaving that association completely untouched.
 
