@@ -33,3 +33,32 @@ jobs:
         run: |
           set -e
           for test in tests/*.php; do php "$test"; done
+
+
+  windows-file-icon:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: sodium,zip,pdo_mysql
+          coverage: none
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem platform/windows/file-association -Filter *.ps1 -File
+          if ($files.Count -lt 3) { throw "Expected register, unregister, and refresh PowerShell scripts." }
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref] $tokens, [ref] $errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "$($file.Name): $($_.Message)" }
+              exit 1
+            }
+          }
+      - name: Validate SPK13 icon integration safeguards
+        run: php tests/WindowsSpk13IconIntegrationTest.php
