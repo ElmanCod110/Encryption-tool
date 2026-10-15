@@ -16,6 +16,7 @@
 - Made portable archive publication atomic and no-overwrite; added regression coverage that an existing destination remains byte-for-byte unchanged when archive creation is rejected.
 - Made incomplete package-build cleanup fail closed and surface a typed storage error if generated artifacts cannot be removed; added an HTTP assertion that 405 responses advertise `Allow: POST`.
 - Hardened release signing so it verifies all three written signature artifacts before reporting success; added a generated-key test that verifies the signed source manifest using an external trust root.
+- Staged package deletion by atomic sibling renames before token/catalog mutation; failures before catalog deletion attempt reverse-order rollback, and token-revocation failures are no longer silently ignored.
 - Added a Windows CI smoke job covering Composer validation/audit, PHP syntax, runtime and source checks, V14 package round-trip/restore safety, archive handling, and automated browser V13 compatibility.
 - Established VERSION as the single source of truth for the application release version and documented the distinction between application versioning and package-format identifiers.
 - Updated the main UI to display the canonical application version from shared configuration.
