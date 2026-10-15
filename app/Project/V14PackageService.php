@@ -33,7 +33,7 @@ final class V14PackageService
                 'stats' => $stats,
                 'recovery_key' => $stats['recovery_key'] ?? null,
             ];
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             try {
                 $this->removeDirectory($packageDir);
             } catch (\\Throwable $cleanupException) {
