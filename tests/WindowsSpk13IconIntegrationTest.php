@@ -12,7 +12,7 @@ $checks = [
         str_contains($register, "'logo\\files.ico'") && str_contains($docs, 'logo/files.ico'),
     'The association is per-user and scoped to SPK13' =>
         str_contains($register, 'HKCU:\Software\Classes\SystemFileAssociations\.spk13\DefaultIcon')
-        && !str_contains($register, 'HKLM:\'),
+        && !str_contains($register, 'HKLM:\\'),
     'The feature does not replace the default application association' =>
         str_contains($register, 'does not take over')
         && !str_contains($register, 'shell\open\command')
