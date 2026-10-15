@@ -38,7 +38,7 @@ if (-not (Test-Path -LiteralPath $stateKeyPath)) {
 }
 
 New-Item -Path $iconKeyPath -Force | Out-Null
-New-ItemProperty -LiteralPath $iconKeyPath -Name '(default)' -Value $installedIconValue -PropertyType String -Force | Out-Null
+Set-Item -LiteralPath $iconKeyPath -Value $installedIconValue -Force
 New-ItemProperty -LiteralPath $stateKeyPath -Name 'InstalledDefaultIcon' -Value $installedIconValue -PropertyType String -Force | Out-Null
 
 & (Join-Path $PSScriptRoot 'refresh-icons.ps1')
