@@ -49,3 +49,5 @@ For a computer that does not have the repository checked out, use the installer 
 The script reads only the package magic and bounded JSON header, validates the embedded ICO directory and image bounds, writes the icon to `%LOCALAPPDATA%\EncryptionTool\SPK13\files.ico`, and registers that local cached copy for the current Windows user. It does not modify the selected package or change the default application. No Administrator privileges are needed.
 
 Run this installer on each Windows computer where Explorer should display the icon. The ICO bytes travel inside the SPK13 file, but Explorer cannot extract them by itself on an unconfigured machine; this small per-user setup bridges that operating-system limitation. Use `unregister.ps1` to restore the prior icon association.
+
+The installer also pins the extracted ICO to the SHA-256 digest of the reviewed project icon. This is deliberate because the SPK13 presentation field is not cryptographically authenticated; arbitrary image bytes from an untrusted package are not passed to Explorer.
