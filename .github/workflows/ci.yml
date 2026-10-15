@@ -62,5 +62,44 @@ jobs:
               exit 1
             }
           }
+      - name: Exercise embedded SPK13 icon extraction on Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iconBytes = [System.IO.File]::ReadAllBytes((Join-Path $PWD 'logo/files.ico'))
+          $presentation = @{
+            icon_format = 'image/x-icon'
+            icon_data = [Convert]::ToBase64String($iconBytes)
+          }
+          $header = @{
+            format = 'SECURE-BROWSER-V13'
+            version = 13
+            presentation = $presentation
+          }
+          $headerBytes = [System.Text.Encoding]::UTF8.GetBytes(($header | ConvertTo-Json -Compress -Depth 4))
+          $lengthBytes = [BitConverter]::GetBytes([uint32]$headerBytes.Length)
+          [Array]::Reverse($lengthBytes)
+          $magic = [byte[]]([System.Text.Encoding]::ASCII.GetBytes('SPK13BIN1') + [byte[]]@(10))
+          $packageBytes = [byte[]]($magic + $lengthBytes + $headerBytes)
+          $packagePath = Join-Path $env:TEMP ('spk13-icon-test-' + [Guid]::NewGuid().ToString('N') + '.spk13')
+          $cachePath = Join-Path $env:LOCALAPPDATA 'EncryptionTool/SPK13/files.ico'
+          $registryPath = 'HKCU:\Software\Classes\SystemFileAssociations\.spk13\DefaultIcon'
+          try {
+            [System.IO.File]::WriteAllBytes($packagePath, $packageBytes)
+            & .\platform\windows\file-association\install-from-package.ps1 -PackagePath $packagePath
+            if (-not (Test-Path -LiteralPath $cachePath -PathType Leaf)) { throw 'Installer did not write the extracted icon.' }
+            $expectedHash = (Get-FileHash -LiteralPath (Join-Path $PWD 'logo/files.ico') -Algorithm SHA256).Hash
+            $actualHash = (Get-FileHash -LiteralPath $cachePath -Algorithm SHA256).Hash
+            if ($actualHash -ne $expectedHash) { throw 'Extracted icon bytes do not match the reviewed project icon.' }
+            $key = Get-Item -LiteralPath $registryPath
+            if ([string]$key.GetValue('') -notmatch 'files\.ico",0
+) { throw 'Explorer DefaultIcon registration is incorrect.' }
+          } finally {
+            if (Test-Path -LiteralPath 'HKCU:\Software\EncryptionTool\FileAssociations\SPK13') {
+              & .\platform\windows\file-association\unregister.ps1
+            }
+            if (Test-Path -LiteralPath $packagePath) { Remove-Item -LiteralPath $packagePath -Force }
+            if (Test-Path -LiteralPath $cachePath) { Remove-Item -LiteralPath $cachePath -Force }
+          }
       - name: Validate SPK13 icon integration safeguards
         run: php tests/WindowsSpk13IconIntegrationTest.php
