@@ -5,6 +5,7 @@ import { webcrypto } from 'node:crypto';
 const root = new URL('../public/client/v13/', import.meta.url);
 const clientCode = await fs.readFile(new URL('vault-v13.js', root), 'utf8');
 const workerCode = await fs.readFile(new URL('worker.js', root), 'utf8');
+const iconCode = await fs.readFile(new URL('spk13-icon.js', root), 'utf8');
 
 const elements = new Map();
 function makeElement(id) {
@@ -122,6 +123,7 @@ const sandbox = {
   setTimeout, clearTimeout,
 };
 vm.createContext(sandbox);
+vm.runInContext(iconCode, sandbox, { filename: 'spk13-icon.js' });
 vm.runInContext(clientCode, sandbox, { filename: 'vault-v13.js' });
 
 // Cross-platform names are path-safe at package level and adapted only when the local filesystem rejects them.
@@ -143,6 +145,40 @@ sandbox.window.showDirectoryPicker = sandbox.showDirectoryPicker;
 
 const built = await sandbox.build(files, password, pattern, true);
 if (!(built.blob instanceof Blob) || !built.recoveryKey) throw new Error('Browser V13 build output is invalid.');
+const builtHeaderInfo = await sandbox.readHeader(built.blob);
+if (builtHeaderInfo.header.presentation?.icon_format !== 'image/x-icon') throw new Error('SPK13 package is missing embedded icon metadata.');
+if (builtHeaderInfo.header.presentation.icon_data !== sandbox.window.SPK13_ICON_BASE64) throw new Error('Embedded icon bytes changed during package creation.');
+const builtBytes = Buffer.from(await built.blob.arrayBuffer());
+const builtHeaderLength = builtBytes.readUInt32BE(10);
+const builtHeader = JSON.parse(builtBytes.subarray(14, 14 + builtHeaderLength).toString('utf8'));
+delete builtHeader.presentation;
+const legacyHeaderBytes = Buffer.from(JSON.stringify(builtHeader), 'utf8');
+const legacyLength = Buffer.alloc(4);
+legacyLength.writeUInt32BE(legacyHeaderBytes.length);
+const legacyBlob = new Blob([
+  builtBytes.subarray(0, 10),
+  legacyLength,
+  legacyHeaderBytes,
+  builtBytes.subarray(14 + builtHeaderLength),
+], { type: 'application/octet-stream' });
+const legacyHeaderInfo = await sandbox.readHeader(legacyBlob);
+if (legacyHeaderInfo.header.presentation !== undefined) throw new Error('Legacy package compatibility fixture is invalid.');
+const legacyOutput = new OutDir();
+const legacyRestore = await sandbox.restore(legacyBlob, password, pattern, '', legacyOutput);
+if (legacyRestore.count !== 3 || legacyOutput.files.get('hello.txt').bytes().toString() !== 'hello world') throw new Error('Legacy SPK13 package without icon failed to restore.');
+const malformedHeader = { ...builtHeader, presentation: { icon_format: 'image/x-icon', icon_data: 'AA==' } };
+const malformedHeaderBytes = Buffer.from(JSON.stringify(malformedHeader), 'utf8');
+const malformedLength = Buffer.alloc(4);
+malformedLength.writeUInt32BE(malformedHeaderBytes.length);
+const malformedBlob = new Blob([
+  builtBytes.subarray(0, 10),
+  malformedLength,
+  malformedHeaderBytes,
+  builtBytes.subarray(14 + builtHeaderLength),
+], { type: 'application/octet-stream' });
+let malformedIconRejected = false;
+try { await sandbox.readHeader(malformedBlob); } catch (_) { malformedIconRejected = true; }
+if (!malformedIconRejected) throw new Error('Malformed embedded icon metadata was accepted.');
 const primary = await sandbox.restore(built.blob, password, pattern, '', outputA);
 if (primary.count !== 3 || primary.adaptedCount < 1) throw new Error('Primary restore or compatibility mapping failed.');
 if (outputA.files.get('hello.txt').bytes().toString() !== 'hello world') throw new Error('Primary restore content mismatch.');
