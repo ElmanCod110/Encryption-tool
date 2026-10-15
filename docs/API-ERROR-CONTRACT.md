@@ -19,6 +19,7 @@ The API entry point is public/api.php. It applies the centralized ApiRequestPoli
 | Rate limit | 429 | Generic retry-later message | Controller and rate-limiter tests |
 | Typed upload failure | Status carried by UploadException | Safe, typed public message | Upload controller paths use UploadException |
 | Unexpected exception at API boundary | 500 | Internal server error only | Integration test checks that implementation details are not exposed |
+| Configuration initialization failure | 500 | Internal server error only | HTTP integration test replaces the isolated fixture config with a throwing config and verifies that exception details and paths stay private |
 | Unexpected account-store failure | 500 | Internal server error only | HTTP integration test corrupts an isolated fixture store and checks response privacy |
 | Package-catalog initialization failure | 500 | Internal server error only | HTTP integration test replaces the fixture catalog directory with a file and checks response privacy |
 | Restore destination storage failure | 500 | Internal server error only | HTTP integration test uses a valid disposable V14 package and blocks the restore destination path; response must not expose package ID, path, or exception type |
