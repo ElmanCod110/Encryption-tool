@@ -26,6 +26,7 @@ For a local checkout with PHP 8.2+ and the required extensions:
 | Source audit | `php bin/source-audit.php` | Source audit exits successfully | PASS on commit `f3b8c1c`; [Security and Release Integrity run](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38725570471); rerun on final candidate |
 | Full security suite | `php bin/security-test.php --full` | Full regression/security suite exits successfully | PASS on commit `f3b8c1c`; [Security and Release Integrity run](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38725570471); rerun on final candidate |
 | PHP regression tests | `for test in tests/*.php; do php "$test" || exit 1; done` | Every PHP test exits successfully | PASS on commit `f3b8c1c`; [CI run](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38725570267); rerun on final candidate |
+| Archive no-overwrite | `php tests/V14PackageArchiveTest.php` | Existing destination remains byte-for-byte unchanged and publication fails closed | Added; latest CI run pending |
 | Browser V13 round-trip | `node tests/BrowserV13RoundTripTest.mjs` | Compatibility test passes | PASS on commit `f3b8c1c`; [Security and Release Integrity run](https://github.com/ElmanCod110/Encryption-tool/actions/runs/38725570471); this is automated coverage, not a real-browser manual test |
 | Signed release artifact / external trust root | Build and verify a signed release artifact with an independently distributed public key | Signature and file hashes verify | NOT RUN — the current development tree is unsigned; the signature test skipped |
 
