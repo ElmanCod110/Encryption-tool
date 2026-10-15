@@ -60,6 +60,7 @@ finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Fo
 $key = 'HKCU:\Software\Classes\SystemFileAssociations\.spk13\DefaultIcon'
 $statePath = 'HKCU:\Software\EncryptionTool\FileAssociations\SPK13'
 $installed = '"' + $iconPath + '",0'
+
 if (-not (Test-Path -LiteralPath $statePath)) {
     $existed = Test-Path -LiteralPath $key
     $hasPrevious = $false
@@ -74,6 +75,50 @@ if (-not (Test-Path -LiteralPath $statePath)) {
     New-ItemProperty -LiteralPath $statePath -Name PreviousValueExists -Value ([int]$hasPrevious) -PropertyType DWord -Force | Out-Null
     New-ItemProperty -LiteralPath $statePath -Name PreviousDefaultIcon -Value $previous -PropertyType String -Force | Out-Null
 }
+
+# Explorer commonly resolves an extension through its ProgID (e.g. spk13_auto_file).
+# Register the icon on that ProgID too, without changing the extension association.
+$extensionKey = 'HKCU:\Software\Classes\.spk13'
+$effectiveExtensionKey = 'Registry::HKEY_CLASSES_ROOT\.spk13'
+$progId = ''
+if (Test-Path -LiteralPath $extensionKey) {
+    $progId = [string](Get-Item -LiteralPath $extensionKey).GetValue('')
+}
+if ([string]::IsNullOrWhiteSpace($progId) -and (Test-Path -LiteralPath $effectiveExtensionKey)) {
+    $progId = [string](Get-Item -LiteralPath $effectiveExtensionKey).GetValue('')
+}
+if (-not [string]::IsNullOrWhiteSpace($progId)) {
+    if ($progId -notmatch '^[A-Za-z0-9_.-]+$') { throw 'The .spk13 file ProgID contains unsupported characters.' }
+    $progIdKey = "HKCU:\Software\Classes\$progId\DefaultIcon"
+    $progIdRegistryPath = "Software\Classes\$progId\DefaultIcon"
+
+    # Capture the ProgID's prior icon once; also upgrades state from older installers.
+    $state = Get-ItemProperty -LiteralPath $statePath
+    if ([string]::IsNullOrWhiteSpace([string]$state.ProgIdKeyPath)) {
+        $progIdKeyExisted = Test-Path -LiteralPath $progIdKey
+        $progIdPreviousExists = $false
+        $progIdPrevious = ''
+        if ($progIdKeyExisted) {
+            $oldProgIdKey = Get-Item -LiteralPath $progIdKey
+            $progIdPreviousExists = $oldProgIdKey.GetValueNames() -contains ''
+            if ($progIdPreviousExists) { $progIdPrevious = [string]$oldProgIdKey.GetValue('') }
+        }
+        New-ItemProperty -LiteralPath $statePath -Name ProgIdKeyPath -Value $progIdKey -PropertyType String -Force | Out-Null
+        New-ItemProperty -LiteralPath $statePath -Name ProgIdRegistryPath -Value $progIdRegistryPath -PropertyType String -Force | Out-Null
+        New-ItemProperty -LiteralPath $statePath -Name ProgIdTargetKeyExisted -Value ([int]$progIdKeyExisted) -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -LiteralPath $statePath -Name ProgIdPreviousValueExists -Value ([int]$progIdPreviousExists) -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -LiteralPath $statePath -Name ProgIdPreviousDefaultIcon -Value $progIdPrevious -PropertyType String -Force | Out-Null
+    }
+    $state = Get-ItemProperty -LiteralPath $statePath
+    $progIdKey = [string]$state.ProgIdKeyPath
+    $progIdRegistryPath = [string]$state.ProgIdRegistryPath
+    New-Item -Path $progIdKey -Force | Out-Null
+    Set-Item -LiteralPath $progIdKey -Value $installed -Force
+    New-ItemProperty -LiteralPath $statePath -Name InstalledProgIdDefaultIcon -Value $installed -PropertyType String -Force | Out-Null
+} else {
+    Write-Warning 'No .spk13 ProgID was found; only the extension-specific icon association will be registered.'
+}
+
 New-Item -Path $key -Force | Out-Null
 Set-Item -LiteralPath $key -Value $installed -Force
 New-ItemProperty -LiteralPath $statePath -Name InstalledDefaultIcon -Value $installed -PropertyType String -Force | Out-Null
