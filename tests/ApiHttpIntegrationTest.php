@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use SecurePackage\\Project\\PackageCatalog;
-use SecurePackage\\Project\\PackageId;
-use SecurePackage\\Project\\V14PackageBuilder;
+use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\PackageId;
+use SecurePackage\Project\V14PackageBuilder;
 
 $sourceRoot = dirname(__DIR__);
 $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'spk-api-http-' . bin2hex(random_bytes(8));
