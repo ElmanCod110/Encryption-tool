@@ -35,7 +35,7 @@ try {
     if ($stream.Read($headerBytes,0,$headerBytes.Length) -ne $headerBytes.Length) { throw 'SPK13 header is truncated.' }
 } finally { $stream.Dispose() }
 try {
-    $utf8 = New-Object System.Text.UTF8Encoding($false,$true)
+    $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
     $header = ConvertFrom-Json -InputObject $utf8.GetString($headerBytes) -ErrorAction Stop
 } catch { throw 'SPK13 header is not valid UTF-8 JSON.' }
 if ($header.format -ne 'SECURE-BROWSER-V13' -or $header.version -ne 13 -or $null -eq $header.presentation -or $header.presentation.icon_format -ne 'image/x-icon' -or [string]::IsNullOrWhiteSpace([string]$header.presentation.icon_data)) { throw 'This SPK13 package does not contain supported embedded icon metadata.' }
