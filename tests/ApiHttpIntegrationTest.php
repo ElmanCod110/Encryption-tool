@@ -109,6 +109,32 @@ try {
     }
 
     $expect(404, $request('api.php?action=unknown-action'), 'Unknown action');
+
+    // Configuration loading is part of the API initialization boundary.
+    $configFile = $fixture . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.php';
+    $configOriginal = file_get_contents($configFile);
+    if (!is_string($configOriginal)) {
+        throw new RuntimeException('Unable to read isolated config fixture.');
+    }
+    try {
+        $configSentinel = 'CONFIG_PRIVATE_SENTINEL_' . bin2hex(random_bytes(8));
+        $brokenConfig = "<?php\ndeclare(strict_types=1);\nthrow new RuntimeException('" . $configSentinel . "');\n";
+        if (file_put_contents($configFile, $brokenConfig) === false) {
+            throw new RuntimeException('Unable to prepare configuration initialization failure fixture.');
+        }
+        $configFailure = $request('api.php?action=unknown-action');
+        $expect(500, $configFailure, 'Configuration initialization failure');
+        if (!str_contains($configFailure['body'], 'Internal server error.')
+            || str_contains($configFailure['body'], $configSentinel)
+            || str_contains($configFailure['body'], 'RuntimeException')
+            || str_contains($configFailure['body'], $fixture)) {
+            throw new RuntimeException('Configuration initialization failure exposed implementation details.');
+        }
+    } finally {
+        if (file_put_contents($configFile, $configOriginal) === false) {
+            throw new RuntimeException('Unable to restore isolated config fixture.');
+        }
+    }
     $methodRejected = $request('api.php?action=login', 'GET');
     $expect(405, $methodRejected, 'GET login method');
     if (!in_array('Allow: POST', $methodRejected['headers'], true)) {
