@@ -202,8 +202,8 @@ try {
     $packageId = PackageId::generate();
     $packageSource = $base . DIRECTORY_SEPARATOR . 'restore-source';
     $packageDirectory = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'packages' . DIRECTORY_SEPARATOR . $packageId;
-    if (!mkdir($packageSource, 0700, true)) {
-        throw new RuntimeException('Unable to prepare restore source fixture.');
+    if (!mkdir($packageSource, 0700, true) || !mkdir($packageDirectory, 0700, true)) {
+        throw new RuntimeException('Unable to prepare restore source/package fixture.');
     }
     if (file_put_contents($packageSource . DIRECTORY_SEPARATOR . 'restore-fixture.txt', "restore storage test\\n") === false) {
         throw new RuntimeException('Unable to write restore source fixture.');
