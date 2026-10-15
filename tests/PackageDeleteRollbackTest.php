@@ -12,11 +12,14 @@ if ($start === false || $end === false) {
 }
 $delete = substr($controller, $start, $end - $start);
 
+$stagePosition = strpos($delete, 'rename($originalPath, $stagedPath)');
+$revokePosition = strpos($delete, '$this->accessTokens->revokeForPackage(');
+$catalogDeletePosition = strpos($delete, '$this->catalog->delete(');
 $checks = [
     'Both package representations are staged before access tokens are revoked' =>
-        strpos($delete, 'rename($originalPath, $stagedPath)') < strpos($delete, '$this->accessTokens->revokeForPackage('),
+        $stagePosition !== false && $revokePosition !== false && $stagePosition < $revokePosition,
     'Catalog deletion occurs only after staging and token revocation' =>
-        strpos($delete, '$this->accessTokens->revokeForPackage(') < strpos($delete, '$this->catalog->delete('),
+        $revokePosition !== false && $catalogDeletePosition !== false && $revokePosition < $catalogDeletePosition,
     'Partial deletion failures attempt reverse-order rollback' =>
         str_contains($delete, 'catch (\\Throwable $exception)')
         && str_contains($delete, 'array_reverse($staged)')
