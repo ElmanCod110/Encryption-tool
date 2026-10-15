@@ -62,8 +62,26 @@ if (!is_dir($releaseDir) && !mkdir($releaseDir, 0700, true) && !is_dir($releaseD
     fwrite(STDERR, "Unable to create release directory.\n");
     exit(1);
 }
-file_put_contents($releaseDir . '/manifest.json', $payload, LOCK_EX);
-file_put_contents($releaseDir . '/manifest.sig', base64_encode(sodium_crypto_sign_detached($payload, $key)) . PHP_EOL, LOCK_EX);
-file_put_contents($releaseDir . '/public-key.hex', bin2hex(sodium_crypto_sign_publickey_from_secretkey($key)) . PHP_EOL, LOCK_EX);
+$signature = base64_encode(sodium_crypto_sign_detached($payload, $key)) . PHP_EOL;
+$publicKeyHex = bin2hex(sodium_crypto_sign_publickey_from_secretkey($key)) . PHP_EOL;
+$writeArtifact = static function (string $path, string $contents): void {
+    $written = file_put_contents($path, $contents, LOCK_EX);
+    if ($written !== strlen($contents)) {
+        throw new RuntimeException('Unable to write release signature artifacts.');
+    }
+    $verified = file_get_contents($path);
+    if ($verified === false || !hash_equals($contents, $verified)) {
+        throw new RuntimeException('Unable to verify written release signature artifacts.');
+    }
+};
+try {
+    $writeArtifact($releaseDir . '/manifest.json', $payload);
+    $writeArtifact($releaseDir . '/manifest.sig', $signature);
+    $writeArtifact($releaseDir . '/public-key.hex', $publicKeyHex);
+} catch (\Throwable) {
+    sodium_memzero($key);
+    fwrite(STDERR, "Unable to write complete release signature artifacts.\n");
+    exit(1);
+}
 sodium_memzero($key);
 echo "V14 active-source release manifest signed successfully.\n";
