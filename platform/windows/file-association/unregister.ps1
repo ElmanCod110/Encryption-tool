@@ -52,6 +52,35 @@ if ($targetExists) {
     }
 }
 
+# Restore the ProgID icon too, but only if it still matches our installed value.
+if (-not [string]::IsNullOrWhiteSpace([string]$state.ProgIdKeyPath)) {
+    $progIdKeyPath = [string]$state.ProgIdKeyPath
+    $progIdInstalledValue = [string]$state.InstalledProgIdDefaultIcon
+    if (Test-Path -LiteralPath $progIdKeyPath) {
+        $progIdKey = Get-Item -LiteralPath $progIdKeyPath
+        $progIdCurrentExists = $progIdKey.GetValueNames() -contains ''
+        $progIdCurrentValue = if ($progIdCurrentExists) { [string]$progIdKey.GetValue('') } else { '' }
+        if ($progIdCurrentExists -and $progIdCurrentValue -eq $progIdInstalledValue) {
+            $progIdRegistryPath = [string]$state.ProgIdRegistryPath
+            $writableProgIdKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($progIdRegistryPath, $true)
+            if ($null -eq $writableProgIdKey) { throw 'Unable to open the SPK13 ProgID icon key for restoration.' }
+            try {
+                if ([int]$state.ProgIdPreviousValueExists -eq 1) {
+                    $writableProgIdKey.SetValue('', [string]$state.ProgIdPreviousDefaultIcon, [Microsoft.Win32.RegistryValueKind]::String)
+                } else {
+                    $writableProgIdKey.DeleteValue('', $false)
+                }
+            } finally { $writableProgIdKey.Dispose() }
+        }
+        if ([int]$state.ProgIdTargetKeyExisted -eq 0) {
+            $emptyProgIdKey = Get-Item -LiteralPath $progIdKeyPath -ErrorAction SilentlyContinue
+            if ($null -ne $emptyProgIdKey -and $emptyProgIdKey.GetValueNames().Count -eq 0 -and $emptyProgIdKey.SubKeyCount -eq 0) {
+                Remove-Item -LiteralPath $progIdKeyPath -Force
+            }
+        }
+    }
+}
+
 Remove-Item -LiteralPath $stateKeyPath -Recurse -Force
 & (Join-Path $PSScriptRoot 'refresh-icons.ps1')
 Write-Host 'Encryption-tool SPK13 icon registration has been removed.'
