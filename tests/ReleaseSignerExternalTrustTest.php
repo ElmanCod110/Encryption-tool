@@ -41,7 +41,8 @@ try {
     $publicKey = sodium_crypto_sign_publickey($keypair);
     sodium_memzero($keypair);
     $keyFile = $fixture . DIRECTORY_SEPARATOR . 'test-private-key.hex';
-    if (file_put_contents($keyFile, bin2hex($secretKey) . PHP_EOL, LOCK_EX) !== 129) {
+    $keyContents = bin2hex($secretKey) . PHP_EOL;
+    if (file_put_contents($keyFile, $keyContents, LOCK_EX) !== strlen($keyContents)) {
         sodium_memzero($secretKey);
         throw new RuntimeException('Unable to write temporary signing key.');
     }
