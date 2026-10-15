@@ -23,7 +23,9 @@ $checks = [
     'Partial deletion failures attempt reverse-order rollback' =>
         str_contains($delete, 'catch (\\Throwable $exception)')
         && str_contains($delete, 'array_reverse($staged)')
-        && str_contains($delete, 'rename($stagedPath, $originalPath)'),
+        && str_contains($delete, 'rename($stagedPath, $originalPath)')
+        && str_contains($delete, 'original path is occupied.')
+        && str_contains($delete, 'Unable to roll back interrupted package deletion.'),
     'Staged artifacts are checked after cleanup' =>
         str_contains($delete, 'Unable to clean deleted package artifacts.')
         && str_contains($delete, 'file_exists($entry[\'staged\']) || is_link($entry[\'staged\'])'),
