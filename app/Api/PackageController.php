@@ -482,13 +482,28 @@ final class PackageController
                 throw $exception;
             }
 
-            $this->audit->event('package.deleted', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
+            $auditException = null;
+            try {
+                $this->audit->event('package.deleted', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
+            } catch (\Throwable $exception) {
+                $auditException = $exception;
+            }
+
+            $cleanupException = null;
             foreach ($staged as $entry) {
-                $this->removePath($entry['staged']);
-                if (file_exists($entry['staged']) || is_link($entry['staged'])) {
-                    throw new PackageStorageException('Unable to clean deleted package artifacts.');
+                try {
+                    $this->removePath($entry['staged']);
+                    if (file_exists($entry['staged']) || is_link($entry['staged'])) {
+                        throw new PackageStorageException('Unable to clean deleted package artifacts.');
+                    }
+                } catch (\Throwable $exception) {
+                    $cleanupException ??= $exception;
                 }
             }
+            if ($cleanupException !== null) {
+                throw new PackageStorageException('Unable to clean deleted package artifacts.', 0, $cleanupException);
+            }
+            if ($auditException !== null) throw $auditException;
             JsonResponse::send(['ok' => true]);
         } catch (AuthenticationRequiredException $exception) {
             throw $exception;
