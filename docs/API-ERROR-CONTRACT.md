@@ -1,7 +1,7 @@
 # API Error Contract and Audit
 
 **Application version:** see the root VERSION file.  
-**Audit status:** source review updated for release-readiness work. Existing policy and HTTP integration tests cover representative boundary cases; this is not proof that every controller path has correct classification.
+**Audit status:** source review updated for release-readiness work. Existing policy and HTTP integration tests cover representative boundary cases; the restore-time disk/permission failure case remains outstanding. This is not proof that every controller path has correct classification.
 
 ## Boundary contract
 
@@ -28,7 +28,7 @@ The following broad catches remain and should be replaced with typed domain fail
 
 - **archive-step:** missing/unauthorized jobs use JobNotAvailableException for a privacy-preserving 404; stale state uses ArchiveStepConflictException (409); invalid/unsupported archive contents use ArchiveProcessingException (422). Unexpected storage/programming failures are rethrown to the API boundary for 500. Continue auditing ZipArchive edge cases and cleanup-failure behavior.
 - **build:** a broad catch returns 422 for validation, archive/ZIP, storage, catalog, and other failures. Cleanup behavior must be preserved while separating expected package/input failures from internal failures.
-- **decrypt:** unavailable catalog records return a privacy-preserving 404; typed invalid package/credential/outer-archive failures return 422; typed restore storage failures and other unexpected failures reach the API boundary for 500. PackageArchive, V14PackageReader, V14PackageVerifier, and V14Stream distinguish primary storage failures from rejected package data. Cleanup failure is elevated to a server error rather than being reported as a clean client rejection.
+- **decrypt:** unavailable catalog records return a privacy-preserving 404; typed invalid package/credential/outer-archive failures return 422; typed restore storage failures and other unexpected failures reach the API boundary for 500. PackageArchive, V14PackageReader, V14PackageVerifier, and V14Stream distinguish primary storage failures from rejected package data. Cleanup failure is elevated to a server error rather than being reported as a clean client rejection. A dedicated real-HTTP restore-time disk/permission failure scenario is still outstanding.
 - **build:** validation errors now return 422, while unexpected ZIP, storage, catalog, token, and programming failures are rethrown to the API boundary for a generic 500. Incomplete artifacts are cleaned through a shared helper, while a catalogued package is retained.
 - **package availability / expiry / revoke / delete:** these management handlers now classify missing, expired, revoked, invalid-ID, and wrong-owner cases through PackageNotAvailableException and allow unexpected failures to reach the API boundary. Continue checking cleanup/partial-mutation behavior, especially delete operations.
 - **upload paths:** UploadException and QuotaExceededException already provide a better basis for classification; unexpected exceptions are rethrown to the API boundary. Keep this typed approach consistent.
@@ -46,7 +46,7 @@ Do not simply expose exception messages or stack traces to solve these issues. T
 
 ## Required follow-up tests
 
-- Real HTTP tests for malformed input, unsupported methods/media types, authentication, account-store corruption, and catalog initialization failure. Add a separate package-restore disk/permission failure case.
+- Real HTTP tests cover malformed input, unsupported methods/media types, authentication, account-store corruption, and catalog initialization failure. Still add a package-restore disk/permission failure case using a valid disposable package and an isolated unwritable restore destination.
 - Controller/service tests proving invalid package input maps to a client error while simulated disk or permission failure reaches HTTP 500.
 - Assertions that public response bodies do not reveal exception class, message, paths, or secrets.
 - Cleanup tests for interrupted upload, package build, restore, and token operations.
@@ -55,6 +55,6 @@ Do not simply expose exception messages or stack traces to solve these issues. T
 ## Verification record
 
 - Source inspection: updated against public/api.php, app/Api/ApiRequestPolicy.php, app/Api/PackageController.php, and the current HTTP integration test.
-- Existing automated HTTP integration test: included in the repository security workflow; the current source has not been executed by this documentation update.
-- Windows/XAMPP and real-browser release QA: NOT RUN until evidence is recorded in docs/RELEASE-QA.md.
-- Composer lockfile and dependency audit: BLOCKED until the generated lockfile is reviewed and committed.
+- Existing automated HTTP integration test: included in the repository security workflow and passed on the last fully green readiness commit; rerun on the final candidate.
+- Windows/XAMPP and real-browser manual release QA: NOT RUN until evidence is recorded in docs/RELEASE-QA.md.
+- Composer lockfile: generated by Composer, committed on the release-readiness branch, strictly validated, and audited; rerun validation and audit on the final candidate.
