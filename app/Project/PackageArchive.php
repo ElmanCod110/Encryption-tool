@@ -31,15 +31,15 @@ final class PackageArchive
         try {
             $count = 0;
             $used = [];
-            $iterator = new \\RecursiveIteratorIterator(new \\RecursiveDirectoryIterator($root, \\FilesystemIterator::SKIP_DOTS));
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
             foreach ($iterator as $file) {
                 if (!$file->isFile() || $file->isLink() || $file->getFilename() === 'record.json') continue;
-                if (++$count > self::MAX_ENTRIES) throw new PackageRestoreRejectedException('Package archive contains too many entries.');
+                if (++$count > self::MAX_ENTRIES) throw new RuntimeException('Package archive contains too many entries.');
                 $path = $file->getPathname();
-                $relative = str_replace('\\\\', '/', substr($path, strlen(rtrim($root, DIRECTORY_SEPARATOR)) + 1));
+                $relative = str_replace('\\', '/', substr($path, strlen(rtrim($root, DIRECTORY_SEPARATOR)) + 1));
                 $this->assertArchivePath($relative);
                 $normalized = function_exists('mb_strtolower') ? mb_strtolower($relative, 'UTF-8') : strtolower($relative);
-                if (isset($used[$normalized])) throw new PackageRestoreRejectedException('Package archive contains colliding paths.');
+                if (isset($used[$normalized])) throw new RuntimeException('Package archive contains colliding paths.');
                 $used[$normalized] = true;
                 if (!$zip->addFile($path, $relative)) throw new PackageStorageException('Unable to add package file to archive.');
                 $zip->setCompressionName($relative, ZipArchive::CM_STORE);
@@ -71,7 +71,7 @@ final class PackageArchive
             throw new PackageRestoreRejectedException('Unable to open package archive.');
         }
         try {
-            if ($zip->numFiles < 1 || $zip->numFiles > self::MAX_ENTRIES) throw new PackageRestoreRejectedException('Package archive is invalid.');
+            if ($zip->numFiles < 1 || $zip->numFiles > self::MAX_ENTRIES) throw new RuntimeException('Package archive is invalid.');
             $entries = [];
             $totalDeclared = 0;
             for ($i = 0; $i < $zip->numFiles; $i++) {
@@ -187,7 +187,7 @@ final class PackageArchive
     private function removeDirectory(string $path): void
     {
         if (!is_dir($path)) return;
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS), \FilesystemIterator::CHILD_FIRST);
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $item) $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
         @rmdir($path);
         if (file_exists($path) || is_link($path)) {
