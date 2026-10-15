@@ -84,3 +84,6 @@ jobs:
       - name: Browser V13 automated round-trip
         shell: pwsh
         run: node tests/BrowserV13RoundTripTest.mjs
+      - name: Release signer external trust-root test
+        shell: pwsh
+        run: php tests/ReleaseSignerExternalTrustTest.php
