@@ -401,6 +401,35 @@ function validateSecrets(password, pattern) {
   if (new Set([...pattern]).size < 6) fail('Pattern is too repetitive.');
 }
 
+function assertPresentation(presentation) {
+  if (!presentation || typeof presentation !== 'object' || Array.isArray(presentation)) fail('Invalid presentation metadata.');
+  if (JSON.stringify(Object.keys(presentation).sort()) !== JSON.stringify(['icon_data', 'icon_format'])) fail('Invalid presentation metadata.');
+  if (presentation.icon_format !== 'image/x-icon' || typeof presentation.icon_data !== 'string') fail('Invalid embedded icon.');
+  if (presentation.icon_data.length < 32 || presentation.icon_data.length > Math.ceil(128 * 1024 * 4 / 3) + 8) fail('Embedded icon exceeds V13 limits.');
+  const bytes = unb64(presentation.icon_data);
+  if (bytes.length < 22 || bytes.length > 128 * 1024) fail('Embedded icon exceeds V13 limits.');
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.getUint16(0, true) !== 0 || view.getUint16(2, true) !== 1) fail('Embedded icon is not a valid ICO container.');
+  const count = view.getUint16(4, true);
+  if (count < 1 || count > 256 || 6 + count * 16 > bytes.length) fail('Embedded icon directory is invalid.');
+  for (let i = 0; i < count; i += 1) {
+    const entry = 6 + i * 16;
+    const size = view.getUint32(entry + 8, true);
+    const offset = view.getUint32(entry + 12, true);
+    if (size < 1 || offset < 6 + count * 16 || offset + size > bytes.length) fail('Embedded icon image bounds are invalid.');
+  }
+  return true;
+}
+
+function buildPresentation() {
+  const presentation = {
+    icon_format: 'image/x-icon',
+    icon_data: window.SPK13_ICON_BASE64,
+  };
+  assertPresentation(presentation);
+  return presentation;
+}
+
 function assertHeader(header) {
   if (!header || typeof header !== 'object' || Array.isArray(header)) fail();
   if (header.format !== FORMAT || header.version !== VERSION || header.container !== MAGIC || header.server_plaintext !== false || header.streaming !== true || header.kdf !== 'PBKDF2-HMAC-SHA-256') fail();
@@ -411,6 +440,7 @@ function assertHeader(header) {
   if (!header.key_slots || typeof header.key_slots.primary !== 'object') fail();
   if (!header.manifest_iv) fail();
   unb64(header.manifest_iv, IV_BYTES);
+  if (header.presentation !== undefined) assertPresentation(header.presentation);
   const primary = header.key_slots.primary;
   if (primary.type !== 'password-pattern' || primary.version !== 1) fail();
   unb64(primary.iv, IV_BYTES);
@@ -566,6 +596,7 @@ async function build(files, password, pattern, makeRecovery) {
       recovery: recoverySlot ? { type: 'recovery', version: 1, ...recoverySlot } : null,
     },
     manifest_iv: b64(manifestIv),
+    presentation: buildPresentation(),
     server_plaintext: false,
     streaming: true,
   };
