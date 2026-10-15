@@ -2,6 +2,7 @@
 
 ## Unreleased — v1.0.0 release readiness
 
+- Moved configuration loading inside the API initialization error boundary and added a real HTTP regression test proving config exceptions return a generic 500 without exposing exception details or filesystem paths.
 - Added a canonical reproducible release QA matrix covering Windows/XAMPP, V14 server packages, browser V13 compatibility, cleanup, restore safety, and release integrity; unrun manual scenarios remain NOT RUN.
 - Updated the API error audit to reflect the centralized request policy, integration coverage, and remaining classification risks.
 - Made the Composer lock refresh workflow expose dependency-audit outcomes and fail the workflow when the audit fails; generated a real Composer lockfile and passed strict validation, dependency audit, and lockfile-PR CI.
