@@ -124,9 +124,9 @@ Set-Item -LiteralPath $key -Value $installed -Force
 New-ItemProperty -LiteralPath $statePath -Name InstalledDefaultIcon -Value $installed -PropertyType String -Force | Out-Null
 & (Join-Path $PSScriptRoot 'refresh-icons.ps1')
 
-# Windows may prefer the app-level icon selected in FileExts\\.spk13\\UserChoice.
+# Windows may prefer the app-level icon selected in FileExts\.spk13\UserChoice.
 # Never edit the protected UserChoice hash or a shared application's global icon.
-$userChoicePath = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.spk13\\UserChoice'
+$userChoicePath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.spk13\UserChoice'
 if (Test-Path -LiteralPath $userChoicePath) {
     $selectedProgId = [string](Get-ItemProperty -LiteralPath $userChoicePath -ErrorAction SilentlyContinue).ProgId
     if (-not [string]::IsNullOrWhiteSpace($selectedProgId) -and $selectedProgId -ne $progId) {
