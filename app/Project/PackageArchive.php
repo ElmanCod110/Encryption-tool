@@ -17,35 +17,43 @@ final class PackageArchive
         $this->assertZipRuntime();
         $root = realpath($packageDir);
         if ($root === false || !is_dir($root)) throw new RuntimeException('Package directory does not exist.');
+        if (file_exists($outputFile) || is_link($outputFile)) throw new PackageStorageException('Archive destination already exists.');
+
         $tmpOutput = $outputFile . '.partial.' . bin2hex(random_bytes(12));
         $zip = new ZipArchive();
         if ($zip->open($tmpOutput, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            @unlink($tmpOutput);
-            throw new RuntimeException('Unable to create package archive.');
+            if ((file_exists($tmpOutput) || is_link($tmpOutput)) && !@unlink($tmpOutput)) {
+                throw new PackageStorageException('Unable to clean incomplete package archive.');
+            }
+            throw new PackageStorageException('Unable to create package archive.');
         }
+
         try {
             $count = 0;
             $used = [];
-            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+            $iterator = new \\RecursiveIteratorIterator(new \\RecursiveDirectoryIterator($root, \\FilesystemIterator::SKIP_DOTS));
             foreach ($iterator as $file) {
                 if (!$file->isFile() || $file->isLink() || $file->getFilename() === 'record.json') continue;
-                if (++$count > self::MAX_ENTRIES) throw new RuntimeException('Package archive contains too many entries.');
+                if (++$count > self::MAX_ENTRIES) throw new PackageRestoreRejectedException('Package archive contains too many entries.');
                 $path = $file->getPathname();
-                $relative = str_replace('\\', '/', substr($path, strlen(rtrim($root, DIRECTORY_SEPARATOR)) + 1));
+                $relative = str_replace('\\\\', '/', substr($path, strlen(rtrim($root, DIRECTORY_SEPARATOR)) + 1));
                 $this->assertArchivePath($relative);
                 $normalized = function_exists('mb_strtolower') ? mb_strtolower($relative, 'UTF-8') : strtolower($relative);
-                if (isset($used[$normalized])) throw new RuntimeException('Package archive contains colliding paths.');
+                if (isset($used[$normalized])) throw new PackageRestoreRejectedException('Package archive contains colliding paths.');
                 $used[$normalized] = true;
-                if (!$zip->addFile($path, $relative)) throw new RuntimeException('Unable to add package file to archive.');
+                if (!$zip->addFile($path, $relative)) throw new PackageStorageException('Unable to add package file to archive.');
                 $zip->setCompressionName($relative, ZipArchive::CM_STORE);
             }
-            if (!$zip->close()) throw new RuntimeException('Unable to finalize package archive.');
-            if (!rename($tmpOutput, $outputFile)) throw new RuntimeException('Unable to finalize package archive.');
-        } catch (\Throwable $e) {
+            if (!$zip->close()) throw new PackageStorageException('Unable to finalize package archive.');
+            // Hard-link publication is atomic and fails if another request already created the destination.
+            if (!link($tmpOutput, $outputFile)) throw new PackageStorageException('Unable to publish package archive.');
+            if (!unlink($tmpOutput)) throw new PackageStorageException('Unable to remove temporary package archive.');
+        } catch (\\Throwable $exception) {
             @$zip->close();
-            @unlink($tmpOutput);
-            @unlink($outputFile);
-            throw $e;
+            if ((file_exists($tmpOutput) || is_link($tmpOutput)) && !@unlink($tmpOutput)) {
+                throw new PackageStorageException('Unable to clean incomplete package archive.', 0, $exception);
+            }
+            throw $exception;
         }
         @chmod($outputFile, 0600);
     }
