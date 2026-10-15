@@ -21,13 +21,13 @@ The API entry point is public/api.php. It applies the centralized ApiRequestPoli
 | Unexpected exception at API boundary | 500 | Internal server error only | Integration test checks that implementation details are not exposed |
 | Unexpected account-store failure | 500 | Internal server error only | HTTP integration test corrupts an isolated fixture store and checks response privacy |
 | Package-catalog initialization failure | 500 | Internal server error only | HTTP integration test replaces the fixture catalog directory with a file and checks response privacy |
+| Restore destination storage failure | 500 | Internal server error only | HTTP integration test uses a valid disposable V14 package and blocks the restore destination path; response must not expose package ID, path, or exception type |
 
 ## Confirmed controller classification risks
 
 The following broad catches remain and should be replaced with typed domain failures where the underlying services can distinguish them safely:
 
 - **archive-step:** missing/unauthorized jobs use JobNotAvailableException for a privacy-preserving 404; stale state uses ArchiveStepConflictException (409); invalid/unsupported archive contents use ArchiveProcessingException (422). Unexpected storage/programming failures are rethrown to the API boundary for 500. Continue auditing ZipArchive edge cases and cleanup-failure behavior.
-- **build:** a broad catch returns 422 for validation, archive/ZIP, storage, catalog, and other failures. Cleanup behavior must be preserved while separating expected package/input failures from internal failures.
 - **decrypt:** unavailable catalog records return a privacy-preserving 404; typed invalid package/credential/outer-archive failures return 422; typed restore storage failures and other unexpected failures reach the API boundary for 500. PackageArchive, V14PackageReader, V14PackageVerifier, and V14Stream distinguish primary storage failures from rejected package data. Cleanup failure is elevated to a server error rather than being reported as a clean client rejection. A dedicated real-HTTP restore-destination storage failure scenario now verifies generic HTTP 500 handling without leaking paths, package IDs, or exception types.
 - **build:** validation errors now return 422, while unexpected ZIP, storage, catalog, token, and programming failures are rethrown to the API boundary for a generic 500. Incomplete artifacts are cleaned through a shared helper, while a catalogued package is retained.
 - **package availability / expiry / revoke / delete:** these management handlers now classify missing, expired, revoked, invalid-ID, and wrong-owner cases through PackageNotAvailableException and allow unexpected failures to reach the API boundary. Continue checking cleanup/partial-mutation behavior, especially delete operations.
@@ -47,7 +47,7 @@ Do not simply expose exception messages or stack traces to solve these issues. T
 ## Required follow-up tests
 
 - Real HTTP tests cover malformed input, unsupported methods/media types, authentication, account-store corruption, catalog initialization failure, and restore-destination storage failure using a valid disposable package and a blocked destination path.
-- Controller/service tests proving invalid package input maps to a client error while simulated disk or permission failure reaches HTTP 500.
+- Continue expanding controller/service tests for invalid package input versus simulated storage failures across every package and archive operation.
 - Assertions that public response bodies do not reveal exception class, message, paths, or secrets.
 - Cleanup tests for interrupted upload, package build, restore, and token operations.
 - Ownership/privacy tests that preserve the 404 boundary for missing and unauthorized package identifiers without swallowing genuine internal failures.
