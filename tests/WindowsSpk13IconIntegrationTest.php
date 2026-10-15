@@ -39,6 +39,12 @@ $checks = [
         && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'ProgIdKeyPath')
         && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'InstalledProgIdDefaultIcon')
         && str_contains((string) file_get_contents($root . '/platform/windows/file-association/unregister.ps1'), 'ProgIdPreviousDefaultIcon'),
+    'Embedded-package installer warns when Windows UserChoice can override the custom icon without changing the selected app' =>
+        str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'Explorer\\FileExts\\.spk13\\UserChoice')
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'Windows currently selects')
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'will not alter Windows UserChoice')
+        && !str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'Applications\\Code.exe\\DefaultIcon')
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/README.md'), 'cannot guarantee a custom Explorer icon'),
     'Embedded-package installer is documented as per-user and package-preserving' =>
         str_contains((string) file_get_contents($root . '/platform/windows/file-association/README.md'), 'install-spk13-icon-from-package.bat')
         && str_contains((string) file_get_contents($root . '/platform/windows/file-association/README.md'), 'does not modify the selected package'),
