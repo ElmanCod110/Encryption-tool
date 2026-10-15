@@ -92,8 +92,7 @@ jobs:
             $actualHash = (Get-FileHash -LiteralPath $cachePath -Algorithm SHA256).Hash
             if ($actualHash -ne $expectedHash) { throw 'Extracted icon bytes do not match the reviewed project icon.' }
             $key = Get-Item -LiteralPath $registryPath
-            if ([string]$key.GetValue('') -notmatch 'files\.ico",0
-) { throw 'Explorer DefaultIcon registration is incorrect.' }
+            if (-not ([string]$key.GetValue('')).EndsWith('files.ico",0')) { throw 'Explorer DefaultIcon registration is incorrect.' }
           } finally {
             if (Test-Path -LiteralPath 'HKCU:\Software\EncryptionTool\FileAssociations\SPK13') {
               & .\platform\windows\file-association\unregister.ps1
