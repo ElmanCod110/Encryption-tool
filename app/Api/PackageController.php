@@ -11,6 +11,7 @@ use SecurePackage\Archive\ArchiveProcessingException;
 use SecurePackage\Archive\ArchiveStepConflictException;
 use SecurePackage\Project\PackageArchive;
 use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\PackageDeletionTransaction;
 use SecurePackage\Project\PackageNotAvailableException;
 use SecurePackage\Project\PackageRestoreRejectedException;
 use SecurePackage\Project\PackageStorageException;
@@ -452,35 +453,12 @@ final class PackageController
             $this->catalog->assertOwner($packageId, AccessContext::ownerId());
             $packagePath = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
             $portablePath = $packagePath . '.spkg14';
-            $staged = [];
-
-            // Stage both representations before revoking access or removing the catalog record.
-            // Same-directory renames are atomic and let us restore the package if a later step fails.
-            try {
-                foreach ([$portablePath, $packagePath] as $originalPath) {
-                    if (!file_exists($originalPath) && !is_link($originalPath)) continue;
-                    $stagedPath = $originalPath . '.deleting.' . bin2hex(random_bytes(12));
-                    if (!rename($originalPath, $stagedPath)) {
-                        throw new PackageStorageException('Unable to stage package deletion.');
-                    }
-                    $staged[] = ['original' => $originalPath, 'staged' => $stagedPath];
-                }
-                $this->accessTokens->revokeForPackage($packageId);
-                $this->catalog->delete($packageId, AccessContext::ownerId());
-            } catch (\Throwable $exception) {
-                foreach (array_reverse($staged) as $entry) {
-                    $stagedPath = $entry['staged'];
-                    $originalPath = $entry['original'];
-                    if (!file_exists($stagedPath) && !is_link($stagedPath)) continue;
-                    if (file_exists($originalPath) || is_link($originalPath)) {
-                        throw new PackageStorageException('Unable to roll back interrupted package deletion because the original path is occupied.', 0, $exception);
-                    }
-                    if (!@rename($stagedPath, $originalPath)) {
-                        throw new PackageStorageException('Unable to roll back interrupted package deletion.', 0, $exception);
-                    }
-                }
-                throw $exception;
-            }
+            $transaction = new PackageDeletionTransaction();
+            $staged = $transaction->execute(
+                [$portablePath, $packagePath],
+                fn() => $this->accessTokens->revokeForPackage($packageId),
+                fn() => $this->catalog->delete($packageId, AccessContext::ownerId())
+            );
 
             $auditException = null;
             try {
@@ -489,20 +467,7 @@ final class PackageController
                 $auditException = $exception;
             }
 
-            $cleanupException = null;
-            foreach ($staged as $entry) {
-                try {
-                    $this->removePath($entry['staged']);
-                    if (file_exists($entry['staged']) || is_link($entry['staged'])) {
-                        throw new PackageStorageException('Unable to clean deleted package artifacts.');
-                    }
-                } catch (\Throwable $exception) {
-                    $cleanupException ??= $exception;
-                }
-            }
-            if ($cleanupException !== null) {
-                throw new PackageStorageException('Unable to clean deleted package artifacts.', 0, $cleanupException);
-            }
+            $transaction->cleanupCommitted($staged, fn(string $path) => $this->removePath($path));
             if ($auditException !== null) throw $auditException;
             JsonResponse::send(['ok' => true]);
         } catch (AuthenticationRequiredException $exception) {
