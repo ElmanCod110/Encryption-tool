@@ -35,7 +35,10 @@ $checks = [
         str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'SPK13BIN1')
         && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'Assert-Ico $icon')
         && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'fe50bee47fc4929be1d2addf5097a7b010871e2cdb87a3b64023dfc78b1e214e')
-        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'HKCU:\\Software\\Classes\\SystemFileAssociations\\.spk13\\DefaultIcon'),
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'HKCU:\\Software\\Classes\\SystemFileAssociations\\.spk13\\DefaultIcon')
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'ProgIdKeyPath')
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'InstalledProgIdDefaultIcon')
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/unregister.ps1'), 'ProgIdPreviousDefaultIcon'),
     'Embedded-package installer is documented as per-user and package-preserving' =>
         str_contains((string) file_get_contents($root . '/platform/windows/file-association/README.md'), 'install-spk13-icon-from-package.bat')
         && str_contains((string) file_get_contents($root . '/platform/windows/file-association/README.md'), 'does not modify the selected package'),
