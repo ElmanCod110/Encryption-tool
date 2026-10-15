@@ -31,6 +31,13 @@ $checks = [
     'Explorer receives the association-change notification' =>
         str_contains($refresh, 'SHChangeNotify')
         && str_contains($refresh, '0x08000000'),
+    'Embedded-package installer reads SPK13 header and validates the icon before registry changes' =>
+        str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'SPK13BIN1')
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'Assert-Ico $icon')
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/install-from-package.ps1'), 'HKCU:\\Software\\Classes\\SystemFileAssociations\\.spk13\\DefaultIcon'),
+    'Embedded-package installer is documented as per-user and package-preserving' =>
+        str_contains((string) file_get_contents($root . '/platform/windows/file-association/README.md'), 'install-spk13-icon-from-package.bat')
+        && str_contains((string) file_get_contents($root . '/platform/windows/file-association/README.md'), 'does not modify the selected package'),
 ];
 
 foreach ($checks as $description => $passed) {
