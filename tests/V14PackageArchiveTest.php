@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Project\PackageArchive;
+use SecurePackage\Project\PackageStorageException;
 
 if (!extension_loaded('zip') || !class_exists(ZipArchive::class)) {
     echo "V14 package archive test skipped: Zip extension unavailable.\n";
