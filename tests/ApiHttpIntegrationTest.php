@@ -109,7 +109,11 @@ try {
     }
 
     $expect(404, $request('api.php?action=unknown-action'), 'Unknown action');
-    $expect(405, $request('api.php?action=login', 'GET'), 'GET login method');
+    $methodRejected = $request('api.php?action=login', 'GET');
+    $expect(405, $methodRejected, 'GET login method');
+    if (!in_array('Allow: POST', $methodRejected['headers'], true)) {
+        throw new RuntimeException('Method rejection did not advertise the supported POST method.');
+    }
     $expect(415, $request('api.php?action=login', 'POST', ['Content-Type: text/plain'], '{}'), 'Login media type');
 
     $indexResponse = $request('');
