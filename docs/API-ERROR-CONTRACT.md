@@ -47,6 +47,7 @@ Do not simply expose exception messages or stack traces to solve these issues. T
 ## Required follow-up tests
 
 - Real HTTP tests cover malformed input, unsupported methods/media types, authentication, account-store corruption, catalog initialization failure, and restore-destination storage failure using a valid disposable package and a blocked destination path.
+- The HTTP integration test also verifies that a 405 response includes `Allow: POST`. Archive creation has a dedicated no-overwrite regression test; incomplete package-build cleanup now reports a typed storage failure if deletion cannot complete.
 - Continue expanding controller/service tests for invalid package input versus simulated storage failures across every package and archive operation.
 - Assertions that public response bodies do not reveal exception class, message, paths, or secrets.
 - Cleanup tests for interrupted upload, package build, restore, and token operations.
