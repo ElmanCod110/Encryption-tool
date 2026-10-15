@@ -41,6 +41,14 @@ try {
 if ($header.format -ne 'SECURE-BROWSER-V13' -or $header.version -ne 13 -or $null -eq $header.presentation -or $header.presentation.icon_format -ne 'image/x-icon' -or [string]::IsNullOrWhiteSpace([string]$header.presentation.icon_data)) { throw 'This SPK13 package does not contain supported embedded icon metadata.' }
 try { $icon = [Convert]::FromBase64String([string]$header.presentation.icon_data) } catch { throw 'Embedded icon is not valid Base64.' }
 Assert-Ico $icon
+# Only install the project's reviewed built-in icon, not arbitrary image bytes from an untrusted package.
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
+try {
+    $iconHash = ([BitConverter]::ToString($sha256.ComputeHash($icon))).Replace('-', '').ToLowerInvariant()
+} finally { $sha256.Dispose() }
+if ($iconHash -ne 'fe50bee47fc4929be1d2addf5097a7b010871e2cdb87a3b64023dfc78b1e214e') {
+    throw 'Embedded ICO does not match the reviewed Encryption-tool icon.'
+}
 
 $cache = Join-Path $env:LOCALAPPDATA 'EncryptionTool\SPK13'
 New-Item -ItemType Directory -Path $cache -Force | Out-Null
