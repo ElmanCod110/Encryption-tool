@@ -30,6 +30,11 @@ try {
             throw new RuntimeException('Unable to copy release-signing fixture.');
         }
     }
+    foreach (['sign-release.php', 'verify-release.php'] as $file) {
+        if (!copy($sourceRoot . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $file, $fixture . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $file)) {
+            throw new RuntimeException('Unable to copy release signing tools.');
+        }
+    }
 
     $keypair = sodium_crypto_sign_keypair();
     $secretKey = sodium_crypto_sign_secretkey($keypair);
