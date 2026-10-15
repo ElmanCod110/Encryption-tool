@@ -48,7 +48,7 @@ final class PackageArchive
             // Hard-link publication is atomic and fails if another request already created the destination.
             if (!link($tmpOutput, $outputFile)) throw new PackageStorageException('Unable to publish package archive.');
             if (!unlink($tmpOutput)) throw new PackageStorageException('Unable to remove temporary package archive.');
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             @$zip->close();
             if ((file_exists($tmpOutput) || is_link($tmpOutput)) && !@unlink($tmpOutput)) {
                 throw new PackageStorageException('Unable to clean incomplete package archive.', 0, $exception);
