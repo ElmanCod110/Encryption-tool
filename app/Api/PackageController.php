@@ -471,9 +471,9 @@ final class PackageController
                 foreach (array_reverse($staged) as $entry) {
                     $stagedPath = $entry['staged'];
                     $originalPath = $entry['original'];
-                    if ((!file_exists($stagedPath) && !is_link($stagedPath))
-                        || file_exists($originalPath) || is_link($originalPath)) {
-                        continue;
+                    if (!file_exists($stagedPath) && !is_link($stagedPath)) continue;
+                    if (file_exists($originalPath) || is_link($originalPath)) {
+                        throw new PackageStorageException('Unable to roll back interrupted package deletion because the original path is occupied.', 0, $exception);
                     }
                     if (!@rename($stagedPath, $originalPath)) {
                         throw new PackageStorageException('Unable to roll back interrupted package deletion.', 0, $exception);
