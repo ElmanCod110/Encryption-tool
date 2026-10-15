@@ -10,7 +10,7 @@
 - Separated package-build validation failures (422) from unexpected build/storage failures (500), with shared cleanup for incomplete artifacts and preservation of the plaintext source job.
 - Separated restore/outer-archive rejection from storage failures and verified cleanup of incomplete restore artifacts before returning client errors.
 - Moved API service construction inside the centralized error boundary and added HTTP regression coverage for authentication, missing jobs, catalog initialization failure, and internal-detail privacy.
-- Added regression coverage for corrupt catalog records, build/restore cleanup, wrong restore credentials, archive path/limit handling, package-scoped token revocation, and version metadata.
+- Added regression coverage for corrupt catalog records, missing-versus-unauthorized package privacy, build/restore cleanup, wrong restore credentials, archive path/limit handling, package-scoped token revocation, and version metadata.
 - Aligned VERSION and the changelog with the published v0.14.1 tag, separated application release version from the SECURE-PKG-V14 format identifier, and added consistency tests.
 - Added a release-readiness lockfile gate and an explicit full regression/security-suite step to the release security workflow.
 - Added a real HTTP regression test for restore-destination storage failure using a valid disposable V14 package; the response must remain a generic HTTP 500 without exposing package IDs, filesystem paths, or exception types.
