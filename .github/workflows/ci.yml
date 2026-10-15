@@ -33,3 +33,57 @@ jobs:
         run: |
           set -e
           for test in tests/*.php; do php "$test"; done
+
+  windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: sodium,zip,mbstring,intl,dom,xml
+          coverage: none
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate and install locked Composer dependencies
+        shell: pwsh
+        run: |
+          composer validate --strict --no-check-publish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          composer install --no-interaction --prefer-dist
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          composer audit --no-interaction
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: PHP syntax check
+        shell: pwsh
+        run: |
+          Get-ChildItem app,bin,public,tests -Recurse -File -Filter *.php | ForEach-Object {
+            php -l $_.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Runtime self-check and source audit
+        shell: pwsh
+        run: |
+          php bin/self-check.php
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          php bin/source-audit.php
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: V14 package round-trip and restore safety
+        shell: pwsh
+        run: |
+          php tests/V14PackageRoundTripTest.php
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          php tests/V14RestoreSafetyTest.php
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          php tests/V14PackageArchiveTest.php
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Browser V13 automated round-trip
+        shell: pwsh
+        run: node tests/BrowserV13RoundTripTest.mjs
+      - name: Release signer external trust-root test
+        shell: pwsh
+        run: php tests/ReleaseSignerExternalTrustTest.php

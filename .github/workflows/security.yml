@@ -25,6 +25,14 @@ jobs:
         run: |
           find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Require a Composer lockfile for release-readiness branches
+        if: github.head_ref == 'release/v1.0.0-readiness' || github.base_ref == 'release/v1.0.0-readiness'
+        run: |
+          if [ ! -f composer.lock ]; then
+            echo "::error::A Composer-generated composer.lock is required before release-readiness changes can pass."
+            exit 1
+          fi
+
       - name: Composer manifest validation
         run: composer validate --no-check-publish
 
@@ -91,6 +99,9 @@ jobs:
 
       - name: Source security audit
         run: php bin/source-audit.php
+
+      - name: Full regression and security suite
+        run: php bin/security-test.php --full
 
       - name: Legacy browser V13 round-trip
         run: node tests/BrowserV13RoundTripTest.mjs

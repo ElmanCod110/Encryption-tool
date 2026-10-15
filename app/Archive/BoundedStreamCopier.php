@@ -39,12 +39,12 @@ final class BoundedStreamCopier
                 if (feof($source)) {
                     break;
                 }
-                throw new RuntimeException('Archive stream stopped unexpectedly.');
+                throw new ArchiveProcessingException('Archive stream stopped unexpectedly.');
             }
 
             $length = strlen($chunk);
             if ($copied + $length > $maxFileBytes || $copied + $length > $maxTotalBytes) {
-                throw new RuntimeException('Archive extraction limit exceeded.');
+                throw new ArchiveProcessingException('Archive extraction limit exceeded.');
             }
 
             $offset = 0;

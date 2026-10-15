@@ -4,7 +4,7 @@
 
 The root `VERSION` file is the sole source of truth for the application release version. It must contain exactly one semantic version in `MAJOR.MINOR.PATCH` form. The PHP bootstrap validates this value; application UI and status output must consume the derived configuration/constants rather than hard-coding a release number in templates or scripts.
 
-Do not change the version merely to make a build look newer. Update it as part of a deliberate release commit and keep the changelog and release notes consistent with verified changes.
+Do not change the version merely to make a build look newer. Update it as part of a deliberate release commit and keep the changelog and release notes consistent with verified changes. The root VERSION value must match the application release tag without the leading v (for example, VERSION 0.14.1 corresponds to tag v0.14.1). Do not use the package-format generation as the application version.
 
 ## Application version versus package-format version
 

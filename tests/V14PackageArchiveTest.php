@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Project\PackageArchive;
+use SecurePackage\Project\PackageStorageException;
 
 if (!extension_loaded('zip') || !class_exists(ZipArchive::class)) {
     echo "V14 package archive test skipped: Zip extension unavailable.\n";
@@ -22,6 +23,16 @@ file_put_contents($package . '/blobs/' . str_repeat('a', 48) . '.bin', random_by
 
 try {
     $service = new PackageArchive();
+    file_put_contents($archive, 'existing destination must survive');
+    try {
+        $service->create($package, $archive);
+        throw new RuntimeException('Archive creation overwrote an existing destination.');
+    } catch (PackageStorageException) {
+        if (file_get_contents($archive) !== 'existing destination must survive') {
+            throw new RuntimeException('Existing archive destination was modified after rejection.');
+        }
+    }
+    unlink($archive);
     $service->create($package, $archive);
     $service->extract($archive, $restore);
     foreach (['header.json', 'manifest.enc', 'complete.json', 'blobs/' . str_repeat('a', 48) . '.bin'] as $relative) {

@@ -15,7 +15,7 @@ final class AuthorizationService
     {
         $accountId = AccessContext::accountId();
         if ($accountId === null) {
-            throw new RuntimeException('Authentication required.');
+            throw new AuthenticationRequiredException();
         }
         return $accountId;
     }

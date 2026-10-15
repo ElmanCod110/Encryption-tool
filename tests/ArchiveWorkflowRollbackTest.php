@@ -5,6 +5,7 @@ require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
+use SecurePackage\Archive\ArchiveProcessingException;
 use SecurePackage\Storage\JobStore;
 
 if (!extension_loaded('zip') || !class_exists(ZipArchive::class)) {
@@ -39,7 +40,7 @@ try {
     try {
         $workflow->process($jobId, $archiveId, '');
         throw new RuntimeException('Expected archive output collision was not rejected.');
-    } catch (RuntimeException $exception) {
+    } catch (ArchiveProcessingException $exception) {
         if (!str_contains($exception->getMessage(), 'Unable to extract archive')) {
             throw $exception;
         }

@@ -14,12 +14,17 @@ $decrypt = substr($controller, $decryptStart, $packagesStart - $decryptStart);
 $checks = [
     'Restore output path is initialized before restore work' =>
         strpos($decrypt, '$outputDir = null;') !== false,
-    'Failed decrypt/restore paths remove temporary plaintext output' =>
-        strpos($decrypt, 'if (is_string($outputDir)) $this->removePath($outputDir);') !== false,
+    'Failed decrypt/restore paths use the shared cleanup helper' =>
+        strpos($decrypt, '$this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);') !== false,
     'Restore output cleanup happens before the error response' =>
-        strpos($decrypt, '$this->removePath($outputDir);') < strpos($decrypt, "Unable to open package."),
-    'Temporary package extraction cleanup remains in place' =>
-        strpos($decrypt, 'if ($temporaryPackageDir !== null) $this->removePath($temporaryPackageDir);') !== false,
+        strpos($decrypt, '$this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);') < strpos($decrypt, "Unable to open package."),
+    'Cleanup verifies output removal and always clears credential strings' =>
+        str_contains($controller, 'private function cleanupFailedRestore(')
+        && str_contains($controller, 'if (file_exists($outputDir) || is_link($outputDir))')
+        && str_contains($controller, 'finally {'),
+    'Temporary package extraction cleanup remains verified' =>
+        str_contains($decrypt, 'if ($temporaryPackageDir !== null) {')
+        && str_contains($decrypt, 'Unable to clean temporary package extraction.'),
 ];
 
 foreach ($checks as $description => $passed) {

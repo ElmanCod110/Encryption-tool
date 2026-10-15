@@ -45,6 +45,26 @@ try {
         throw new RuntimeException('Malformed token was accepted.');
     }
 
+    $revokedA = $store->issue('package-to-revoke', 'account:owner-c', false);
+    $revokedB = $store->issue('package-to-revoke', 'account:owner-d', true);
+    $unrelated = $store->issue('package-to-keep', 'account:owner-e', false);
+    $store->revokeForPackage('package-to-revoke');
+
+    foreach ([$revokedA, $revokedB] as $revokedToken) {
+        $revokedRejected = false;
+        try {
+            $store->consume($revokedToken);
+        } catch (RuntimeException) {
+            $revokedRejected = true;
+        }
+        if (!$revokedRejected) {
+            throw new RuntimeException('Package-scoped revocation left a token usable.');
+        }
+    }
+    if (($store->consume($unrelated)['package_id'] ?? null) !== 'package-to-keep') {
+        throw new RuntimeException('Package-scoped revocation affected an unrelated package token.');
+    }
+
     echo "Package access token regression tests passed.\n";
 } finally {
     foreach (glob($directory . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {

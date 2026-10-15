@@ -107,7 +107,9 @@ final class PackageAccessTokenStore
             if (is_link($file) || !is_file($file)) continue;
             $data = json_decode((string) @file_get_contents($file), true);
             if (is_array($data) && ($data['package_id'] ?? '') === $packageId) {
-                @unlink($file);
+                if (!@unlink($file) && (file_exists($file) || is_link($file))) {
+                    throw new RuntimeException('Unable to revoke package access token.');
+                }
             }
         }
     }

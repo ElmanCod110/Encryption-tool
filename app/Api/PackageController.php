@@ -7,13 +7,20 @@ use InvalidArgumentException;
 use RuntimeException;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
+use SecurePackage\Archive\ArchiveProcessingException;
+use SecurePackage\Archive\ArchiveStepConflictException;
 use SecurePackage\Project\PackageArchive;
 use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\PackageDeletionTransaction;
+use SecurePackage\Project\PackageNotAvailableException;
+use SecurePackage\Project\PackageRestoreRejectedException;
+use SecurePackage\Project\PackageStorageException;
 use SecurePackage\Project\V14PackageReader;
 use SecurePackage\Project\V14PackageService;
 use SecurePackage\Security\AccessContext;
 use SecurePackage\Security\ApplicationSecrets;
 use SecurePackage\Security\AccountStore;
+use SecurePackage\Security\AuthenticationRequiredException;
 use SecurePackage\Security\DuplicateAccountException;
 use SecurePackage\Security\AuthorizationService;
 use SecurePackage\Security\SecurityPolicy;
@@ -26,6 +33,7 @@ use SecurePackage\Security\WebSecurity;
 use SecurePackage\Storage\AuditLogger;
 use SecurePackage\Storage\FileStore;
 use SecurePackage\Storage\JobStore;
+use SecurePackage\Storage\JobNotAvailableException;
 use SecurePackage\Storage\ResumableUploadStore;
 use SecurePackage\Storage\QuotaExceededException;
 use SecurePackage\Storage\UploadException;
@@ -213,11 +221,20 @@ final class PackageController
                 $this->rateLimiter->success($ipRateKey);
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => true, 'state' => $state]);
-            } catch (\Throwable) {
+            } catch (JobNotAvailableException) {
+                sodium_memzero($password);
+                JsonResponse::send(['ok' => false, 'error' => 'Archive job was not found.'], 404);
+            } catch (ArchiveStepConflictException) {
+                sodium_memzero($password);
+                JsonResponse::send(['ok' => false, 'error' => 'Archive step is no longer available.'], 409);
+            } catch (ArchiveProcessingException) {
                 sodium_memzero($password);
                 JsonResponse::send(['ok' => false, 'error' => 'Unable to open archive with the supplied password.'], 422);
+            } catch (\Throwable $exception) {
+                sodium_memzero($password);
+                throw $exception;
             }
-        } catch (\Throwable) {
+        } catch (JobNotAvailableException) {
             sodium_memzero($password);
             JsonResponse::send(['ok' => false, 'error' => 'Archive job was not found.'], 404);
         }
@@ -270,20 +287,24 @@ final class PackageController
                 'recovery_key' => $result['recovery_key'] ?? null,
                 'format' => 'SECURE-PKG-V14',
             ], 201);
-        } catch (\Throwable) {
-            // Never discard the only plaintext source copy when packaging fails. If catalog
-            // creation did not complete, remove incomplete encrypted artifacts; once catalogued,
-            // retain the package so a transient token/audit failure cannot destroy user data.
-            if (!$packageCreated) {
-                if (is_string($portableArchive)) {
-                    try { $this->removePath($portableArchive); } catch (\Throwable) {}
-                }
-                if (is_string($packageDirectory)) {
-                    try { $this->removePath($packageDirectory); } catch (\Throwable) {}
-                }
+        } catch (JobNotAvailableException $exception) {
+            $this->cleanupFailedBuild($portableArchive, $packageDirectory, $packageCreated);
+            sodium_memzero($password); sodium_memzero($pattern);
+            if ($packageCreated) {
+                throw $exception;
             }
+            JsonResponse::send(['ok' => false, 'error' => 'Archive job was not found.'], 404);
+        } catch (InvalidArgumentException) {
+            $this->cleanupFailedBuild($portableArchive, $packageDirectory, $packageCreated);
             sodium_memzero($password); sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
+        } catch (\Throwable $exception) {
+            // Preserve the plaintext source and clean only incomplete encrypted artifacts.
+            // Unexpected storage, ZIP, catalog, and programming failures must reach the API
+            // boundary as HTTP 500 instead of being mislabeled as client input errors.
+            $this->cleanupFailedBuild($portableArchive, $packageDirectory, $packageCreated);
+            sodium_memzero($password); sodium_memzero($pattern);
+            throw $exception;
         }
     }
 
@@ -324,7 +345,12 @@ final class PackageController
                 $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
                 $result = (new V14PackageReader())->restore($packageDir, $outputDir, $password, $pattern, $recoveryKey);
             } finally {
-                if ($temporaryPackageDir !== null) $this->removePath($temporaryPackageDir);
+                if ($temporaryPackageDir !== null) {
+                    $this->removePath($temporaryPackageDir);
+                    if (file_exists($temporaryPackageDir) || is_link($temporaryPackageDir)) {
+                        throw new PackageStorageException('Unable to clean temporary package extraction.');
+                    }
+                }
             }
             $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
             $restoreToken = $tokenStore->issue($outputDir);
@@ -334,13 +360,18 @@ final class PackageController
             sodium_memzero($password); sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => true, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
-        } catch (\Throwable) {
-            // A failed restore can leave partially or fully decrypted files behind.
-            // Remove them before returning an error; only successful responses expose a restore token.
-            if (is_string($outputDir)) $this->removePath($outputDir);
-            sodium_memzero($password); sodium_memzero($pattern);
-            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+        } catch (PackageNotAvailableException) {
+            $this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);
+            JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
+        } catch (PackageRestoreRejectedException|InvalidArgumentException) {
+            $this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 422);
+        } catch (PackageStorageException $exception) {
+            $this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);
+            throw $exception;
+        } catch (\Throwable $exception) {
+            $this->cleanupFailedRestore($outputDir, $password, $pattern, $recoveryKey);
+            throw $exception;
         }
     }
 
@@ -371,7 +402,9 @@ final class PackageController
             if (($record['revoked_at'] ?? null) !== null) throw new RuntimeException('Package revoked.');
             $token = $this->accessTokens->issue($packageId, AccessContext::ownerId(), false);
             JsonResponse::send(['ok' => true, 'download' => 'download.php?token=' . rawurlencode($token)]);
-        } catch (\Throwable) {
+        } catch (AuthenticationRequiredException $exception) {
+            throw $exception;
+        } catch (PackageNotAvailableException) {
             JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         }
     }
@@ -386,8 +419,10 @@ final class PackageController
             $this->catalog->setExpiry($packageId, AccessContext::ownerId(), $expiresAt);
             $this->audit->event('package.expiry_changed', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
             JsonResponse::send(['ok' => true]);
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to update package expiration.'], 404);
+        } catch (AuthenticationRequiredException $exception) {
+            throw $exception;
+        } catch (PackageNotAvailableException) {
+            JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         }
     }
 
@@ -401,8 +436,10 @@ final class PackageController
             $this->accessTokens->revokeForPackage($packageId);
             $this->audit->event('package.revoked', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
             JsonResponse::send(['ok' => true]);
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to revoke package.'], 404);
+        } catch (AuthenticationRequiredException $exception) {
+            throw $exception;
+        } catch (PackageNotAvailableException) {
+            JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         }
     }
 
@@ -413,17 +450,30 @@ final class PackageController
         $packageId = (string) ($input['package_id'] ?? '');
         try {
             $this->authorization->requireAuthenticated();
-            $record = $this->catalog->assertOwner($packageId, AccessContext::ownerId());
-            $path = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
-            $portable = $path . '.spkg14';
-            $this->removePath($portable);
-            $this->removePath($path);
-            $this->accessTokens->revokeForPackage($packageId);
-            $this->catalog->delete($packageId, AccessContext::ownerId());
-            $this->audit->event('package.deleted', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
+            $this->catalog->assertOwner($packageId, AccessContext::ownerId());
+            $packagePath = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
+            $portablePath = $packagePath . '.spkg14';
+            $transaction = new PackageDeletionTransaction();
+            $staged = $transaction->execute(
+                [$portablePath, $packagePath],
+                fn() => $this->accessTokens->revokeForPackage($packageId),
+                fn() => $this->catalog->delete($packageId, AccessContext::ownerId())
+            );
+
+            $auditException = null;
+            try {
+                $this->audit->event('package.deleted', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
+            } catch (\Throwable $exception) {
+                $auditException = $exception;
+            }
+
+            $transaction->cleanupCommitted($staged, fn(string $path) => $this->removePath($path));
+            if ($auditException !== null) throw $auditException;
             JsonResponse::send(['ok' => true]);
-        } catch (\Throwable) {
-            JsonResponse::send(['ok' => false, 'error' => 'Unable to delete package.'], 404);
+        } catch (AuthenticationRequiredException $exception) {
+            throw $exception;
+        } catch (PackageNotAvailableException) {
+            JsonResponse::send(['ok' => false, 'error' => 'Package not available.'], 404);
         }
     }
 
@@ -441,6 +491,40 @@ final class PackageController
             'crypto' => ['kdf' => 'argon2id13', 'aead' => 'xchacha20poly1305-ietf', 'stream' => 'secretstream-xchacha20poly1305', 'key_wrap' => 'xchacha20poly1305-ietf', 'key_separation' => 'HKDF-SHA-256'],
             'controls' => ['csrf' => true, 'same_origin' => true, 'rate_limiting' => true, 'resumable_uploads' => true, 'tamper_evident_audit' => true, 'package_ownership' => true, 'header_binding' => true, 'external_key_wrap' => true, 'no_overwrite_restore' => true]
         ]);
+    }
+
+    private function cleanupFailedRestore(?string $outputDir, string &$password, string &$pattern, ?string &$recoveryKey): void
+    {
+        try {
+            if (is_string($outputDir)) {
+                $this->removePath($outputDir);
+                if (file_exists($outputDir) || is_link($outputDir)) {
+                    throw new PackageStorageException('Unable to clean incomplete restore output.');
+                }
+            }
+        } finally {
+            sodium_memzero($password);
+            sodium_memzero($pattern);
+            if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
+        }
+    }
+
+    private function cleanupFailedBuild(?string $portableArchive, ?string $packageDirectory, bool $packageCreated): void
+    {
+        if ($packageCreated) {
+            return;
+        }
+
+        foreach ([$portableArchive, $packageDirectory] as $path) {
+            if (!is_string($path)) {
+                continue;
+            }
+
+            $this->removePath($path);
+            if (file_exists($path) || is_link($path)) {
+                throw new RuntimeException('Unable to clean incomplete package artifacts.');
+            }
+        }
     }
 
     private function removeJobDirectory(string $jobId): void

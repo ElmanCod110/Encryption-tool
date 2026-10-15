@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\PackageNotAvailableException;
 
 $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'spk-package-catalog-' . bin2hex(random_bytes(8));
 if (!mkdir($directory, 0700, true)) {
@@ -36,7 +37,7 @@ try {
     $wrongOwnerRejected = false;
     try {
         $catalog->setExpiry($packageId, 'account:owner-b', null);
-    } catch (RuntimeException) {
+    } catch (PackageNotAvailableException) {
         $wrongOwnerRejected = true;
     }
     if (!$wrongOwnerRejected || $catalog->get($packageId)['expires_at'] === null) {
@@ -46,11 +47,37 @@ try {
     $unavailableRejected = false;
     try {
         $catalog->assertAvailable($packageId);
-    } catch (RuntimeException) {
+    } catch (PackageNotAvailableException) {
         $unavailableRejected = true;
     }
     if (!$unavailableRejected) {
         throw new RuntimeException('Revoked package remained available.');
+    }
+
+    $missingPackageTyped = false;
+    try {
+        $catalog->get(str_repeat('z', 48));
+    } catch (PackageNotAvailableException) {
+        $missingPackageTyped = true;
+    }
+    if (!$missingPackageTyped) {
+        throw new RuntimeException('Invalid package identifiers were not classified as unavailable.');
+    }
+
+    $corruptId = str_repeat('c', 48);
+    if (file_put_contents($directory . DIRECTORY_SEPARATOR . $corruptId . '.json', '{invalid-json') === false) {
+        throw new RuntimeException('Unable to prepare corrupt catalog fixture.');
+    }
+    $corruptionRemainedInternal = false;
+    try {
+        $catalog->get($corruptId);
+    } catch (PackageNotAvailableException) {
+        throw new RuntimeException('Corrupt catalog data was incorrectly classified as a missing package.');
+    } catch (Throwable) {
+        $corruptionRemainedInternal = true;
+    }
+    if (!$corruptionRemainedInternal) {
+        throw new RuntimeException('Corrupt catalog data did not produce an internal failure.');
     }
 
     // Race multiple independent PHP processes against the same new package ID.

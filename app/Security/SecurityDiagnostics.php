@@ -30,6 +30,8 @@ final class SecurityDiagnostics
         return [
             'version' => SECURE_PACKAGE_MAJOR_VERSION,
             'version_string' => SECURE_PACKAGE_VERSION,
+            'server_package_format' => 'SECURE-PKG-V14',
+            'server_package_format_version' => 14,
             'author' => 'ElmanCod110',
             'checks' => $checks,
             'secure' => $secure,
