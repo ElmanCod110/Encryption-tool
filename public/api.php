@@ -19,8 +19,8 @@ use SecurePackage\Storage\AuditLogger;
 use SecurePackage\Storage\JobStore;
 use SecurePackage\Storage\ResumableUploadStore;
 
-$config = require dirname(__DIR__) . '/config/config.php';
 try {
+    $config = require dirname(__DIR__) . '/config/config.php';
     WebSecurity::startSession();
     WebSecurity::applyHeaders();
 } catch (HttpException $exception) {
