@@ -105,10 +105,23 @@ final class AuditLogger
 
     private function sanitize(array $context): array
     {
-        $blocked = ['password', 'pattern', 'secret', 'token', 'csrf', 'authorization', 'cookie'];
+        // Context keys are supplied by callers and may evolve over time. Match sensitive
+        // fragments instead of exact names so suffixes/prefixes such as password_hash,
+        // api_token, session_id, recovery_key, and authorization_header are redacted too.
+        $blockedFragments = [
+            'password', 'passphrase', 'pattern', 'secret', 'token', 'csrf',
+            'authorization', 'cookie', 'session', 'credential', 'recoverykey',
+            'privatekey', 'signingkey', 'encryptionkey', 'apikey', 'accesskey',
+            'keymaterial', 'pepper',
+        ];
         $result = [];
         foreach ($context as $key => $value) {
-            if (in_array(strtolower((string) $key), $blocked, true)) continue;
+            $normalizedKey = strtolower((string) preg_replace('/[^a-z0-9]/i', '', (string) $key));
+            foreach ($blockedFragments as $fragment) {
+                if (str_contains($normalizedKey, $fragment)) {
+                    continue 2;
+                }
+            }
             if (is_scalar($value) || $value === null) $result[(string) $key] = $value;
         }
         ksort($result);
