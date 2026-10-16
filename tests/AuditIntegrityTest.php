@@ -27,7 +27,7 @@ foreach (['should-not-persist', 'password-hash-secret', 'api-token-secret', 'ses
 foreach (['account-safe', '"result_count":2'] as $safeValue) {
     if (!str_contains((string) $data, $safeValue)) throw new RuntimeException('Safe audit context was unexpectedly removed: ' . $safeValue);
 }
-$data = str_replace('"value":2', '"value":3', (string) $data);
+$data = str_replace('"result_count":2', '"result_count":3', (string) $data);
 file_put_contents($file, $data, LOCK_EX);
 if ($logger->verify()) throw new RuntimeException('Tampered audit chain was accepted.');
 
