@@ -20,6 +20,10 @@ final class AuditLogger
         }
         $this->headFile = $file . '.head';
         if (!is_file($this->headFile)) {
+            $logSize = is_file($this->file) ? filesize($this->file) : 0;
+            if ($logSize === false || $logSize > 0) {
+                throw new RuntimeException('Audit log head is missing; refusing to reset the integrity chain.');
+            }
             AtomicFile::write($this->headFile, str_repeat('0', 64));
         }
     }
@@ -40,10 +44,13 @@ final class AuditLogger
             if (!flock($handle, LOCK_EX) || !flock($headHandle, LOCK_EX)) {
                 throw new RuntimeException('Unable to lock audit log.');
             }
+            if (!$this->verify()) {
+                throw new RuntimeException('Audit log integrity check failed; refusing to append.');
+            }
             rewind($headHandle);
             $previous = trim((string) stream_get_contents($headHandle));
             if (!preg_match('/^[a-f0-9]{64}$/', $previous)) {
-                $previous = str_repeat('0', 64);
+                throw new RuntimeException('Audit log head is invalid; refusing to reset the integrity chain.');
             }
             $record = [
                 'time' => gmdate('c'),
