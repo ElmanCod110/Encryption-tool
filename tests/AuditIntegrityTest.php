@@ -31,4 +31,34 @@ $data = str_replace('"result_count":2', '"result_count":3', (string) $data);
 file_put_contents($file, $data, LOCK_EX);
 if ($logger->verify()) throw new RuntimeException('Tampered audit chain was accepted.');
 
+$missingHeadFile = $root . '/missing-head.jsonl';
+$missingHeadLogger = new AuditLogger($missingHeadFile);
+$missingHeadLogger->event('before.head.loss', ['account_id' => 'safe']);
+if (!unlink($missingHeadFile . '.head')) throw new RuntimeException('Unable to prepare missing-head test.');
+$missingHeadRejected = false;
+try {
+    new AuditLogger($missingHeadFile);
+} catch (RuntimeException) {
+    $missingHeadRejected = true;
+}
+if (!$missingHeadRejected) throw new RuntimeException('Missing audit head silently reset a non-empty chain.');
+
+$corruptHeadFile = $root . '/corrupt-head.jsonl';
+$corruptHeadLogger = new AuditLogger($corruptHeadFile);
+$corruptHeadLogger->event('before.head.corruption', ['account_id' => 'safe']);
+if (file_put_contents($corruptHeadFile . '.head', 'not-a-valid-head', LOCK_EX) === false) {
+    throw new RuntimeException('Unable to prepare corrupt-head test.');
+}
+$appendRejected = false;
+try {
+    $corruptHeadLogger->event('must.not.append', ['account_id' => 'safe']);
+} catch (RuntimeException) {
+    $appendRejected = true;
+}
+if (!$appendRejected) throw new RuntimeException('Corrupted audit chain accepted a new event.');
+$corruptLines = file($corruptHeadFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+if (!is_array($corruptLines) || count($corruptLines) !== 1) {
+    throw new RuntimeException('Audit logger appended to a corrupted chain.');
+}
+
 echo "Audit integrity tests passed.\n";
