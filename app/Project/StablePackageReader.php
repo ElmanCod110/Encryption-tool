@@ -54,6 +54,7 @@ final class StablePackageReader
 
             $observedFiles = [];
             $observedOrder = [];
+            $observedIds = [];
             $observedFileCount = 0;
             $declaredTotalBytes = 0;
             $actualTotalBytes = 0;
@@ -87,8 +88,7 @@ final class StablePackageReader
                     $fileIdHex = bin2hex($fileId);
                     $size = StablePackageDescriptor::unpackUint64(substr($body, 16, 8));
                     $streamHeader = substr($body, 24, StablePackageDescriptor::STREAM_HEADER_BYTES);
-                    if (StablePackageDescriptor::isZeroBytes($fileId) || isset($observedFiles[$fileIdHex])
-                        || in_array($fileIdHex, $observedOrder, true)
+                    if (StablePackageDescriptor::isZeroBytes($fileId) || isset($observedIds[$fileIdHex])
                         || $size > StablePackageDescriptor::MAX_FILE_BYTES) {
                         throw new RuntimeException('Package file header is invalid.');
                     }
@@ -105,6 +105,7 @@ final class StablePackageReader
                         throw new RuntimeException('Unable to stage decrypted file.');
                     }
                     @chmod($stagePath, 0600);
+                    $observedIds[$fileIdHex] = true;
                     $observedOrder[] = $fileIdHex;
                     $active = [
                         'id' => $fileId,
