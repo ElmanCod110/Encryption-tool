@@ -87,17 +87,17 @@ function renderPackages() {
     const card = element('article', 'profile-package');
     const head = element('div', 'profile-package-head');
     const identity = element('div', 'profile-package-identity');
-    identity.append(element('span', 'profile-package-kicker', 'ENCRYPTED PACKAGE · SECURE-PKG-V14'));
+    identity.append(element('span', 'profile-package-kicker', 'ENCRYPTED PACKAGE · ' + String(item.format || 'UNKNOWN')));
     identity.append(element('h3', '', 'Package ' + String(item.package_id).slice(0, 12)));
     identity.append(element('code', 'profile-package-id', item.package_id));
     const badge = element('span', 'profile-package-status status-' + status.key, status.label);
     head.append(identity, badge);
     const details = element('dl', 'profile-package-details');
     const fields = [
-      ['Archive size', item.storage_available === false ? 'Archive unavailable' : formatBytes(item.size_bytes)],
+      ['Package size', item.storage_available === false ? 'Package unavailable' : formatBytes(item.size_bytes)],
       ['Stored on', formatDate(item.created_at)],
       ['Expiration', item.expires_at ? formatDate(item.expires_at) : 'No expiration set'],
-      ['Storage', item.storage_available === false ? 'Catalog record only' : 'Encrypted archive present'],
+      ['Storage', item.storage_available === false ? 'Catalog record only' : 'Encrypted package present'],
     ];
     for (const [label, value] of fields) {
       const wrapper = element('div');
