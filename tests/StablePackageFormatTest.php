@@ -375,6 +375,43 @@ try {
     ]);
     stableExpectFailure(fn() => Format::decodeManifest($cycleManifest), 'Manifest directory cycle was accepted.');
 
+    stableExpectFailure(fn() => Format::encodeManifest([
+        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(),
+            'name' => 'oversized.bin', 'size' => Format::MAX_FILE_BYTES + 1, 'chunks' => 1],
+    ]), 'File size above the fixed per-file limit was accepted.');
+
+    stableExpectFailure(fn() => Format::encodeManifest([
+        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(),
+            'name' => 'wrong-chunks.bin', 'size' => Format::CHUNK_BYTES + 1, 'chunks' => 1],
+    ]), 'Inconsistent manifest chunk count was accepted.');
+
+    $oversizedTotalEntries = [];
+    for ($i = 0; $i < 7; $i++) {
+        $oversizedTotalEntries[] = [
+            'type' => 2,
+            'id' => random_bytes(16),
+            'parent_id' => Format::zeroId(),
+            'name' => sprintf('large-%02d.bin', $i),
+            'size' => Format::MAX_FILE_BYTES,
+            'chunks' => Format::expectedChunkCount(Format::MAX_FILE_BYTES),
+        ];
+    }
+    $oversizedTotalManifest = Format::encodeManifest($oversizedTotalEntries);
+    stableExpectFailure(fn() => Format::decodeManifest($oversizedTotalManifest),
+        'Manifest exceeding the total plaintext limit was accepted.');
+
+    $deepEntries = [];
+    $parentId = Format::zeroId();
+    for ($depthIndex = 0; $depthIndex < Format::MAX_DEPTH; $depthIndex++) {
+        $directoryId = random_bytes(16);
+        $deepEntries[] = ['type' => 1, 'id' => $directoryId, 'parent_id' => $parentId, 'name' => 'a'];
+        $parentId = $directoryId;
+    }
+    $deepEntries[] = ['type' => 2, 'id' => random_bytes(16), 'parent_id' => $parentId,
+        'name' => 'x', 'size' => 0, 'chunks' => 1];
+    stableExpectFailure(fn() => Format::decodeManifest(Format::encodeManifest($deepEntries)),
+        'Manifest exceeding the maximum path depth was accepted.');
+
     $duplicateId = random_bytes(16);
     $duplicateIdManifest = Format::encodeManifest([
         ['type' => 2, 'id' => $duplicateId, 'parent_id' => Format::zeroId(), 'name' => 'a.bin', 'size' => 0, 'chunks' => 1],
