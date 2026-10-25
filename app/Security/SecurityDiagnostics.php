@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace SecurePackage\Security;
 
 /**
- * Provides non-secret runtime checks for the current V14 server diagnostics endpoint and CLI.
+ * Provides non-secret runtime checks for the current stable server package diagnostics endpoint and CLI, with legacy V14 compatibility.
  */
 final class SecurityDiagnostics
 {
