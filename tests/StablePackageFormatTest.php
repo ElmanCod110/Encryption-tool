@@ -412,6 +412,19 @@ try {
     stableExpectFailure(fn() => Format::decodeManifest(Format::encodeManifest($deepEntries)),
         'Manifest exceeding the maximum path depth was accepted.');
 
+    $longPathEntries = [];
+    $parentId = Format::zeroId();
+    $longComponent = str_repeat('x', Format::MAX_FILENAME_BYTES);
+    for ($pathIndex = 0; $pathIndex < 17; $pathIndex++) {
+        $directoryId = random_bytes(16);
+        $longPathEntries[] = ['type' => 1, 'id' => $directoryId, 'parent_id' => $parentId, 'name' => $longComponent];
+        $parentId = $directoryId;
+    }
+    $longPathEntries[] = ['type' => 2, 'id' => random_bytes(16), 'parent_id' => $parentId,
+        'name' => 'f', 'size' => 0, 'chunks' => 1];
+    stableExpectFailure(fn() => Format::decodeManifest(Format::encodeManifest($longPathEntries)),
+        'Manifest exceeding the maximum resolved path length was accepted.');
+
     $duplicateId = random_bytes(16);
     $duplicateIdManifest = Format::encodeManifest([
         ['type' => 2, 'id' => $duplicateId, 'parent_id' => Format::zeroId(), 'name' => 'a.bin', 'size' => 0, 'chunks' => 1],
