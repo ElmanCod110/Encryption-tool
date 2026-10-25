@@ -19,8 +19,8 @@ if (($config['app']['version_string'] ?? null) !== $versionFile) {
 if (($config['app']['version'] ?? null) !== $expectedMajor) {
     throw new RuntimeException('Application major version differs from VERSION.');
 }
-if (($config['app']['format'] ?? null) !== 'SECURE-PKG-V14') {
-    throw new RuntimeException('Server package-format identifier unexpectedly changed.');
+if (($config['app']['format'] ?? null) !== 'STABLE-BINARY') {
+    throw new RuntimeException('Stable server package-format identifier unexpectedly changed.');
 }
 
 $mainPage = (string) file_get_contents(dirname(__DIR__) . '/public/index.php');
