@@ -14,7 +14,7 @@ function setMessage(text, success = false) {
   message.classList.toggle('success', success);
 }
 function formatBytes(bytes) {
-  if (!Number.isFinite(Number(bytes)) || Number(bytes) < 0) return 'Unknown size';
+  if (bytes === null || bytes === undefined || !Number.isFinite(Number(bytes)) || Number(bytes) < 0) return 'Unknown size';
   const value = Number(bytes);
   if (value < 1024) return value + ' B';
   const units = ['KB', 'MB', 'GB', 'TB'];
@@ -116,11 +116,12 @@ function renderPackages() {
     }, !canDownload));
     const expiry = element('select', 'text-input profile-expiry');
     expiry.setAttribute('aria-label', 'Expiration for package ' + String(item.package_id).slice(0, 12));
-    for (const [value, label] of [['0', 'No expiration'], ['86400', 'Expire in 1 day'], ['604800', 'Expire in 7 days'], ['2592000', 'Expire in 30 days'], ['7776000', 'Expire in 90 days']]) {
+    for (const [value, label] of [['', 'Change expiration…'], ['0', 'No expiration'], ['86400', 'Expire in 1 day'], ['604800', 'Expire in 7 days'], ['2592000', 'Expire in 30 days'], ['7776000', 'Expire in 90 days']]) {
       const option = element('option', '', label); option.value = value; expiry.append(option);
     }
-    expiry.value = '0';
+    expiry.value = '';
     expiry.addEventListener('change', async () => {
+      if (expiry.value === '') return;
       expiry.disabled = true;
       try {
         await api('set-expiry', { package_id: item.package_id, expires_in: Number(expiry.value) });
