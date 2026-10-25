@@ -118,7 +118,8 @@ final class StablePackageCrypto
                     $credentialKey
                 );
             }
-            if (!is_string($rootKey) || strlen($rootKey) !== StablePackageDescriptor::KEY_BYTES) {
+            if (!is_string($rootKey) || strlen($rootKey) !== StablePackageDescriptor::KEY_BYTES
+                || StablePackageDescriptor::isZeroBytes($rootKey)) {
                 throw new RuntimeException('Unable to open package.');
             }
             $macKey = self::deriveSubkey($rootKey, 'HEADER-MAC', $header['package_id']);
