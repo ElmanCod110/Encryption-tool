@@ -246,8 +246,21 @@ final class StablePackageWriter
         if ($input === false) {
             throw new RuntimeException('Unable to open source file.');
         }
+        // Compare the opened handle with the no-follow path identity captured during
+        // enumeration. This detects common symlink/replacement races before any plaintext
+        // from a substituted file is encrypted into the package.
+        $pathStat = @lstat($path);
         $before = fstat($input);
-        if (!is_array($before) || (int) ($before['size'] ?? -1) !== $entry['size']) {
+        $expectedDev = $entry['source_dev'] ?? null;
+        $expectedIno = $entry['source_ino'] ?? null;
+        $identityMatches = is_array($pathStat) && is_array($before)
+            && !is_link($path)
+            && ($pathStat['dev'] ?? null) === ($before['dev'] ?? null)
+            && ($pathStat['ino'] ?? null) === ($before['ino'] ?? null)
+            && ($before['dev'] ?? null) === $expectedDev
+            && ($before['ino'] ?? null) === $expectedIno
+            && (((int) ($before['mode'] ?? 0) & 0170000) === 0100000);
+        if (!$identityMatches || !is_array($before) || (int) ($before['size'] ?? -1) !== $entry['size']) {
             fclose($input);
             throw new RuntimeException('Source file changed during package creation.');
         }
@@ -389,11 +402,14 @@ final class StablePackageWriter
                     'chunks' => null,
                 ];
                 if ($isFile) {
-                    $stat = @stat($path);
+                    $stat = @lstat($path);
                     if (!is_array($stat) || !isset($stat['size']) || (int) $stat['size'] < 0
-                        || (int) $stat['size'] > StablePackageDescriptor::MAX_FILE_BYTES) {
+                        || (int) $stat['size'] > StablePackageDescriptor::MAX_FILE_BYTES
+                        || (((int) ($stat['mode'] ?? 0) & 0170000) !== 0100000)) {
                         throw new RuntimeException('Source file exceeds the supported size limit.');
                     }
+                    $entry['source_dev'] = $stat['dev'] ?? null;
+                    $entry['source_ino'] = $stat['ino'] ?? null;
                     $entry['size'] = (int) $stat['size'];
                     $totalBytes += $entry['size'];
                     if ($totalBytes > StablePackageDescriptor::MAX_TOTAL_PLAIN_BYTES) {
