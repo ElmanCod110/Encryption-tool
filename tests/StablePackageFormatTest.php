@@ -497,7 +497,7 @@ try {
         stableExpectFailure(fn() => (new StablePackageWriter())->build($rootLink, $rootLinkPackage,
             $password, $pattern, str_repeat('d', 48), false), 'Source-root symlink was accepted.');
         stableAssert(!file_exists($rootLinkPackage), 'Source-root symlink produced a package.');
-        if (!@unlink($rootLink)) throw new RuntimeException('Unable to remove source-root test symlink.');
+        if (!@unlink($rootLink) && !@rmdir($rootLink)) throw new RuntimeException('Unable to remove source-root test symlink.');
     }
 
     $sourceLink = $source . DIRECTORY_SEPARATOR . 'nested' . DIRECTORY_SEPARATOR . 'source-link';
@@ -518,7 +518,7 @@ try {
         stableExpectFailure(fn() => (new StablePackageWriter())->build($source, $directoryLinkPackage,
             $password, $pattern, str_repeat('f', 48), false), 'Nested directory symlink was accepted.');
         stableAssert(!file_exists($directoryLinkPackage), 'Nested directory symlink produced a package.');
-        if (!@unlink($directoryLink)) throw new RuntimeException('Unable to remove directory symlink.');
+        if (!@unlink($directoryLink) && !@rmdir($directoryLink)) throw new RuntimeException('Unable to remove directory symlink.');
     }
 
     echo "Stable binary package round-trip and adversarial tests passed.\n";
