@@ -52,6 +52,47 @@ function stableMutateRecord(string $path, int $recordType, bool $lastByte = fals
     throw new RuntimeException('Requested record type was not found.');
 }
 
+function stableSwapMultiChunkRecords(string $path): void
+{
+    $bytes = file_get_contents($path);
+    if (!is_string($bytes) || strlen($bytes) < Format::HEADER_BYTES) {
+        throw new RuntimeException('Unable to read chunk-order fixture.');
+    }
+    $offset = Format::HEADER_BYTES;
+    $total = strlen($bytes);
+    while ($offset + Format::RECORD_HEADER_BYTES <= $total) {
+        $type = ord($bytes[$offset]);
+        $length = unpack('Nvalue', substr($bytes, $offset + 1, 4))['value'] ?? 0;
+        $bodyOffset = $offset + Format::RECORD_HEADER_BYTES;
+        $end = $bodyOffset + $length;
+        if ($length < 1 || $end > $total) throw new RuntimeException('Chunk-order fixture record is malformed.');
+        if ($type === Format::RECORD_FILE_START && $length === 48) {
+            $size = Format::unpackUint64(substr($bytes, $bodyOffset + 16, 8));
+            if ($size > Format::CHUNK_BYTES) {
+                $firstStart = $end;
+                if ($firstStart + Format::RECORD_HEADER_BYTES > $total) throw new RuntimeException('First chunk is missing.');
+                $firstLength = unpack('Nvalue', substr($bytes, $firstStart + 1, 4))['value'] ?? 0;
+                $secondStart = $firstStart + Format::RECORD_HEADER_BYTES + $firstLength;
+                if ($firstLength < 1 || $secondStart + Format::RECORD_HEADER_BYTES > $total) {
+                    throw new RuntimeException('Second chunk is missing.');
+                }
+                $secondLength = unpack('Nvalue', substr($bytes, $secondStart + 1, 4))['value'] ?? 0;
+                $secondEnd = $secondStart + Format::RECORD_HEADER_BYTES + $secondLength;
+                if ($secondLength < 1 || $secondEnd > $total) throw new RuntimeException('Second chunk is malformed.');
+                $first = substr($bytes, $firstStart, Format::RECORD_HEADER_BYTES + $firstLength);
+                $second = substr($bytes, $secondStart, Format::RECORD_HEADER_BYTES + $secondLength);
+                $bytes = substr($bytes, 0, $firstStart) . $second . $first . substr($bytes, $secondEnd);
+                if (file_put_contents($path, $bytes, LOCK_EX) !== strlen($bytes)) {
+                    throw new RuntimeException('Unable to write reordered chunk fixture.');
+                }
+                return;
+            }
+        }
+        $offset = $end;
+    }
+    throw new RuntimeException('No multi-chunk file stream was found.');
+}
+
 function stableRemoveTree(string $path): void
 {
     if (is_link($path) || is_file($path)) {
@@ -235,6 +276,12 @@ try {
     file_put_contents($wrongChunkSequence, $bytes, LOCK_EX);
     stableExpectFailure(fn() => $reader->restore($wrongChunkSequence, $root . DIRECTORY_SEPARATOR . 'bad-sequence-restore', $password, $pattern), 'Out-of-order chunk sequence was accepted.');
     stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-sequence-restore'), 'Out-of-order chunk sequence left output behind.');
+
+    $reorderedChunks = $root . DIRECTORY_SEPARATOR . 'reordered-chunks.spkg';
+    stableCopy($package, $reorderedChunks);
+    stableSwapMultiChunkRecords($reorderedChunks);
+    stableExpectFailure(fn() => $reader->restore($reorderedChunks, $root . DIRECTORY_SEPARATOR . 'reordered-chunks-restore', $password, $pattern), 'Reordered file chunks were accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'reordered-chunks-restore'), 'Reordered chunks left restored output behind.');
 
     $tamperedChunk = $root . DIRECTORY_SEPARATOR . 'tampered-chunk.spkg';
     stableCopy($package, $tamperedChunk);
