@@ -8,6 +8,7 @@ use RuntimeException;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
 use SecurePackage\Project\PackageArchive;
+use SecurePackage\Project\PackageDeletionTransaction;
 use SecurePackage\Project\PackageCatalog;
 use SecurePackage\Project\V14PackageReader;
 use SecurePackage\Project\V14PackageService;
@@ -424,13 +425,20 @@ final class PackageController
         $packageId = (string) ($input['package_id'] ?? '');
         try {
             $this->authorization->requireAuthenticated();
-            $record = $this->catalog->assertOwner($packageId, AccessContext::ownerId());
+            $this->catalog->assertOwner($packageId, AccessContext::ownerId());
+
             $path = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
             $portable = $path . '.spkg14';
-            $this->removePath($portable);
-            $this->removePath($path);
-            $this->accessTokens->revokeForPackage($packageId);
-            $this->catalog->delete($packageId, AccessContext::ownerId());
+            $transaction = new PackageDeletionTransaction();
+            $staged = $transaction->execute(
+                [$portable, $path],
+                fn() => $this->accessTokens->revokeForPackage($packageId),
+                fn() => $this->catalog->delete($packageId, AccessContext::ownerId())
+            );
+
+            // The catalog is now committed. Remove staged representations only after
+            // both paths were moved successfully and access/catalog mutation completed.
+            $transaction->cleanupCommitted($staged, fn(string $stagedPath) => $this->removePath($stagedPath));
             $this->audit->event('package.deleted', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
             JsonResponse::send(['ok' => true]);
         } catch (\Throwable) {
