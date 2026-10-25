@@ -143,6 +143,7 @@ $authenticated = \SecurePackage\Security\AccessContext::isAuthenticated();
 </div>
 
 
-<script src="assets/learn.js?v=1" defer></script>\n<script src="assets/app.js" defer></script>
+<script src="assets/learn.js?v=1" defer></script>
+<script src="assets/app.js" defer></script>
 </body>
 </html>
