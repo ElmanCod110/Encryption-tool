@@ -128,7 +128,7 @@ The body is exactly 48 bytes:
 | 16 | 8 | declared plaintext size, u64 big-endian |
 | 24 | 24 | secretstream header |
 
-The file ID is unique and nonzero. A size MUST be at most 16 GiB. No second file-start record may appear until the prior stream has supplied its authenticated final chunk. File streams MUST appear in canonical manifest file order, verified after manifest authentication.
+The file ID is unique and nonzero; the secretstream header MUST not be all-zero. A size MUST be at most 16 GiB. No second file-start record may appear until the prior stream has supplied its authenticated final chunk. File streams MUST appear in canonical manifest file order, verified after manifest authentication.
 
 ## 6. Chunk record (type 0x02)
 
@@ -164,7 +164,7 @@ Manifest plaintext is at most 4,194,304 bytes. The encrypted body is plaintext l
 
 'manifest_ciphertext_and_tag = AEAD_Encrypt(key=manifest_key, nonce=manifest_nonce, plaintext=manifest_plain, aad=ASCII("SPKG/MANIFEST") || 0x00 || core_hash)' using XChaCha20-Poly1305-IETF.
 
-Manifest associated data is 'ASCII("SPKG/MANIFEST") || 0x00 || core_hash'. The nonce is fresh random 24-byte data. Manifest is custom binary, not JSON and not string-valued metadata.
+Manifest associated data is 'ASCII("SPKG/MANIFEST") || 0x00 || core_hash'. The nonce is fresh random 24-byte data and MUST not be all-zero. Manifest is custom binary, not JSON and not string-valued metadata.
 
 ### 7.1 Manifest grammar
 
