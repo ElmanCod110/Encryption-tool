@@ -318,6 +318,15 @@ try {
     ]);
     stableExpectFailure(fn() => Format::decodeManifest($caseCollisionManifest), 'Case-colliding sibling names were accepted.');
 
+    $existingPackagePath = $root . DIRECTORY_SEPARATOR . 'existing-package.spkg';
+    file_put_contents($existingPackagePath, 'preserve-existing-package');
+    $existingPackageHash = hash_file('sha256', $existingPackagePath);
+    stableExpectFailure(fn() => (new StablePackageWriter())->build($source, $existingPackagePath,
+        $password, $pattern, str_repeat('c', 48), false), 'Writer overwrote an existing package destination.');
+    stableAssert(hash_equals((string) $existingPackageHash, (string) hash_file('sha256', $existingPackagePath))
+        && file_get_contents($existingPackagePath) === 'preserve-existing-package',
+        'Existing package destination was modified by a failed create.');
+
     $noRecoveryPackage = $root . DIRECTORY_SEPARATOR . 'no-recovery.spkg';
     $noRecovery = (new StablePackageWriter())->build($source, $noRecoveryPackage, $password, $pattern, str_repeat('b', 48), false);
     stableAssert($noRecovery['recovery_key'] === null, 'Disabled recovery key was returned.');
