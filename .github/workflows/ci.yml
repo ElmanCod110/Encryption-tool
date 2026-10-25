@@ -64,3 +64,5 @@ jobs:
         run: php tests/WindowsSpk13IconIntegrationTest.php
       - name: Stable binary package format regression
         run: php tests/StablePackageFormatTest.php
+      - name: Stable package service integration
+        run: php tests/StablePackageServiceTest.php
