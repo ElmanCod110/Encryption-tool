@@ -1,0 +1,73 @@
+name: V1 Release Gate
+
+on:
+  push:
+    branches:
+      - master
+      - "work/**"
+      - "release/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-regression:
+    name: PHP security and round-trip regression (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.2", "8.3"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: sodium, zip, pdo_mysql
+          coverage: none
+
+      - name: PHP syntax
+        run: find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Runtime self-check
+        run: php bin/self-check.php
+
+      - name: Source audit
+        run: php bin/source-audit.php
+
+      - name: Full security and regression suite
+        run: php bin/security-test.php --full
+
+      - name: All PHP tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in tests/*.php; do
+            php "$test"
+          done
+
+  browser-round-trip:
+    name: Browser V13 compatibility regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: JavaScript syntax
+        run: find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Browser V13 round-trip
+        run: node tests/BrowserV13RoundTripTest.mjs
