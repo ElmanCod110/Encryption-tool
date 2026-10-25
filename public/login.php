@@ -23,9 +23,9 @@ $csrf = \SecurePackage\Security\WebSecurity::csrfToken();
 <main class="auth-card glass">
 <a class="auth-brand" href="./">Secure Package</a>
 <p class="auth-eyebrow">ACCOUNT ACCESS</p><h1>Sign in</h1><p class="auth-intro">Sign in to manage your encrypted packages and access links.</p>
-<form id="authForm" data-mode="login" novalidate>
+<form id="authForm" data-mode="login">
 <label for="username">Username</label><input class="text-input" id="username" name="username" autocomplete="username" minlength="3" maxlength="80" required>
-<label for="password">Password</label><input class="text-input" id="password" name="password" type="password" autocomplete="current-password" required>
+<label for="password">Password</label><input class="text-input" id="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required>
 <button class="primary-button full" type="submit">Sign in</button>
 <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
 </form>
