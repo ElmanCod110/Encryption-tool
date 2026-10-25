@@ -39,7 +39,7 @@ $authenticated = \SecurePackage\Security\AccessContext::isAuthenticated();
   <div class="hero-copy" data-learn-title="What Secure Package does" data-learn="This introduction summarizes the server-side encryption workflow and the security boundaries it is designed to enforce. The badges name the main cryptographic components; they are a quick overview, not a substitute for the format and threat-model documentation.">
     <span class="eyebrow"><span class="status-dot"></span> Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · cryptographic package engine</span>
     <h1>Encrypt the project. Authenticate the package. Restore safely.</h1>
-    <p>The server format separates credential wrapping from the package root key, authenticates metadata and ciphertext, verifies the complete blob inventory and Merkle root, and refuses unsafe restore paths.</p>
+    <p>The stable server format uses a fixed single-file binary grammar, authenticates its header and encrypted manifest, verifies each file stream, and validates the complete path graph before restoring without overwriting existing data.</p>
     <div class="hero-badges">
       <span>Argon2id13</span><span>XChaCha20-Poly1305</span><span>Secretstream</span><span>HKDF key separation</span><span>Pre-write integrity</span>
     </div>
@@ -132,9 +132,9 @@ $authenticated = \SecurePackage\Security\AccessContext::isAuthenticated();
     <pre id="log">Package engine ready.</pre>
   </div>
   <div class="architecture-panel glass" data-learn-title="Security pipeline overview" data-learn="This diagram summarizes the server package flow: credentials derive wrapping material, the package root key is protected separately, encrypted content is authenticated, and the complete inventory is verified before restore. See the format specification and threat model for exact guarantees and limitations.">
-    <div class="architecture-title"><strong>Server security pipeline</strong><span>SECURE-PKG-V14</span></div>
-    <div class="pipeline"><span>CREDENTIALS</span><i></i><span>Argon2id</span><i></i><span>KEY WRAP</span><i></i><span>AEAD</span><i></i><span>STREAM</span><i></i><span>MERKLE</span></div>
-    <p>The server format protects the package root key separately, authenticates the header binding and manifest, hashes every ciphertext blob, then verifies the complete Merkle root before restore.</p>
+    <div class="architecture-title"><strong>Server security pipeline</strong><span>STABLE BINARY</span></div>
+    <div class="pipeline"><span>CREDENTIALS</span><i></i><span>Argon2id</span><i></i><span>KEY WRAP</span><i></i><span>AEAD</span><i></i><span>STREAM</span><i></i><span>MANIFEST</span></div>
+    <p>The stable binary format protects a random root key, authenticates the fixed header and encrypted manifest, binds each stream chunk to its file and sequence, and validates all paths before restore. File sizes and total package size remain observable; names and directory relationships are encrypted.</p>
   </div>
 </section>
 </main>
