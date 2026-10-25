@@ -2,6 +2,10 @@
 
 ## Unreleased — MVP readiness and repository maintenance
 
+- Expanded the authenticated account profile into a responsive encrypted-package dashboard with package inventory, storage metadata, access controls, and regression coverage.
+- Zeroize each derived V14 per-file encryption key in a `finally` block, including when stream encryption throws.
+
+
 - Established `VERSION` as the single source of truth for the application release version and documented the distinction between application versioning and package-format identifiers.
 - Updated the main UI to display the canonical application version from shared configuration.
 - Normalized versioned documentation filenames while retaining the historical Markdown change and validation records.
