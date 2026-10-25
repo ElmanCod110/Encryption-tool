@@ -45,6 +45,11 @@ All cryptographic randomness MUST come from the operating system CSPRNG through 
 
 ## 3. Fixed 253-byte header
 
+### 3.0 Explicit metadata-leakage boundary
+
+This format encrypts the manifest (names, parent relationships and directory entries), but it does **not** hide traffic shape. The clear header exposes the fixed marker, algorithm identifiers, KDF cost, random package ID, and whether a recovery slot exists. Record boundaries and chunk lengths expose the number of file streams, approximate and often exact file sizes, total plaintext volume, and the package's total size. The fixed 4 MiB chunking does not prevent a final-chunk length from revealing the remaining bytes. This format does not claim padding-based size confidentiality. If hiding sizes or file counts is a requirement, that needs a separately designed and reviewed padding/framing scheme; it must not be improvised by changing this frozen grammar.
+
+
 There is exactly one 253-byte header. No padding, optional header extension, variable-length header, or footer follows it.
 
 Opaque magic bytes (hex): **D3 82 A1 4F C7 5E 90 6B**.
