@@ -1,0 +1,216 @@
+<?php
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+use SecurePackage\Project\StablePackageDescriptor as Format;
+use SecurePackage\Project\StablePackageReader;
+use SecurePackage\Project\StablePackageWriter;
+
+function stableAssert(bool $condition, string $message): void
+{
+    if (!$condition) throw new RuntimeException($message);
+}
+
+function stableExpectFailure(callable $operation, string $message): void
+{
+    try {
+        $operation();
+    } catch (Throwable) {
+        return;
+    }
+    throw new RuntimeException($message);
+}
+
+function stableCopy(string $from, string $to): void
+{
+    if (!copy($from, $to)) throw new RuntimeException('Unable to create tamper fixture.');
+}
+
+function stableMutateRecord(string $path, int $recordType, bool $lastByte = false): void
+{
+    $bytes = file_get_contents($path);
+    if (!is_string($bytes) || strlen($bytes) < Format::HEADER_BYTES) throw new RuntimeException('Unable to read package fixture.');
+    $offset = Format::HEADER_BYTES;
+    $total = strlen($bytes);
+    while ($offset < $total) {
+        if ($offset + Format::RECORD_HEADER_BYTES > $total) throw new RuntimeException('Fixture record header is truncated.');
+        $type = ord($bytes[$offset]);
+        $length = unpack('Nvalue', substr($bytes, $offset + 1, 4))['value'] ?? 0;
+        $bodyOffset = $offset + Format::RECORD_HEADER_BYTES;
+        $end = $bodyOffset + $length;
+        if ($length < 1 || $end > $total) throw new RuntimeException('Fixture record length is invalid.');
+        if ($type === $recordType) {
+            $position = $lastByte ? $end - 1 : $bodyOffset + ($type === Format::RECORD_FILE_CHUNK ? 20 : 0);
+            if ($position >= $end) throw new RuntimeException('Fixture record payload is empty.');
+            $bytes[$position] = chr(ord($bytes[$position]) ^ 0x01);
+            if (file_put_contents($path, $bytes, LOCK_EX) !== strlen($bytes)) throw new RuntimeException('Unable to write tampered fixture.');
+            return;
+        }
+        $offset = $end;
+    }
+    throw new RuntimeException('Requested record type was not found.');
+}
+
+function stableRemoveTree(string $path): void
+{
+    if (is_link($path) || is_file($path)) {
+        @unlink($path);
+        return;
+    }
+    if (!is_dir($path)) return;
+    $items = scandir($path);
+    if ($items === false) throw new RuntimeException('Unable to inspect test cleanup directory.');
+    foreach (array_diff($items, ['.', '..']) as $item) stableRemoveTree($path . DIRECTORY_SEPARATOR . $item);
+    if (!@rmdir($path)) throw new RuntimeException('Unable to remove test cleanup directory.');
+}
+
+Format::assertRuntime();
+$root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'stable-package-format-' . bin2hex(random_bytes(8));
+$source = $root . DIRECTORY_SEPARATOR . 'source';
+$package = $root . DIRECTORY_SEPARATOR . 'archive.spkg';
+$restore = $root . DIRECTORY_SEPARATOR . 'restore';
+$password = 'Strong!Password2026#';
+$pattern = 'Az!71_xYp#42Qw9';
+$wrongPassword = 'Wrong!Password2026#';
+$wrongPattern = 'Qz!71_xYp#42Qw9';
+
+mkdir($source . DIRECTORY_SEPARATOR . 'nested', 0700, true);
+file_put_contents($source . DIRECTORY_SEPARATOR . 'hello.txt', "stable-format\n");
+file_put_contents($source . DIRECTORY_SEPARATOR . 'empty.bin', '');
+file_put_contents($source . DIRECTORY_SEPARATOR . 'nested' . DIRECTORY_SEPARATOR . 'binary.dat', random_bytes(Format::CHUNK_BYTES + 137));
+
+try {
+    $build = (new StablePackageWriter())->build($source, $package, $password, $pattern, str_repeat('a', 48), true);
+    stableAssert($build['package_id'] === str_repeat('a', 48), 'Package id was not preserved.');
+    stableAssert($build['files'] === 3 && $build['directories'] === 1 && $build['nodes'] === 4, 'Built statistics are invalid.');
+    stableAssert(is_string($build['recovery_key']) && strlen($build['recovery_key']) === 43, 'Recovery key was not emitted as canonical base64url.');
+
+    $raw = file_get_contents($package);
+    stableAssert(is_string($raw) && strlen($raw) > Format::HEADER_BYTES, 'Package output is empty.');
+    stableAssert(substr($raw, 0, 8) === Format::MAGIC, 'Fixed opaque, version-independent marker is incorrect.');
+    stableAssert(strlen(substr($raw, 0, Format::HEADER_BYTES)) === 253, 'Fixed header length changed.');
+    stableAssert(substr($raw, 8, 1) === chr(Format::FLAG_RECOVERY_SLOT), 'Recovery flag is incorrect.');
+    stableAssert(substr($raw, 9, 4) === "\x01\x01\x01\x01", 'Algorithm identifiers are not at the specified offsets.');
+
+    $header = Format::parseHeader(substr($raw, 0, Format::HEADER_BYTES));
+    stableAssert($header['package_id_hex'] === str_repeat('a', 48), 'Header package identifier does not match the requested identifier.');
+    stableAssert($header['ops'] === Format::DEFAULT_KDF_OPS, 'KDF operations parameter is not the writer profile.');
+    stableAssert($header['memory_bytes'] === Format::DEFAULT_KDF_MEM_BYTES, 'KDF memory parameter is not the writer profile.');
+    stableAssert(strlen($header['core']) === Format::CORE_BYTES, 'Core header length is invalid.');
+
+    $reader = new StablePackageReader();
+    $restored = $reader->restore($package, $restore, $password, $pattern);
+    stableAssert($restored['files'] === 3 && $restored['directories'] === 1, 'Round-trip statistics are incorrect.');
+    foreach (['hello.txt', 'empty.bin', 'nested/binary.dat'] as $relative) {
+        $expected = hash_file('sha256', $source . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
+        $actual = hash_file('sha256', $restore . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
+        stableAssert(is_string($expected) && is_string($actual) && hash_equals($expected, $actual), 'Round-trip mismatch: ' . $relative);
+    }
+
+    $recoveryDestination = $root . DIRECTORY_SEPARATOR . 'recovery-restore';
+    $recovered = $reader->restore($package, $recoveryDestination, '', '', $build['recovery_key']);
+    stableAssert($recovered['files'] === 3, 'Recovery-key restore failed.');
+    stableAssert(hash_file('sha256', $source . '/nested/binary.dat') === hash_file('sha256', $recoveryDestination . '/nested/binary.dat'), 'Recovery restore content mismatch.');
+
+    $existingDestination = $root . DIRECTORY_SEPARATOR . 'already-exists';
+    mkdir($existingDestination, 0700);
+    file_put_contents($existingDestination . DIRECTORY_SEPARATOR . 'sentinel.txt', 'keep-this-file');
+    $sentinelHash = hash_file('sha256', $existingDestination . DIRECTORY_SEPARATOR . 'sentinel.txt');
+    stableExpectFailure(fn() => $reader->restore($package, $existingDestination, $password, $pattern), 'Existing destination was accepted.');
+    stableAssert(hash_equals((string) $sentinelHash, (string) hash_file('sha256', $existingDestination . DIRECTORY_SEPARATOR . 'sentinel.txt')), 'Existing destination was altered.');
+
+    stableExpectFailure(fn() => $reader->restore($package, $root . DIRECTORY_SEPARATOR . 'wrong-password', $wrongPassword, $pattern), 'Wrong password was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'wrong-password'), 'Wrong password left a destination behind.');
+    stableExpectFailure(fn() => $reader->restore($package, $root . DIRECTORY_SEPARATOR . 'wrong-pattern', $password, $wrongPattern), 'Wrong pattern was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'wrong-pattern'), 'Wrong pattern left a destination behind.');
+
+    $tamperedHeader = $root . DIRECTORY_SEPARATOR . 'tampered-header.spkg';
+    stableCopy($package, $tamperedHeader);
+    $tampered = file_get_contents($tamperedHeader);
+    $tampered[Format::HEADER_BYTES - 1] = chr(ord($tampered[Format::HEADER_BYTES - 1]) ^ 0x01);
+    file_put_contents($tamperedHeader, $tampered, LOCK_EX);
+    stableExpectFailure(fn() => $reader->restore($tamperedHeader, $root . DIRECTORY_SEPARATOR . 'bad-header-restore', $password, $pattern), 'Tampered header MAC was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-header-restore'), 'Tampered header left restored data behind.');
+
+    // Mutating the unused recovery slot must still invalidate the authenticated header.
+    $tamperedRecoverySlot = $root . DIRECTORY_SEPARATOR . 'tampered-recovery-slot.spkg';
+    stableCopy($package, $tamperedRecoverySlot);
+    $bytes = file_get_contents($tamperedRecoverySlot);
+    $bytes[149] = chr(ord($bytes[149]) ^ 0x01);
+    file_put_contents($tamperedRecoverySlot, $bytes, LOCK_EX);
+    stableExpectFailure(fn() => $reader->restore($tamperedRecoverySlot, $root . DIRECTORY_SEPARATOR . 'bad-recovery-slot-restore', $password, $pattern), 'Tampered recovery slot was accepted with primary credentials.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-recovery-slot-restore'), 'Tampered recovery slot left restored data behind.');
+
+    $tamperedChunk = $root . DIRECTORY_SEPARATOR . 'tampered-chunk.spkg';
+    stableCopy($package, $tamperedChunk);
+    stableMutateRecord($tamperedChunk, Format::RECORD_FILE_CHUNK);
+    stableExpectFailure(fn() => $reader->restore($tamperedChunk, $root . DIRECTORY_SEPARATOR . 'bad-chunk-restore', $password, $pattern), 'Tampered file chunk was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-chunk-restore'), 'Tampered chunk left restored data behind.');
+
+    $tamperedManifest = $root . DIRECTORY_SEPARATOR . 'tampered-manifest.spkg';
+    stableCopy($package, $tamperedManifest);
+    stableMutateRecord($tamperedManifest, Format::RECORD_MANIFEST, true);
+    stableExpectFailure(fn() => $reader->restore($tamperedManifest, $root . DIRECTORY_SEPARATOR . 'bad-manifest-restore', $password, $pattern), 'Tampered manifest was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-manifest-restore'), 'Tampered manifest left restored data behind.');
+
+    $truncated = $root . DIRECTORY_SEPARATOR . 'truncated.spkg';
+    stableCopy($package, $truncated);
+    $size = filesize($truncated);
+    stableAssert(is_int($size) && $size > 10, 'Truncation fixture is invalid.');
+    $bytes = file_get_contents($truncated);
+    file_put_contents($truncated, substr((string) $bytes, 0, -10), LOCK_EX);
+    stableExpectFailure(fn() => $reader->restore($truncated, $root . DIRECTORY_SEPARATOR . 'truncated-restore', $password, $pattern), 'Truncated package was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'truncated-restore'), 'Truncated package left restored data behind.');
+
+    $trailing = $root . DIRECTORY_SEPARATOR . 'trailing.spkg';
+    stableCopy($package, $trailing);
+    file_put_contents($trailing, "unexpected-tail", FILE_APPEND | LOCK_EX);
+    stableExpectFailure(fn() => $reader->restore($trailing, $root . DIRECTORY_SEPARATOR . 'trailing-restore', $password, $pattern), 'Trailing bytes after manifest were accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'trailing-restore'), 'Trailing data left restored output behind.');
+
+    $unsafeKdf = $root . DIRECTORY_SEPARATOR . 'unsafe-kdf.spkg';
+    stableCopy($package, $unsafeKdf);
+    $bytes = file_get_contents($unsafeKdf);
+    // memory_bytes at offset 17 must be rejected before Argon2id runs.
+    $bytes = substr((string) $bytes, 0, 17) . pack('N', Format::MAX_KDF_MEM_BYTES + 1024) . substr((string) $bytes, 21);
+    file_put_contents($unsafeKdf, $bytes, LOCK_EX);
+    stableExpectFailure(fn() => $reader->restore($unsafeKdf, $root . DIRECTORY_SEPARATOR . 'unsafe-kdf-restore', $password, $pattern), 'Out-of-range KDF parameters were accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'unsafe-kdf-restore'), 'Unsafe KDF header left output behind.');
+
+    $manifestProbe = Format::decodeManifest(Format::encodeManifest([
+        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'only.bin', 'size' => 0, 'chunks' => 1],
+    ]));
+    stableAssert(array_keys($manifestProbe) === ['entries', 'file_count', 'directory_count', 'total_plain_bytes'], 'Stable manifest decoder exposed unexpected metadata fields.');
+    stableAssert(array_keys($manifestProbe['entries'][0]) === ['type', 'id', 'id_hex', 'parent_id', 'parent_hex', 'name', 'size', 'chunks', 'path', 'depth'], 'Stable manifest entry contains unexpected version or schema fields.');
+    foreach (['../escape', 'CON', 'trailing.', 'trailing ', "nul\0name", 'a/b', 'a\\b'] as $unsafeName) {
+        stableExpectFailure(fn() => Format::assertName($unsafeName), 'Unsafe package name was accepted: ' . $unsafeName);
+    }
+
+    $dirA = random_bytes(16); $dirB = random_bytes(16); $fileId = random_bytes(16);
+    $cycleManifest = Format::encodeManifest([
+        ['type' => 1, 'id' => $dirA, 'parent_id' => $dirB, 'name' => 'alpha'],
+        ['type' => 1, 'id' => $dirB, 'parent_id' => $dirA, 'name' => 'beta'],
+        ['type' => 2, 'id' => $fileId, 'parent_id' => $dirA, 'name' => 'data.bin', 'size' => 0, 'chunks' => 1],
+    ]);
+    stableExpectFailure(fn() => Format::decodeManifest($cycleManifest), 'Manifest directory cycle was accepted.');
+
+    $noRecoveryPackage = $root . DIRECTORY_SEPARATOR . 'no-recovery.spkg';
+    $noRecovery = (new StablePackageWriter())->build($source, $noRecoveryPackage, $password, $pattern, str_repeat('b', 48), false);
+    stableAssert($noRecovery['recovery_key'] === null, 'Disabled recovery key was returned.');
+    $noRecoveryBytes = file_get_contents($noRecoveryPackage);
+    stableAssert(strlen(substr((string) $noRecoveryBytes, 0, Format::HEADER_BYTES)) === Format::HEADER_BYTES, 'No-recovery header size changed.');
+    stableAssert(substr((string) $noRecoveryBytes, 8, 1) === "\0", 'No-recovery flag is incorrect.');
+    stableAssert(Format::isZeroBytes(substr((string) $noRecoveryBytes, 149, Format::SLOT_BYTES)), 'Disabled recovery slot is not all-zero.');
+    $noRecoveryDestination = $root . DIRECTORY_SEPARATOR . 'no-recovery-restore';
+    $noRecoveryRestored = $reader->restore($noRecoveryPackage, $noRecoveryDestination, $password, $pattern);
+    stableAssert($noRecoveryRestored['files'] === 3, 'No-recovery package did not restore.');
+
+    echo "Stable binary package round-trip and adversarial tests passed.\n";
+} finally {
+    $password = '';
+    $pattern = '';
+    $wrongPassword = '';
+    $wrongPattern = '';
+    stableRemoveTree($root);
+}
