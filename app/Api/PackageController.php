@@ -441,7 +441,7 @@ final class PackageController
             $transaction->cleanupCommitted($staged, fn(string $stagedPath) => $this->removePath($stagedPath));
             $this->audit->event('package.deleted', ['package_id' => $packageId, 'account_id' => AccessContext::accountId()]);
             JsonResponse::send(['ok' => true]);
-        } catch (\\Throwable) {
+        } catch (\Throwable) {
             JsonResponse::send(['ok' => false, 'error' => 'Unable to delete package.'], 404);
         }
     }
