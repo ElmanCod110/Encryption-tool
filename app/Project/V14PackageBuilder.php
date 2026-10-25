@@ -118,8 +118,11 @@ final class V14PackageBuilder
                 $blobId = bin2hex(random_bytes(24)) . '.bin';
                 $blobPath = $packageDir . DIRECTORY_SEPARATOR . 'blobs' . DIRECTORY_SEPARATOR . $blobId;
                 $fileKey = V14KeyDerivation::deriveFileKey($fileRootKey, $id);
-                V14Stream::encryptFile($entry->getPathname(), $blobPath, $fileKey, 'SecurePackage|V14|file|' . $packageId . '|' . $binding . '|' . $id, $size);
-                sodium_memzero($fileKey);
+                try {
+                    V14Stream::encryptFile($entry->getPathname(), $blobPath, $fileKey, 'SecurePackage|V14|file|' . $packageId . '|' . $binding . '|' . $id, $size);
+                } finally {
+                    sodium_memzero($fileKey);
+                }
                 $cipherHash = hash_file('sha256', $blobPath);
                 if ($cipherHash === false || !preg_match('/^[a-f0-9]{64}$/', $cipherHash)) throw new RuntimeException('Unable to hash encrypted file.');
                 $manifest['files']++;
