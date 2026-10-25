@@ -1,4 +1,6 @@
-# Secure Package V14 Threat Model
+# Secure Package Threat Model
+
+This model covers the stable single-file binary format used for new server packages and the legacy V14 reader retained for compatibility. The browser V13 vault is a separate design.
 
 ## Assets
 
@@ -12,7 +14,7 @@
 
 ## Adversaries
 
-V14 considers an attacker who can:
+The server package boundary considers an attacker who can:
 
 - upload or modify package/archive bytes
 - submit malformed package metadata repeatedly
@@ -30,6 +32,7 @@ V14 considers an attacker who can:
 3. No overwrite or path traversal during restore.
 4. Bounded resource consumption for parsing and extraction.
 5. Credential failure behavior that does not reveal which secret failed.
+6. Keep application release versions and format-generation labels out of the stable binary package grammar.
 6. Separation of release trust from the release package itself.
 
 ## Deliberate non-goals
@@ -38,7 +41,8 @@ V14 considers an attacker who can:
 - Recovery of a forgotten password or pattern.
 - Recovery of a lost recovery key.
 - A universal guarantee against every side channel or implementation flaw.
-- Treating the V13 browser vault and V14 server engine as cryptographically identical.
+- Treating the V13 browser vault, stable binary format, and legacy V14 format as cryptographically identical.
+- Hiding file sizes, file count, total data volume, or total package size in the stable format.
 
 ## Main controls
 
@@ -48,7 +52,8 @@ V14 considers an attacker who can:
 - Secretstream-authenticated file chunks
 - HKDF key separation
 - Header binding
-- Ciphertext hashing and complete Merkle verification
+- Stable format: HMAC-authenticated fixed header, encrypted binary manifest, and per-file secretstream authentication
+- Legacy V14: ciphertext hashing and complete Merkle verification
 - Atomic writes and temporary-file restore
 - Preflight path validation and no-overwrite behavior
 - Resumable upload ownership and rate controls
@@ -57,4 +62,4 @@ V14 considers an attacker who can:
 
 ## Residual risk
 
-The dominant residual risks are endpoint/service misconfiguration, lost credentials, host compromise, browser-side compromise of the separate V13 vault, dependency supply-chain compromise, and lack of independent third-party audit. V14 should be treated as a security-engineering baseline rather than as a certification claim.
+The dominant residual risks are endpoint/service misconfiguration, lost credentials, host compromise, browser-side compromise of the separate V13 vault, dependency supply-chain compromise, and lack of independent third-party audit. The stable binary format and legacy V14 reader should be treated as security-engineering implementations rather than certification claims. The stable format's fixed record grammar does not eliminate implementation risk, and an independent third-party audit has not been completed.
