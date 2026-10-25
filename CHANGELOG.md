@@ -18,7 +18,7 @@
 - Added security reporting, contribution, support, and structured issue-reporting guidance.
 
 
-## 14.1.0 — Compatibility and Server Reliability Fixes
+## 0.14.1 — Compatibility and Server Reliability Fixes
 
 - Fixed Browser Vault V13 self-produced package rejection caused by missing key-slot type/version metadata.
 - Fixed server account creation/build initialization when `SPK_NAME_PEPPER` is not exported by generating a persistent local application secret under `storage/secrets/`.
