@@ -270,23 +270,25 @@ final class StablePackageWriter
                 while ($remaining > 0) {
                     $wanted = min(StablePackageDescriptor::CHUNK_BYTES, $remaining);
                     $plain = $this->readExactFromFile($input, $wanted);
-                    $remaining -= strlen($plain);
-                    if (strlen($plain) !== $wanted) {
-                        sodium_memzero($plain);
-                        throw new RuntimeException('Source file changed during package creation.');
+                    try {
+                        $remaining -= strlen($plain);
+                        if (strlen($plain) !== $wanted) {
+                            throw new RuntimeException('Source file changed during package creation.');
+                        }
+                        $tag = $remaining === 0
+                            ? SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL
+                            : SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE;
+                        $cipher = sodium_crypto_secretstream_xchacha20poly1305_push(
+                            $state,
+                            $plain,
+                            StablePackageCrypto::chunkAad($coreHash, $packageId, $entry['id'], $sequence, $entry['size']),
+                            $tag
+                        );
+                        $this->writeChunkRecord($out, $entry['id'], $sequence, $cipher);
+                        $sequence++;
+                    } finally {
+                        if ($plain !== '') sodium_memzero($plain);
                     }
-                    $tag = $remaining === 0
-                        ? SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL
-                        : SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE;
-                    $cipher = sodium_crypto_secretstream_xchacha20poly1305_push(
-                        $state,
-                        $plain,
-                        StablePackageCrypto::chunkAad($coreHash, $packageId, $entry['id'], $sequence, $entry['size']),
-                        $tag
-                    );
-                    $this->writeChunkRecord($out, $entry['id'], $sequence, $cipher);
-                    sodium_memzero($plain);
-                    $sequence++;
                 }
             }
             if ($sequence !== $entry['chunks']) {
