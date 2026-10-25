@@ -486,9 +486,10 @@ final class PackageController
 
             $path = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
             $portable = $path . '.spkg14';
+            $stable = $path . '.spkg';
             $transaction = new PackageDeletionTransaction();
             $staged = $transaction->execute(
-                [$portable, $path],
+                [$stable, $portable, $path],
                 fn() => $this->accessTokens->revokeForPackage($packageId),
                 fn() => $this->catalog->delete($packageId, AccessContext::ownerId())
             );
