@@ -17,7 +17,7 @@ if ($argc < 4 || $argc > 5) {
 }
 
 [, $package, $output, $password] = array_pad($argv, 4, '');
-$recoveryKey = $argv[4] ?? '';
+$recoveryKey = trim((string) ($argv[4] ?? ''));
 $pattern = getenv('SPK_PATTERN') ?: '';
 $temp = null;
 $format = null;
