@@ -406,8 +406,12 @@ final class StablePackageDescriptor
                 throw new RuntimeException('Manifest entries are not in canonical path order.');
             }
             $previousPath = $path;
+            $entryDepth = substr_count($path, '/') + 1;
+            if ($entryDepth > self::MAX_DEPTH) {
+                throw new RuntimeException('Manifest directory depth exceeds the supported limit.');
+            }
             $entry['path'] = $path;
-            $entry['depth'] = substr_count($path, '/') + 1;
+            $entry['depth'] = $entryDepth;
         }
         unset($entry);
 
