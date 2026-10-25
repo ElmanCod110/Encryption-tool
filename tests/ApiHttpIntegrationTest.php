@@ -184,10 +184,24 @@ try {
     }
 
     $stablePackageId = str_repeat('b', 48);
-    $stableFixture = "test-only-stable-binary-package";
-    if (file_put_contents($packagesDir . DIRECTORY_SEPARATOR . $stablePackageId . '.spkg', $stableFixture) === false) {
-        throw new RuntimeException('Unable to prepare stable binary package fixture.');
+    $stableSource = $base . DIRECTORY_SEPARATOR . 'stable-source';
+    if (!mkdir($stableSource, 0700, true)
+        || file_put_contents($stableSource . DIRECTORY_SEPARATOR . 'api-fixture.txt', "stable API round trip\\n") === false) {
+        throw new RuntimeException('Unable to prepare stable binary source fixture.');
     }
+    $stablePackagePath = $packagesDir . DIRECTORY_SEPARATOR . $stablePackageId . '.spkg';
+    $stablePassword = 'Api!StablePassword2026';
+    $stablePattern = 'Api#StablePattern2026';
+    (new \\SecurePackage\\Project\\StablePackageWriter())->build(
+        $stableSource,
+        $stablePackagePath,
+        $stablePassword,
+        $stablePattern,
+        $stablePackageId,
+        false
+    );
+    $stableFixtureSize = filesize($stablePackagePath);
+    if ($stableFixtureSize === false) throw new RuntimeException('Unable to inspect stable binary package fixture.');
     $stableCatalogRecord = [
         'package_id' => $stablePackageId,
         'owner_hash' => hash('sha256', 'account:' . $registeredData['account_id']),
@@ -218,9 +232,31 @@ try {
         || ($legacyListed['format'] ?? null) !== 'SECURE-PKG-V14'
         || !is_array($stableListed)
         || ($stableListed['storage_available'] ?? null) !== true
-        || ($stableListed['size_bytes'] ?? null) !== strlen($stableFixture)
+        || ($stableListed['size_bytes'] ?? null) !== $stableFixtureSize
         || ($stableListed['format'] ?? null) !== 'STABLE-BINARY') {
         throw new RuntimeException('Package inventory misreported stable or legacy package metadata.');
+    }
+
+    $stableDecrypt = $request(
+        'api.php?action=decrypt',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode([
+            'package_id' => $stablePackageId,
+            'password' => $stablePassword,
+            'pattern' => $stablePattern,
+        ], JSON_THROW_ON_ERROR)
+    );
+    $expect(200, $stableDecrypt, 'Stable binary package restore API');
+    sodium_memzero($stablePassword);
+    sodium_memzero($stablePattern);
+    $stableDecryptData = json_decode($stableDecrypt['body'], true, 16, JSON_THROW_ON_ERROR);
+    if (($stableDecryptData['ok'] ?? null) !== true
+        || !is_string($stableDecryptData['restore_download'] ?? null)
+        || !str_starts_with($stableDecryptData['restore_download'], 'download-restored.php?token=')
+        || ($stableDecryptData['stats']['package_id'] ?? null) !== $stablePackageId
+        || ($stableDecryptData['stats']['files'] ?? null) !== 1) {
+        throw new RuntimeException('Stable binary package restore API returned invalid metadata.');
     }
 
     $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';
