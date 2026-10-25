@@ -65,6 +65,24 @@ final class StablePackageDescriptor
 
     private const ZERO_ID = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 
+    public static function hasMagic(string $path): bool
+    {
+        if (is_link($path) || !is_file($path)) {
+            return false;
+        }
+        $handle = @fopen($path, 'rb');
+        if ($handle === false) {
+            return false;
+        }
+        try {
+            $prefix = fread($handle, self::MAGIC_BYTES);
+            return is_string($prefix) && strlen($prefix) === self::MAGIC_BYTES
+                && hash_equals(self::MAGIC, $prefix);
+        } finally {
+            fclose($handle);
+        }
+    }
+
     public static function assertRuntime(): void
     {
         if (PHP_INT_SIZE < 8) {
