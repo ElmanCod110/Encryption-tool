@@ -142,6 +142,7 @@ $wrongPassword = 'Wrong!Password2026#';
 $wrongPattern = 'Qz!71_xYp#42Qw9';
 
 mkdir($source . DIRECTORY_SEPARATOR . 'nested', 0700, true);
+mkdir($source . DIRECTORY_SEPARATOR . 'empty-dir', 0700);
 file_put_contents($source . DIRECTORY_SEPARATOR . 'hello.txt', "stable-format\n");
 file_put_contents($source . DIRECTORY_SEPARATOR . 'empty.bin', '');
 file_put_contents($source . DIRECTORY_SEPARATOR . 'one-byte.bin', "x");
@@ -151,7 +152,7 @@ file_put_contents($source . DIRECTORY_SEPARATOR . 'nested' . DIRECTORY_SEPARATOR
 try {
     $build = (new StablePackageWriter())->build($source, $package, $password, $pattern, str_repeat('a', 48), true);
     stableAssert($build['package_id'] === str_repeat('a', 48), 'Package id was not preserved.');
-    stableAssert($build['files'] === 5 && $build['directories'] === 1 && $build['nodes'] === 6, 'Built statistics are invalid.');
+    stableAssert($build['files'] === 5 && $build['directories'] === 2 && $build['nodes'] === 7, 'Built statistics are invalid.');
     stableAssert(is_string($build['recovery_key']) && strlen($build['recovery_key']) === 43, 'Recovery key was not emitted as canonical base64url.');
 
     $raw = file_get_contents($package);
@@ -220,12 +221,14 @@ try {
         $password, $pattern, str_repeat('0', 48), false), 'All-zero package identifier was accepted by the writer.');
     stableAssert(!file_exists($zeroIdPackage), 'All-zero package identifier produced an output file.');
     $restored = $reader->restore($package, $restore, $password, $pattern);
-    stableAssert($restored['files'] === 5 && $restored['directories'] === 1, 'Round-trip statistics are incorrect.');
+    stableAssert($restored['files'] === 5 && $restored['directories'] === 2, 'Round-trip statistics are incorrect.');
     foreach (['hello.txt', 'empty.bin', 'one-byte.bin', 'exact-chunk.bin', 'nested/binary.dat'] as $relative) {
         $expected = hash_file('sha256', $source . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
         $actual = hash_file('sha256', $restore . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
         stableAssert(is_string($expected) && is_string($actual) && hash_equals($expected, $actual), 'Round-trip mismatch: ' . $relative);
     }
+    stableAssert(is_dir($restore . DIRECTORY_SEPARATOR . 'empty-dir'),
+        'Empty directory was not preserved by the manifest and restore.');
 
     $recoveryDestination = $root . DIRECTORY_SEPARATOR . 'recovery-restore';
     $recovered = $reader->restore($package, $recoveryDestination, '', '', $build['recovery_key']);
