@@ -26,7 +26,6 @@ use SecurePackage\Security\RestoreTokenStore;
 use SecurePackage\Security\Validator;
 use SecurePackage\Security\WebSecurity;
 use SecurePackage\Storage\AuditLogger;
-use SecurePackage\Storage\FileStore;
 use SecurePackage\Storage\JobStore;
 use SecurePackage\Storage\ResumableUploadStore;
 use SecurePackage\Storage\QuotaExceededException;
@@ -513,7 +512,8 @@ final class PackageController
             'version_string' => $this->config['app']['version_string'],
             'format' => $this->config['app']['format'],
             'browser_format' => 'SECURE-BROWSER-V13',
-            'server_package_format' => 'SECURE-PKG-V14',
+            'server_package_format' => 'STABLE-BINARY',
+            'legacy_server_package_format' => 'SECURE-PKG-V14',
             'author' => $this->config['app']['author'],
             'crypto' => ['kdf' => 'argon2id13', 'aead' => 'xchacha20poly1305-ietf', 'stream' => 'secretstream-xchacha20poly1305', 'key_wrap' => 'xchacha20poly1305-ietf', 'key_separation' => 'HKDF-SHA-256'],
             'controls' => ['csrf' => true, 'same_origin' => true, 'rate_limiting' => true, 'resumable_uploads' => true, 'tamper_evident_audit' => true, 'package_ownership' => true, 'header_binding' => true, 'external_key_wrap' => true, 'no_overwrite_restore' => true]
@@ -540,10 +540,10 @@ final class PackageController
         @rmdir($path);
     }
 
-    private function makePackageService(): V14PackageService
+    private function makeStablePackageService(): StablePackageService
     {
         $pepper = ApplicationSecrets::namePepper($this->config['storage']['root']);
         $registry = new FileProjectNameRegistry($this->config['storage']['root'] . DIRECTORY_SEPARATOR . 'reserved-names.db', $pepper);
-        return new V14PackageService(new \SecurePackage\Project\V14PackageBuilder(), new FileStore($this->config['storage']['packages']), $registry);
+        return new StablePackageService(new StablePackageWriter(), $this->config['storage']['packages'], $registry);
     }
 }
