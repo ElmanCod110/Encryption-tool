@@ -46,7 +46,7 @@ All cryptographic randomness MUST come from the operating system CSPRNG through 
 
 ### Explicit metadata-leakage boundary
 
-This format encrypts the manifest (names, parent relationships and directory entries), but it does **not** hide traffic shape. The clear header exposes the fixed marker, algorithm identifiers, KDF cost, random package ID, and whether a recovery slot exists. Record boundaries and chunk lengths expose the number of file streams, approximate and often exact file sizes, total plaintext volume, and the package's total size. The fixed 4 MiB chunking does not prevent a final-chunk length from revealing the remaining bytes. This format does not claim padding-based size confidentiality. If hiding sizes or file counts is a requirement, that needs a separately designed and reviewed padding/framing scheme; it must not be improvised by changing this frozen grammar.
+This format encrypts the manifest (names, parent relationships and directory entries), but it does **not** hide traffic shape. The clear header exposes the fixed marker, algorithm identifiers, KDF cost, package identifier, and whether a recovery slot exists. Record boundaries and chunk lengths expose the number of file streams, approximate and often exact file sizes, total plaintext volume, and the package's total size. The fixed 4 MiB chunking does not prevent a final-chunk length from revealing the remaining bytes. This format does not claim padding-based size confidentiality. If hiding sizes or file counts is a requirement, that needs a separately designed and reviewed padding/framing scheme; it must not be improvised by changing this frozen grammar.
 
 ## 3. Fixed 253-byte header
 
@@ -64,7 +64,7 @@ Opaque magic bytes (hex): **D3 82 A1 4F C7 5E 90 6B**.
 | 12 | 1 | Hash ID | 0x01 = SHA-256 |
 | 13 | 4 | KDF ops | u32 big-endian, bounded before use |
 | 17 | 4 | KDF memory bytes | u32 big-endian, bounded before use |
-| 21 | 24 | Package ID | random raw bytes, exposed outside package as 48 lowercase hex chars if needed |
+| 21 | 24 | Package ID | opaque 24-byte identifier; random by default, or supplied by the integrating application; nonzero and not a secret |
 | 45 | 32 | Salt | random; reject all-zero |
 | 77 | 24 | Primary nonce | AEAD nonce |
 | 101 | 48 | Primary wrapped root key | 32-byte ciphertext plus 16-byte tag |
