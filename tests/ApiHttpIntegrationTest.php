@@ -204,6 +204,7 @@ try {
     if ($stableFixtureSize === false) throw new RuntimeException('Unable to inspect stable binary package fixture.');
     $stableCatalogRecord = [
         'package_id' => $stablePackageId,
+        'format' => 'STABLE-BINARY',
         'owner_hash' => hash('sha256', 'account:' . $registeredData['account_id']),
         'name_hash' => hash('sha256', 'stable-binary-inventory-package'),
         'created_at' => time() + 1,
