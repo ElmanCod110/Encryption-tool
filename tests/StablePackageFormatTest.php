@@ -218,6 +218,22 @@ try {
     stableExpectFailure(fn() => $reader->restore($invalidLength, $root . DIRECTORY_SEPARATOR . 'invalid-length-restore', $password, $pattern), 'Oversized record length was accepted.');
     stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'invalid-length-restore'), 'Invalid record length left output behind.');
 
+    $tamperedFileStart = $root . DIRECTORY_SEPARATOR . 'tampered-file-start.spkg';
+    stableCopy($package, $tamperedFileStart);
+    stableMutateRecord($tamperedFileStart, Format::RECORD_FILE_START);
+    stableExpectFailure(fn() => $reader->restore($tamperedFileStart, $root . DIRECTORY_SEPARATOR . 'bad-file-start-restore', $password, $pattern), 'Tampered file-start record was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-file-start-restore'), 'Tampered file-start record left output behind.');
+
+    $wrongChunkSequence = $root . DIRECTORY_SEPARATOR . 'wrong-chunk-sequence.spkg';
+    stableCopy($package, $wrongChunkSequence);
+    $bytes = file_get_contents($wrongChunkSequence);
+    // The first file-start record follows the header; its first chunk starts after the 48-byte body.
+    $sequenceOffset = Format::HEADER_BYTES + Format::RECORD_HEADER_BYTES + 48 + Format::RECORD_HEADER_BYTES + 16;
+    $bytes[$sequenceOffset + 3] = chr(ord($bytes[$sequenceOffset + 3]) ^ 0x01);
+    file_put_contents($wrongChunkSequence, $bytes, LOCK_EX);
+    stableExpectFailure(fn() => $reader->restore($wrongChunkSequence, $root . DIRECTORY_SEPARATOR . 'bad-sequence-restore', $password, $pattern), 'Out-of-order chunk sequence was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-sequence-restore'), 'Out-of-order chunk sequence left output behind.');
+
     $tamperedChunk = $root . DIRECTORY_SEPARATOR . 'tampered-chunk.spkg';
     stableCopy($package, $tamperedChunk);
     stableMutateRecord($tamperedChunk, Format::RECORD_FILE_CHUNK);
@@ -270,6 +286,37 @@ try {
         ['type' => 2, 'id' => $fileId, 'parent_id' => $dirA, 'name' => 'data.bin', 'size' => 0, 'chunks' => 1],
     ]);
     stableExpectFailure(fn() => Format::decodeManifest($cycleManifest), 'Manifest directory cycle was accepted.');
+
+    $duplicateId = random_bytes(16);
+    $duplicateIdManifest = Format::encodeManifest([
+        ['type' => 2, 'id' => $duplicateId, 'parent_id' => Format::zeroId(), 'name' => 'a.bin', 'size' => 0, 'chunks' => 1],
+        ['type' => 2, 'id' => $duplicateId, 'parent_id' => Format::zeroId(), 'name' => 'b.bin', 'size' => 0, 'chunks' => 1],
+    ]);
+    stableExpectFailure(fn() => Format::decodeManifest($duplicateIdManifest), 'Duplicate manifest entry IDs were accepted.');
+
+    $missingParentManifest = Format::encodeManifest([
+        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => random_bytes(16), 'name' => 'missing-parent.bin', 'size' => 0, 'chunks' => 1],
+    ]);
+    stableExpectFailure(fn() => Format::decodeManifest($missingParentManifest), 'Missing manifest parent was accepted.');
+
+    $fileParentId = random_bytes(16);
+    $fileAsParentManifest = Format::encodeManifest([
+        ['type' => 2, 'id' => $fileParentId, 'parent_id' => Format::zeroId(), 'name' => 'file', 'size' => 0, 'chunks' => 1],
+        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => $fileParentId, 'name' => 'child.bin', 'size' => 0, 'chunks' => 1],
+    ]);
+    stableExpectFailure(fn() => Format::decodeManifest($fileAsParentManifest), 'Regular file used as parent was accepted.');
+
+    $unorderedManifest = Format::encodeManifest([
+        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'z.bin', 'size' => 0, 'chunks' => 1],
+        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'a.bin', 'size' => 0, 'chunks' => 1],
+    ]);
+    stableExpectFailure(fn() => Format::decodeManifest($unorderedManifest), 'Noncanonical manifest path order was accepted.');
+
+    $caseCollisionManifest = Format::encodeManifest([
+        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'A.bin', 'size' => 0, 'chunks' => 1],
+        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'a.bin', 'size' => 0, 'chunks' => 1],
+    ]);
+    stableExpectFailure(fn() => Format::decodeManifest($caseCollisionManifest), 'Case-colliding sibling names were accepted.');
 
     $noRecoveryPackage = $root . DIRECTORY_SEPARATOR . 'no-recovery.spkg';
     $noRecovery = (new StablePackageWriter())->build($source, $noRecoveryPackage, $password, $pattern, str_repeat('b', 48), false);
