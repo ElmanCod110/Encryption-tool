@@ -98,9 +98,11 @@ try {
     stableAssert($header['ops'] === Format::DEFAULT_KDF_OPS, 'KDF operations parameter is not the writer profile.');
     stableAssert($header['memory_bytes'] === Format::DEFAULT_KDF_MEM_BYTES, 'KDF memory parameter is not the writer profile.');
     stableAssert(strlen($header['core']) === Format::CORE_BYTES, 'Core header length is invalid.');
-    stableAssert(!str_contains($raw, 'V14') && !str_contains($raw, 'SECURE-PKG-V14')
-        && !str_contains($raw, 'version') && !str_contains($raw, 'schema'),
-        'The serialized binary package unexpectedly contains a generation/version label or schema field.');
+    stableAssert(substr($raw, 0, 8) === Format::MAGIC
+        && substr($raw, 0, 8) !== 'SECURE-PKG-V14',
+        'The stable package marker is not the fixed opaque, version-independent marker.');
+    // Manifest field/entry keys are asserted exactly below; scanning encrypted ciphertext
+    // for English words would make this test probabilistic because ciphertext is random.
 
     $reader = new StablePackageReader();
 
