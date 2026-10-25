@@ -321,6 +321,7 @@ final class PackageController
             $legacyDirectory = $packagesRoot . DIRECTORY_SEPARATOR . $packageId;
             $legacyArchive = $packagesRoot . DIRECTORY_SEPARATOR . $packageId . '.spkg14';
             $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
+            $packageFormat = null;
 
             // Prefer the permanent binary format when its canonical path exists. A
             // malformed or symlinked stable artifact must not silently downgrade to V14.
@@ -328,11 +329,13 @@ final class PackageController
                 if (is_link($stableFile) || !is_file($stableFile)) {
                     throw new RuntimeException('Package storage is invalid.');
                 }
+                $packageFormat = 'STABLE-BINARY';
                 $result = (new StablePackageReader())->restore($stableFile, $outputDir, $password, $pattern, $recoveryKey);
             } elseif (file_exists($legacyDirectory) || is_link($legacyDirectory)) {
                 if (is_link($legacyDirectory) || !is_dir($legacyDirectory)) {
                     throw new RuntimeException('Legacy package storage is invalid.');
                 }
+                $packageFormat = 'SECURE-PKG-V14';
                 $result = (new V14PackageReader())->restore($legacyDirectory, $outputDir, $password, $pattern, $recoveryKey);
             } elseif (file_exists($legacyArchive) || is_link($legacyArchive)) {
                 if (is_link($legacyArchive) || !is_file($legacyArchive)) {
@@ -340,6 +343,7 @@ final class PackageController
                 }
                 $temporaryPackageDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'package-' . bin2hex(random_bytes(16));
                 (new PackageArchive())->extract($legacyArchive, $temporaryPackageDir);
+                $packageFormat = 'SECURE-PKG-V14';
                 $result = (new V14PackageReader())->restore($temporaryPackageDir, $outputDir, $password, $pattern, $recoveryKey);
             } else {
                 throw new RuntimeException('Package does not exist.');
@@ -360,7 +364,7 @@ final class PackageController
                 'package_id' => $packageId,
                 'account_id' => AccessContext::accountId(),
                 'files' => $result['files'] ?? null,
-                'format' => is_file($stableFile) ? 'STABLE-BINARY' : 'SECURE-PKG-V14',
+                'format' => $packageFormat,
             ]);
             sodium_memzero($password);
             sodium_memzero($pattern);
