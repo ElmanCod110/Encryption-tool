@@ -24,13 +24,19 @@ try {
     if ($expected === false || $actual === false || !hash_equals($expected, $actual)) throw new RuntimeException('Restore round-trip failed.');
     if (file_get_contents($restore . '/docs/deep/zero.bin') !== '') throw new RuntimeException('Empty file restore failed.');
 
+    $rejectedExistingDestination = false;
     try {
         (new V14PackageReader())->restore($package, $restore, $password, $pattern);
-        throw new RuntimeException('Existing destination was accepted.');
     } catch (Throwable) {
-        // Expected: fail before touching any existing destination content.
+        $rejectedExistingDestination = true;
     }
-    if (file_get_contents($restore . '/docs/deep/readme.txt') === false) throw new RuntimeException('Existing destination was altered.');
+    if (!$rejectedExistingDestination) {
+        throw new RuntimeException('Existing destination was accepted.');
+    }
+    $afterRejectedRestore = hash_file('sha256', $restore . '/docs/deep/readme.txt');
+    if ($afterRejectedRestore === false || !hash_equals($expected, $afterRejectedRestore)) {
+        throw new RuntimeException('Existing destination content changed after rejected restore.');
+    }
 
     echo "V14 restore safety and non-overwrite test passed.\n";
 } finally {
