@@ -30,7 +30,7 @@ function isExpired(item) {
   return item.expires_at !== null && item.expires_at !== undefined && Number(item.expires_at) * 1000 <= Date.now();
 }
 function statusFor(item) {
-  if (item.storage_available === false) return { key: 'missing', label: 'Archive missing' };
+  if (item.storage_available === false) return { key: 'missing', label: 'Package missing' };
   if (item.revoked) return { key: 'revoked', label: 'Revoked' };
   if (isExpired(item)) return { key: 'expired', label: 'Expired' };
   return { key: 'active', label: 'Active' };
