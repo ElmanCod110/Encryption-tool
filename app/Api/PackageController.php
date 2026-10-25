@@ -348,6 +348,10 @@ final class PackageController
             if (($result['package_id'] ?? null) !== $packageId) {
                 throw new RuntimeException('Package identifier does not match catalog metadata.');
             }
+            if (is_string($temporaryPackageDir)) {
+                $this->removePath($temporaryPackageDir);
+                $temporaryPackageDir = null;
+            }
             $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
             $restoreToken = $tokenStore->issue($outputDir);
             $this->rateLimiter->success($rateKey);
@@ -368,12 +372,11 @@ final class PackageController
             ]);
         } catch (\Throwable) {
             if (is_string($outputDir)) $this->removePath($outputDir);
+            if (is_string($temporaryPackageDir)) $this->removePath($temporaryPackageDir);
             sodium_memzero($password);
             sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 422);
-        } finally {
-            if (is_string($temporaryPackageDir)) $this->removePath($temporaryPackageDir);
         }
     }
 
