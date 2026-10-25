@@ -51,11 +51,11 @@ final class StablePackageDescriptor
     public const MAX_KDF_MEM_BYTES = 268_435_456; // 256 MiB
 
     public const MAX_FILE_CHUNK_RECORD_BYTES = self::CHUNK_BYTES + self::FILE_ID_BYTES + 4 + 17;
-    public const MAX_MANIFEST_BYTES = 67_108_864; // 64 MiB plaintext
+    public const MAX_MANIFEST_BYTES = 8_388_608; // 8 MiB plaintext; bounded for ordinary PHP memory limits
     public const MAX_MANIFEST_RECORD_BYTES = self::MAX_MANIFEST_BYTES + self::NONCE_BYTES + self::AEAD_TAG_BYTES;
     // Conservative upper bound for plaintext bytes plus worst-case per-record framing and manifest.
     public const MAX_PACKAGE_BYTES = 107_452_366_757; // 100 GiB data + bounded framing/manifest overhead
-    public const MAX_NODES = 100_000;
+    public const MAX_NODES = 10_000; // conservative to bound PHP array/graph-validation memory
     public const MAX_FILE_BYTES = 17_179_869_184; // 16 GiB
     public const MAX_TOTAL_PLAIN_BYTES = 107_374_182_400; // 100 GiB
     public const MAX_FILENAME_BYTES = 255;
