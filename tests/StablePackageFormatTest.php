@@ -239,8 +239,13 @@ try {
     $tamperedChunk = $root . DIRECTORY_SEPARATOR . 'tampered-chunk.spkg';
     stableCopy($package, $tamperedChunk);
     stableMutateRecord($tamperedChunk, Format::RECORD_FILE_CHUNK);
+    $stagePattern = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'spkg-stage-*';
+    $stagesBeforeTamper = glob($stagePattern) ?: [];
     stableExpectFailure(fn() => $reader->restore($tamperedChunk, $root . DIRECTORY_SEPARATOR . 'bad-chunk-restore', $password, $pattern), 'Tampered file chunk was accepted.');
     stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-chunk-restore'), 'Tampered chunk left restored data behind.');
+    $stagesAfterTamper = glob($stagePattern) ?: [];
+    $newStages = array_values(array_diff($stagesAfterTamper, $stagesBeforeTamper));
+    stableAssert($newStages === [], 'Tampered package left a new private plaintext staging directory behind.');
 
     $tamperedManifest = $root . DIRECTORY_SEPARATOR . 'tampered-manifest.spkg';
     stableCopy($package, $tamperedManifest);
