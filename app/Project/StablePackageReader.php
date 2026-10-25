@@ -358,16 +358,28 @@ final class StablePackageReader
         }
         $createdRoot = true;
         $createdRootIdentity = $this->captureIdentity($destination);
+        if (!is_array($createdRootIdentity)) {
+            throw new RuntimeException('Unable to verify restore destination identity.');
+        }
+        $ownedDirectories = [$destination => $createdRootIdentity];
         @chmod($destination, 0700);
 
         $directories = array_values(array_filter($entries, static fn(array $entry): bool => $entry['type'] === 1));
         usort($directories, static fn(array $a, array $b): int => ($a['depth'] <=> $b['depth']) ?: strcmp($a['path'], $b['path']));
         foreach ($directories as $entry) {
             $target = $destination . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $entry['path']);
-            if (file_exists($target) || is_link($target) || !@mkdir($target, 0700)) {
-                throw new RuntimeException('Unable to create restored directory.');
+            $parent = dirname($target);
+            $parentIdentity = $ownedDirectories[$parent] ?? null;
+            if (!is_dir($parent) || is_link($parent) || !$this->matchesIdentity($parent, $parentIdentity)
+                || file_exists($target) || is_link($target) || !@mkdir($target, 0700)) {
+                throw new RuntimeException('Unable to create restored directory safely.');
             }
-            $createdDirectories[] = ['path' => $target, 'identity' => $this->captureIdentity($target)];
+            $identity = $this->captureIdentity($target);
+            $createdDirectories[] = ['path' => $target, 'identity' => $identity];
+            if (!is_array($identity)) {
+                throw new RuntimeException('Unable to verify restored directory identity.');
+            }
+            $ownedDirectories[$target] = $identity;
             @chmod($target, 0700);
         }
 
@@ -376,7 +388,9 @@ final class StablePackageReader
         foreach ($files as $entry) {
             $target = $destination . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $entry['path']);
             $parent = dirname($target);
-            if (!is_dir($parent) || is_link($parent) || file_exists($target) || is_link($target)) {
+            $parentIdentity = $ownedDirectories[$parent] ?? null;
+            if (!is_dir($parent) || is_link($parent) || !$this->matchesIdentity($parent, $parentIdentity)
+                || file_exists($target) || is_link($target)) {
                 throw new RuntimeException('Restored file destination is unsafe.');
             }
             $source = $filesById[$entry['id_hex']] ?? null;
