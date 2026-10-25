@@ -4,25 +4,28 @@
 
 Secure Package is an open-source encrypted project package engine built around explicit cryptographic boundaries, authenticated metadata, fail-closed parsing, bounded resource consumption, and safe restore semantics.
 
-## V14 server package engine
+## Stable binary server package format
 
-The active server package format is `SECURE-PKG-V14` (`.spkg14`). Its cryptographic format identifier is independent of the application release version. The server format uses:
+New server packages use the permanent single-file binary format (\`.spkg\`). Its frozen grammar contains no application release version, format-generation label, or schema-version field. The package starts with a fixed 253-byte header and uses:
 
-- Argon2id13 for password and pattern credential derivation through libsodium
-- A random 256-bit package root key, wrapped independently from credentials
-- XChaCha20-Poly1305 for authenticated metadata and key slots
-- `secretstream_xchacha20poly1305` for authenticated file streaming
-- HKDF-SHA-256 for explicit key separation
-- Header binding authenticated into package operations
-- Encrypted filenames and authenticated directory relationships
-- SHA-256 ciphertext verification for every package blob
-- Merkle-root verification over the complete file inventory before restore
-- Fail-closed archive/package/path validation
-- No-overwrite restore with preflight conflict detection
-- Independent optional recovery-key slot
-- Atomic temporary-file writes and secret zeroization where applicable
+- Argon2id13 for independent password and pattern credential derivation through libsodium
+- A random nonzero 256-bit package root key, wrapped separately from the credentials
+- XChaCha20-Poly1305-IETF for authenticated key wrapping and the encrypted binary manifest
+- \`secretstream_xchacha20poly1305\` for authenticated per-file chunk streams
+- HKDF-SHA-256 domain separation for the header MAC, manifest, and file-stream keys
+- HMAC-SHA-256 authentication of the fixed header
+- A strict encrypted manifest with canonical path ordering, bounded entry count, and cross-checked stream metadata
+- Fail-closed parsing, bounded KDF/resource parameters, cross-platform path validation, and no-overwrite restore
+- Atomic no-replace package publication and private staging with conservative rollback
+- An optional independent recovery-key slot
 
-The server format is designed so that the password and pattern do not directly serve as the long-lived file-encryption key. They derive a wrapping key which unlocks the random package root key; subkeys are then derived for manifests, filenames, and file streams.
+The password and pattern do not directly become long-lived file-encryption keys. They derive a wrapping key that unlocks the random package root key. The manifest protects names and directory relationships, but **file sizes, file count, total data volume, and package size are not hidden** by this format.
+
+The normative byte layout, field offsets, cryptographic domains, limits, and acceptance tests are documented in [the stable binary format specification](docs/STABLE-PACKAGE-FORMAT-BINARY.md). The implementation and release gate are tracked in [the stable format contract](docs/STABLE-PACKAGE-FORMAT.md).
+
+## Legacy V14 server package compatibility
+
+The previous \`SECURE-PKG-V14\` directory format and \`.spkg14\` ZIP transport remain available for restoring existing packages. They are not the default format for new packages. The legacy V14 format has its own specification in [docs/FORMAT.md](docs/FORMAT.md); it is not silently reinterpreted as the stable binary format.
 
 ## Browser compatibility boundary
 
@@ -49,8 +52,8 @@ Point Apache/XAMPP at the `public/` directory and open the application entry poi
 The server package engine is exposed through the main application UI and CLI helpers:
 
 ```text
-php bin/encrypt-directory.php <source-dir> <package-dir> <password> <pattern>
-php bin/decrypt-package.php <package-dir> <destination-dir> <password> <pattern>
+SPK_PATTERN='<high-entropy-pattern>' php bin/encrypt-directory.php <source-dir> <output-dir> <password>
+SPK_PATTERN='<high-entropy-pattern>' php bin/decrypt-package.php <package-file-or-legacy-dir-or-spkg14> <destination-dir> <password> [recovery-key]
 ```
 
 A generated package may also expose a one-time recovery key. Keep that key outside the package and outside logs.
@@ -94,7 +97,9 @@ The application treats cryptography, parsing, filesystem handling, authenticatio
 - [Contribution guide](CONTRIBUTING.md)
 - [Support](SUPPORT.md)
 - [Deployment guide](docs/DEPLOYMENT.md)
-- [Format specification](docs/FORMAT.md)
+- [Stable binary format specification](docs/STABLE-PACKAGE-FORMAT-BINARY.md)
+- [Stable format contract](docs/STABLE-PACKAGE-FORMAT.md)
+- [Legacy V14 format specification](docs/FORMAT.md)
 - [Threat model](docs/THREAT-MODEL.md)
 - [Migration notes](docs/MIGRATION.md)
 - [Release procedure](docs/RELEASE-PROCEDURE.md)
