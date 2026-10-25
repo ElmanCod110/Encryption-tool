@@ -143,37 +143,36 @@ final class StablePackageReader
                         throw new RuntimeException('Package chunk authentication failed.');
                     }
                     [$plain, $tag] = $plainResult;
-                    $plainLength = strlen($plain);
-                    $newTotal = $active['written'] + $plainLength;
-                    if ($newTotal > $active['size']) {
-                        sodium_memzero($plain);
-                        throw new RuntimeException('Decrypted file exceeds its declared size.');
-                    }
-                    if ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE) {
-                        if ($plainLength !== StablePackageDescriptor::CHUNK_BYTES || $newTotal >= $active['size']
-                            || ($active['chunks'] + 1) >= $active['expected_chunks']) {
-                            sodium_memzero($plain);
-                            throw new RuntimeException('Non-final file chunk has an invalid length or position.');
+                    try {
+                        $plainLength = strlen($plain);
+                        $newTotal = $active['written'] + $plainLength;
+                        if ($newTotal > $active['size']) {
+                            throw new RuntimeException('Decrypted file exceeds its declared size.');
                         }
-                    } elseif ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL) {
-                        if ($newTotal !== $active['size']
-                            || ($active['size'] === 0 && ($plainLength !== 0 || $active['chunks'] !== 0))
-                            || ($active['size'] > 0 && $plainLength === 0)
-                            || ($active['chunks'] + 1) !== $active['expected_chunks']) {
-                            sodium_memzero($plain);
-                            throw new RuntimeException('Final file chunk has an invalid length or position.');
+                        if ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE) {
+                            if ($plainLength !== StablePackageDescriptor::CHUNK_BYTES || $newTotal >= $active['size']
+                                || ($active['chunks'] + 1) >= $active['expected_chunks']) {
+                                throw new RuntimeException('Non-final file chunk has an invalid length or position.');
+                            }
+                        } elseif ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL) {
+                            if ($newTotal !== $active['size']
+                                || ($active['size'] === 0 && ($plainLength !== 0 || $active['chunks'] !== 0))
+                                || ($active['size'] > 0 && $plainLength === 0)
+                                || ($active['chunks'] + 1) !== $active['expected_chunks']) {
+                                throw new RuntimeException('Final file chunk has an invalid length or position.');
+                            }
+                        } else {
+                            throw new RuntimeException('Unsupported secretstream tag.');
                         }
-                    } else {
-                        sodium_memzero($plain);
-                        throw new RuntimeException('Unsupported secretstream tag.');
-                    }
 
-                    if ($plainLength > 0) {
-                        StablePackageDescriptor::writeAll($active['out'], $plain);
+                        if ($plainLength > 0) {
+                            StablePackageDescriptor::writeAll($active['out'], $plain);
+                        }
+                        $active['written'] = $newTotal;
+                        $active['chunks']++;
+                    } finally {
+                        if ($plain !== '') sodium_memzero($plain);
                     }
-                    sodium_memzero($plain);
-                    $active['written'] = $newTotal;
-                    $active['chunks']++;
 
                     if ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL) {
                         if (!fflush($active['out'])) {
