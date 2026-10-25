@@ -16,9 +16,9 @@ final class PackageCatalog
         @chmod($directory, 0700);
     }
 
-    public function create(string $packageId, string $ownerId, string $name): array
+    public function create(string $packageId, string $ownerId, string $name, string $format = 'SECURE-PKG-V14'): array
     {
-        if ($ownerId === '' || $name === '') {
+        if ($ownerId === '' || $name === '' || !in_array($format, ['STABLE-BINARY', 'SECURE-PKG-V14'], true)) {
             throw new RuntimeException('Invalid package catalog record.');
         }
         $file = $this->file($packageId);
@@ -29,6 +29,7 @@ final class PackageCatalog
             }
             $record = [
                 'package_id' => $packageId,
+                'format' => $format,
                 'owner_hash' => hash('sha256', $ownerId),
                 'name_hash' => hash('sha256', $name),
                 'created_at' => time(),
@@ -68,6 +69,11 @@ final class PackageCatalog
             || !(is_int($data['revoked_at'] ?? null) || ($data['revoked_at'] ?? null) === null)) {
             throw new RuntimeException('Package record is invalid.');
         }
+        $format = $data['format'] ?? 'SECURE-PKG-V14';
+        if (!is_string($format) || !in_array($format, ['STABLE-BINARY', 'SECURE-PKG-V14'], true)) {
+            throw new RuntimeException('Package record is invalid.');
+        }
+        $data['format'] = $format;
         return $data;
     }
 
@@ -140,6 +146,11 @@ final class PackageCatalog
             if (!is_array($data) || !hash_equals((string) ($data['owner_hash'] ?? ''), $hash)) {
                 continue;
             }
+            $format = $data['format'] ?? 'SECURE-PKG-V14';
+            if (!is_string($format) || !in_array($format, ['STABLE-BINARY', 'SECURE-PKG-V14'], true)) {
+                continue;
+            }
+            $data['format'] = $format;
             $items[] = $data;
         }
         usort($items, static fn(array $a, array $b): int => ((int) ($b['created_at'] ?? 0)) <=> ((int) ($a['created_at'] ?? 0)));
