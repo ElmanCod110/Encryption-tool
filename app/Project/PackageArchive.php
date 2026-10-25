@@ -12,6 +12,19 @@ final class PackageArchive
     private const MAX_UNCOMPRESSED_BYTES = V14Descriptor::MAX_TOTAL_PLAIN_BYTES + 256 * 1024 * 1024;
     private const COPY_BUFFER_BYTES = 1024 * 1024;
 
+    public static function hasZipSignature(string $path): bool
+    {
+        if (is_link($path) || !is_file($path)) return false;
+        $handle = @fopen($path, 'rb');
+        if ($handle === false) return false;
+        try {
+            $prefix = fread($handle, 4);
+            return is_string($prefix) && in_array($prefix, ["PK\x03\x04", "PK\x05\x06", "PK\x07\x08"], true);
+        } finally {
+            fclose($handle);
+        }
+    }
+
     public function create(string $packageDir, string $outputFile): void
     {
         $this->assertZipRuntime();
