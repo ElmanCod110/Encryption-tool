@@ -57,7 +57,7 @@ $accountId = \SecurePackage\Security\AccessContext::accountId();
     <div><dt>Account ID</dt><dd><code><?= htmlspecialchars((string) $accountId, ENT_QUOTES, 'UTF-8') ?></code></dd></div>
     <div><dt>Session</dt><dd class="profile-status">Signed in</dd></div>
     <div><dt>Application version</dt><dd><?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?></dd></div>
-    <div><dt>Package format</dt><dd>SECURE-PKG-V14</dd></div>
+    <div><dt>Default package format</dt><dd><?= htmlspecialchars($config['app']['format'], ENT_QUOTES, 'UTF-8') ?> · legacy V14 readable</dd></div>
   </dl>
 </section>
 <footer class="profile-footer"><span>Secure Package · Account dashboard</span><span>Package actions are checked against server-side ownership.</span></footer>
