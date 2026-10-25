@@ -71,10 +71,15 @@ final class StablePackageWriter
             throw new RuntimeException('Internal manifest validation failed.');
         }
 
-        $packageId ??= PackageId::generate();
-        PackageId::assert($packageId);
-        $packageIdRaw = hex2bin($packageId);
-        if (!is_string($packageIdRaw) || strlen($packageIdRaw) !== StablePackageDescriptor::PACKAGE_ID_BYTES) {
+        if ($packageId === null) {
+            $packageIdRaw = StablePackageDescriptor::randomNonZeroBytes(StablePackageDescriptor::PACKAGE_ID_BYTES);
+            $packageId = bin2hex($packageIdRaw);
+        } else {
+            PackageId::assert($packageId);
+            $packageIdRaw = hex2bin($packageId);
+        }
+        if (!is_string($packageIdRaw) || strlen($packageIdRaw) !== StablePackageDescriptor::PACKAGE_ID_BYTES
+            || StablePackageDescriptor::isZeroBytes($packageIdRaw)) {
             throw new RuntimeException('Invalid package identifier.');
         }
 
@@ -94,9 +99,9 @@ final class StablePackageWriter
         $published = false;
 
         try {
-            $salt = random_bytes(StablePackageDescriptor::SALT_BYTES);
-            $rootKey = random_bytes(StablePackageDescriptor::KEY_BYTES);
-            $recoveryKeyRaw = $createRecovery ? random_bytes(StablePackageDescriptor::KEY_BYTES) : null;
+            $salt = StablePackageDescriptor::randomNonZeroBytes(StablePackageDescriptor::SALT_BYTES);
+            $rootKey = StablePackageDescriptor::randomNonZeroBytes(StablePackageDescriptor::KEY_BYTES);
+            $recoveryKeyRaw = $createRecovery ? StablePackageDescriptor::randomNonZeroBytes(StablePackageDescriptor::KEY_BYTES) : null;
             $ops = StablePackageDescriptor::DEFAULT_KDF_OPS;
             $memory = StablePackageDescriptor::DEFAULT_KDF_MEM_BYTES;
             StablePackageDescriptor::assertKdfParameters($ops, $memory);
@@ -116,7 +121,7 @@ final class StablePackageWriter
             $coreHash = hash('sha256', $core, true);
             $credentialKey = StablePackageCrypto::deriveCredentialKey($password, $pattern, $salt, $packageIdRaw, $ops, $memory);
 
-            $primaryNonce = random_bytes(StablePackageDescriptor::NONCE_BYTES);
+            $primaryNonce = StablePackageDescriptor::randomNonZeroBytes(StablePackageDescriptor::NONCE_BYTES);
             $primaryCipher = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt(
                 $rootKey,
                 "SPKG/KEYWRAP/PRIMARY\0" . $core,
@@ -128,7 +133,7 @@ final class StablePackageWriter
             }
 
             if ($recoveryKeyRaw !== null) {
-                $recoveryNonce = random_bytes(StablePackageDescriptor::NONCE_BYTES);
+                $recoveryNonce = StablePackageDescriptor::randomNonZeroBytes(StablePackageDescriptor::NONCE_BYTES);
                 $recoveryCipher = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt(
                     $rootKey,
                     "SPKG/KEYWRAP/RECOVERY\0" . $core,
@@ -171,7 +176,7 @@ final class StablePackageWriter
                 sodium_memzero($fileRootKey);
             }
 
-            $manifestNonce = random_bytes(StablePackageDescriptor::NONCE_BYTES);
+            $manifestNonce = StablePackageDescriptor::randomNonZeroBytes(StablePackageDescriptor::NONCE_BYTES);
             $manifestCipher = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt(
                 $manifestPlain,
                 "SPKG/MANIFEST\0" . $coreHash,
@@ -355,10 +360,18 @@ final class StablePackageWriter
                 if (++$nodeCount > StablePackageDescriptor::MAX_NODES) {
                     throw new RuntimeException('Source tree contains too many entries.');
                 }
-                do {
-                    $id = random_bytes(StablePackageDescriptor::FILE_ID_BYTES);
+                $id = '';
+                $idHex = '';
+                for ($attempt = 0; $attempt < 32; $attempt++) {
+                    $id = StablePackageDescriptor::randomNonZeroBytes(StablePackageDescriptor::FILE_ID_BYTES);
                     $idHex = bin2hex($id);
-                } while (StablePackageDescriptor::isZeroBytes($id) || isset($seenIds[$idHex]));
+                    if (!isset($seenIds[$idHex])) {
+                        break;
+                    }
+                }
+                if ($id === '' || isset($seenIds[$idHex])) {
+                    throw new RuntimeException('Unable to generate a unique file identifier.');
+                }
                 $seenIds[$idHex] = true;
                 $pathName = $relative === '' ? $name : $relative . '/' . $name;
                 if (strlen($pathName) > StablePackageDescriptor::MAX_PATH_BYTES) {
