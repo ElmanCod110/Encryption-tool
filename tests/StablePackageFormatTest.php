@@ -490,14 +490,35 @@ try {
     $noRecoveryRestored = $reader->restore($noRecoveryPackage, $noRecoveryDestination, $password, $pattern);
     stableAssert($noRecoveryRestored['files'] === 5, 'No-recovery package did not restore.');
 
-    // Exercise symlink rejection where the host permits creating a test symlink.
+    // Exercise root, directory and file symlink rejection where the host permits symlinks.
+    $rootLink = $root . DIRECTORY_SEPARATOR . 'source-root-link';
+    if (@symlink($source, $rootLink)) {
+        $rootLinkPackage = $root . DIRECTORY_SEPARATOR . 'root-link.spkg';
+        stableExpectFailure(fn() => (new StablePackageWriter())->build($rootLink, $rootLinkPackage,
+            $password, $pattern, str_repeat('d', 48), false), 'Source-root symlink was accepted.');
+        stableAssert(!file_exists($rootLinkPackage), 'Source-root symlink produced a package.');
+        if (!@unlink($rootLink)) throw new RuntimeException('Unable to remove source-root test symlink.');
+    }
+
     $sourceLink = $source . DIRECTORY_SEPARATOR . 'nested' . DIRECTORY_SEPARATOR . 'source-link';
     if (@symlink($source . DIRECTORY_SEPARATOR . 'hello.txt', $sourceLink)) {
         $symlinkPackage = $root . DIRECTORY_SEPARATOR . 'symlink-source.spkg';
         stableExpectFailure(fn() => (new StablePackageWriter())->build($source, $symlinkPackage,
-            $password, $pattern, str_repeat('d', 48), false), 'Source symlink was accepted.');
-        stableAssert(!file_exists($symlinkPackage), 'Source symlink produced a package.');
-        if (!@unlink($sourceLink)) throw new RuntimeException('Unable to remove test symlink.');
+            $password, $pattern, str_repeat('e', 48), false), 'Source file symlink was accepted.');
+        stableAssert(!file_exists($symlinkPackage), 'Source file symlink produced a package.');
+        if (!@unlink($sourceLink)) throw new RuntimeException('Unable to remove file symlink.');
+    }
+
+    $externalDirectory = $root . DIRECTORY_SEPARATOR . 'external-directory';
+    mkdir($externalDirectory, 0700);
+    file_put_contents($externalDirectory . DIRECTORY_SEPARATOR . 'outside.txt', 'outside source tree');
+    $directoryLink = $source . DIRECTORY_SEPARATOR . 'nested' . DIRECTORY_SEPARATOR . 'directory-link';
+    if (@symlink($externalDirectory, $directoryLink)) {
+        $directoryLinkPackage = $root . DIRECTORY_SEPARATOR . 'directory-link.spkg';
+        stableExpectFailure(fn() => (new StablePackageWriter())->build($source, $directoryLinkPackage,
+            $password, $pattern, str_repeat('f', 48), false), 'Nested directory symlink was accepted.');
+        stableAssert(!file_exists($directoryLinkPackage), 'Nested directory symlink produced a package.');
+        if (!@unlink($directoryLink)) throw new RuntimeException('Unable to remove directory symlink.');
     }
 
     echo "Stable binary package round-trip and adversarial tests passed.\n";
