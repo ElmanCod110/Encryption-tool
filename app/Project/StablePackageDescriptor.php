@@ -152,6 +152,11 @@ final class StablePackageDescriptor
             $data .= $chunk;
         }
         if (strlen($data) !== $length) {
+            // A short read may contain partial plaintext when this helper is used by
+            // the writer. Clear it before surfacing truncation.
+            if ($data !== '' && function_exists('sodium_memzero')) {
+                sodium_memzero($data);
+            }
             throw new RuntimeException('Package is truncated.');
         }
         return $data;
