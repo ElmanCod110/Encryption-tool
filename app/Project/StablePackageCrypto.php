@@ -74,3 +74,70 @@ final class StablePackageCrypto
 
     public static function decodeRecoveryKey(string $encoded): string
     {
+        if ($encoded === '' || strlen($encoded) > 128 || !preg_match('/^[A-Za-z0-9_-]+$/D', $encoded)) {
+            throw new RuntimeException('Unable to open package.');
+        }
+        $padded = strtr($encoded, '-_', '+/');
+        $padded .= str_repeat('=', (4 - strlen($padded) % 4) % 4);
+        $raw = base64_decode($padded, true);
+        if (!is_string($raw) || strlen($raw) !== StablePackageDescriptor::KEY_BYTES
+            || !hash_equals(self::encodeRecoveryKey($raw), $encoded)) {
+            throw new RuntimeException('Unable to open package.');
+        }
+        return $raw;
+    }
+
+    public static function unwrapRootKey(array $header, string $password, string $pattern, ?string $recoveryKey): string
+    {
+        $credentialKey = null;
+        $recoveryRaw = null;
+        $rootKey = null;
+        $macKey = null;
+        try {
+            if ($recoveryKey !== null && $recoveryKey !== '') {
+                if (!$header['has_recovery']) {
+                    throw new RuntimeException('Unable to open package.');
+                }
+                $recoveryRaw = self::decodeRecoveryKey($recoveryKey);
+                $rootKey = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt(
+                    $header['recovery_cipher'],
+                    "SPKG/KEYWRAP/RECOVERY\0" . $header['core'],
+                    $header['recovery_nonce'],
+                    $recoveryRaw
+                );
+            } else {
+                \SecurePackage\Security\Validator::validatePassword($password);
+                \SecurePackage\Security\Validator::validatePattern($pattern);
+                $credentialKey = self::deriveCredentialKey($password, $pattern, $header['salt'],
+                    $header['package_id'], $header['ops'], $header['memory_bytes']);
+                $rootKey = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt(
+                    $header['primary_cipher'],
+                    "SPKG/KEYWRAP/PRIMARY\0" . $header['core'],
+                    $header['primary_nonce'],
+                    $credentialKey
+                );
+            }
+            if (!is_string($rootKey) || strlen($rootKey) !== StablePackageDescriptor::KEY_BYTES) {
+                throw new RuntimeException('Unable to open package.');
+            }
+            $macKey = self::deriveSubkey($rootKey, 'HEADER-MAC', $header['package_id']);
+            $expected = hash_hmac('sha256', substr($header['raw'], 0, StablePackageDescriptor::HEADER_WITHOUT_MAC_BYTES), $macKey, true);
+            if (!hash_equals($expected, $header['header_mac'])) {
+                sodium_memzero($rootKey);
+                $rootKey = null;
+                throw new RuntimeException('Unable to open package.');
+            }
+            return $rootKey;
+        } catch (\Throwable $e) {
+            if (is_string($rootKey)) sodium_memzero($rootKey);
+            // Collapse credential/authentication failures to the same external message.
+            throw new RuntimeException('Unable to open package.', 0, $e);
+        } finally {
+            if (is_string($credentialKey)) sodium_memzero($credentialKey);
+            if (is_string($recoveryRaw)) sodium_memzero($recoveryRaw);
+            if (is_string($macKey)) sodium_memzero($macKey);
+            $password = '';
+            $pattern = '';
+        }
+    }
+}
