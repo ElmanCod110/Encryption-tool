@@ -6,7 +6,6 @@ namespace SecurePackage\Project;
 use RuntimeException;
 use SecurePackage\Security\ProjectNameRegistryInterface;
 use SecurePackage\Security\Validator;
-use Throwable;
 
 /**
  * Creates the permanent single-file binary package for new application builds.
@@ -37,18 +36,17 @@ final class StablePackageService
         string $pattern,
         bool $createRecovery = true
     ): array {
-        Validator::validateProjectName($projectName);
-        Validator::validatePassword($password);
-        Validator::validatePattern($pattern);
-        if ($this->registry !== null) {
-            $this->registry->reserve($projectName);
-        }
-
-        $packageId = PackageId::generate();
-        $packageFile = rtrim($this->packageStorage, DIRECTORY_SEPARATOR)
-            . DIRECTORY_SEPARATOR . $packageId . '.spkg';
-
         try {
+            Validator::validateProjectName($projectName);
+            Validator::validatePassword($password);
+            Validator::validatePattern($pattern);
+            if ($this->registry !== null) {
+                $this->registry->reserve($projectName);
+            }
+
+            $packageId = PackageId::generate();
+            $packageFile = rtrim($this->packageStorage, DIRECTORY_SEPARATOR)
+                . DIRECTORY_SEPARATOR . $packageId . '.spkg';
             $stats = $this->writer->build(
                 $sourceDir,
                 $packageFile,
@@ -64,10 +62,6 @@ final class StablePackageService
                 'stats' => $stats,
                 'recovery_key' => $stats['recovery_key'] ?? null,
             ];
-        } catch (Throwable $e) {
-            // StablePackageWriter owns cleanup of its private partial file. Never
-            // delete a pre-existing destination from this service's error path.
-            throw $e;
         } finally {
             sodium_memzero($password);
             sodium_memzero($pattern);
