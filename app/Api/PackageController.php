@@ -401,35 +401,38 @@ final class PackageController
         $this->authorization->requireAuthenticated();
         $items = $this->catalog->listForOwner(AccessContext::ownerId());
         JsonResponse::send(['ok' => true, 'packages' => array_map(function (array $item): array {
-            // Validate catalog IDs before using them in storage paths. The single-file
-            // stable format takes precedence; a broken stable path must not downgrade.
             $packageId = (string) ($item['package_id'] ?? '');
             $validId = preg_match('/^[a-f0-9]{48}$/', $packageId) === 1;
             $root = $validId ? $this->config['storage']['packages'] : '';
+            $format = (string) ($item['format'] ?? 'SECURE-PKG-V14');
             $stable = $validId ? $root . DIRECTORY_SEPARATOR . $packageId . '.spkg' : '';
             $legacyDirectory = $validId ? $root . DIRECTORY_SEPARATOR . $packageId : '';
             $legacyArchive = $validId ? $root . DIRECTORY_SEPARATOR . $packageId . '.spkg14' : '';
+            $legacySpkgArchive = $validId ? $root . DIRECTORY_SEPARATOR . $packageId . '.spkg' : '';
 
-            $stablePresent = $validId && (file_exists($stable) || is_link($stable));
-            $legacyDirectoryPresent = $validId && (file_exists($legacyDirectory) || is_link($legacyDirectory));
-            $legacyArchivePresent = $validId && (file_exists($legacyArchive) || is_link($legacyArchive));
-
-            if ($stablePresent) {
-                $available = !is_link($stable) && is_file($stable);
+            if (!$validId) {
+                $available = false;
+                $size = false;
+                $format = 'UNKNOWN';
+            } elseif ($format === 'STABLE-BINARY') {
+                $available = StablePackageDescriptor::hasMagic($stable);
                 $size = $available ? @filesize($stable) : false;
-                $format = 'STABLE-BINARY';
-            } elseif ($legacyDirectoryPresent) {
+            } elseif (file_exists($legacyDirectory) || is_link($legacyDirectory)) {
                 $available = !is_link($legacyDirectory) && is_dir($legacyDirectory);
                 $size = false;
                 $format = 'SECURE-PKG-V14';
-            } elseif ($legacyArchivePresent) {
+            } elseif (file_exists($legacyArchive) || is_link($legacyArchive)) {
                 $available = !is_link($legacyArchive) && is_file($legacyArchive);
                 $size = $available ? @filesize($legacyArchive) : false;
+                $format = 'SECURE-PKG-V14';
+            } elseif (file_exists($legacySpkgArchive) || is_link($legacySpkgArchive)) {
+                $available = !is_link($legacySpkgArchive) && is_file($legacySpkgArchive);
+                $size = $available ? @filesize($legacySpkgArchive) : false;
                 $format = 'SECURE-PKG-V14';
             } else {
                 $available = false;
                 $size = false;
-                $format = 'UNKNOWN';
+                $format = $format === 'STABLE-BINARY' ? 'STABLE-BINARY' : 'UNKNOWN';
             }
 
             return [
