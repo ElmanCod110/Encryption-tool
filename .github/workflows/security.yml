@@ -86,6 +86,7 @@ jobs:
           php tests/V14PackageArchiveTest.php
           php tests/V14PackageArchiveStorageTest.php
           php tests/StablePackageFormatTest.php
+          php tests/StablePackageServiceTest.php
 
       - name: Self check
         run: php bin/self-check.php
