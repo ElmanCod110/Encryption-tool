@@ -275,78 +275,7 @@ try {
     ]));
     stableAssert(array_keys($manifestProbe) === ['entries', 'file_count', 'directory_count', 'total_plain_bytes'], 'Stable manifest decoder exposed unexpected metadata fields.');
     stableAssert(array_keys($manifestProbe['entries'][0]) === ['type', 'id', 'id_hex', 'parent_id', 'parent_hex', 'name', 'size', 'chunks', 'path', 'depth'], 'Stable manifest entry contains unexpected version or schema fields.');
-    foreach (['../escape', 'CON', 'CON .txt', 'CLOCK
-        stableExpectFailure(fn() => Format::assertName($unsafeName), 'Unsafe package name was accepted: ' . $unsafeName);
-    }
-
-    $dirA = random_bytes(16); $dirB = random_bytes(16); $fileId = random_bytes(16);
-    $cycleManifest = Format::encodeManifest([
-        ['type' => 1, 'id' => $dirA, 'parent_id' => $dirB, 'name' => 'alpha'],
-        ['type' => 1, 'id' => $dirB, 'parent_id' => $dirA, 'name' => 'beta'],
-        ['type' => 2, 'id' => $fileId, 'parent_id' => $dirA, 'name' => 'data.bin', 'size' => 0, 'chunks' => 1],
-    ]);
-    stableExpectFailure(fn() => Format::decodeManifest($cycleManifest), 'Manifest directory cycle was accepted.');
-
-    $duplicateId = random_bytes(16);
-    $duplicateIdManifest = Format::encodeManifest([
-        ['type' => 2, 'id' => $duplicateId, 'parent_id' => Format::zeroId(), 'name' => 'a.bin', 'size' => 0, 'chunks' => 1],
-        ['type' => 2, 'id' => $duplicateId, 'parent_id' => Format::zeroId(), 'name' => 'b.bin', 'size' => 0, 'chunks' => 1],
-    ]);
-    stableExpectFailure(fn() => Format::decodeManifest($duplicateIdManifest), 'Duplicate manifest entry IDs were accepted.');
-
-    $missingParentManifest = Format::encodeManifest([
-        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => random_bytes(16), 'name' => 'missing-parent.bin', 'size' => 0, 'chunks' => 1],
-    ]);
-    stableExpectFailure(fn() => Format::decodeManifest($missingParentManifest), 'Missing manifest parent was accepted.');
-
-    $fileParentId = random_bytes(16);
-    $fileAsParentManifest = Format::encodeManifest([
-        ['type' => 2, 'id' => $fileParentId, 'parent_id' => Format::zeroId(), 'name' => 'file', 'size' => 0, 'chunks' => 1],
-        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => $fileParentId, 'name' => 'child.bin', 'size' => 0, 'chunks' => 1],
-    ]);
-    stableExpectFailure(fn() => Format::decodeManifest($fileAsParentManifest), 'Regular file used as parent was accepted.');
-
-    $unorderedManifest = Format::encodeManifest([
-        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'z.bin', 'size' => 0, 'chunks' => 1],
-        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'a.bin', 'size' => 0, 'chunks' => 1],
-    ]);
-    stableExpectFailure(fn() => Format::decodeManifest($unorderedManifest), 'Noncanonical manifest path order was accepted.');
-
-    $caseCollisionManifest = Format::encodeManifest([
-        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'A.bin', 'size' => 0, 'chunks' => 1],
-        ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'a.bin', 'size' => 0, 'chunks' => 1],
-    ]);
-    stableExpectFailure(fn() => Format::decodeManifest($caseCollisionManifest), 'Case-colliding sibling names were accepted.');
-
-    $existingPackagePath = $root . DIRECTORY_SEPARATOR . 'existing-package.spkg';
-    file_put_contents($existingPackagePath, 'preserve-existing-package');
-    $existingPackageHash = hash_file('sha256', $existingPackagePath);
-    stableExpectFailure(fn() => (new StablePackageWriter())->build($source, $existingPackagePath,
-        $password, $pattern, str_repeat('c', 48), false), 'Writer overwrote an existing package destination.');
-    stableAssert(hash_equals((string) $existingPackageHash, (string) hash_file('sha256', $existingPackagePath))
-        && file_get_contents($existingPackagePath) === 'preserve-existing-package',
-        'Existing package destination was modified by a failed create.');
-
-    $noRecoveryPackage = $root . DIRECTORY_SEPARATOR . 'no-recovery.spkg';
-    $noRecovery = (new StablePackageWriter())->build($source, $noRecoveryPackage, $password, $pattern, str_repeat('b', 48), false);
-    stableAssert($noRecovery['recovery_key'] === null, 'Disabled recovery key was returned.');
-    $noRecoveryBytes = file_get_contents($noRecoveryPackage);
-    stableAssert(strlen(substr((string) $noRecoveryBytes, 0, Format::HEADER_BYTES)) === Format::HEADER_BYTES, 'No-recovery header size changed.');
-    stableAssert(substr((string) $noRecoveryBytes, 8, 1) === "\0", 'No-recovery flag is incorrect.');
-    stableAssert(Format::isZeroBytes(substr((string) $noRecoveryBytes, 149, Format::SLOT_BYTES)), 'Disabled recovery slot is not all-zero.');
-    $noRecoveryDestination = $root . DIRECTORY_SEPARATOR . 'no-recovery-restore';
-    $noRecoveryRestored = $reader->restore($noRecoveryPackage, $noRecoveryDestination, $password, $pattern);
-    stableAssert($noRecoveryRestored['files'] === 3, 'No-recovery package did not restore.');
-
-    echo "Stable binary package round-trip and adversarial tests passed.\n";
-} finally {
-    $password = '';
-    $pattern = '';
-    $wrongPassword = '';
-    $wrongPattern = '';
-    stableRemoveTree($root);
-}
-, 'COM¹.log', 'LPT²', 'trailing.', 'trailing ', "nul\0name", 'a/b', 'a\\b'] as $unsafeName) {
+    foreach (['../escape', 'CON', 'CON .txt', 'CLOCK' . chr(36), 'COM¹.log', 'LPT²', 'trailing.', 'trailing ', "nul\0name", 'a/b', 'a\\b'] as $unsafeName) {
         stableExpectFailure(fn() => Format::assertName($unsafeName), 'Unsafe package name was accepted: ' . $unsafeName);
     }
 
