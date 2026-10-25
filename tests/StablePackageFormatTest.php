@@ -78,12 +78,14 @@ $wrongPattern = 'Qz!71_xYp#42Qw9';
 mkdir($source . DIRECTORY_SEPARATOR . 'nested', 0700, true);
 file_put_contents($source . DIRECTORY_SEPARATOR . 'hello.txt', "stable-format\n");
 file_put_contents($source . DIRECTORY_SEPARATOR . 'empty.bin', '');
+file_put_contents($source . DIRECTORY_SEPARATOR . 'one-byte.bin', "x");
+file_put_contents($source . DIRECTORY_SEPARATOR . 'exact-chunk.bin', random_bytes(Format::CHUNK_BYTES));
 file_put_contents($source . DIRECTORY_SEPARATOR . 'nested' . DIRECTORY_SEPARATOR . 'binary.dat', random_bytes(Format::CHUNK_BYTES + 137));
 
 try {
     $build = (new StablePackageWriter())->build($source, $package, $password, $pattern, str_repeat('a', 48), true);
     stableAssert($build['package_id'] === str_repeat('a', 48), 'Package id was not preserved.');
-    stableAssert($build['files'] === 3 && $build['directories'] === 1 && $build['nodes'] === 4, 'Built statistics are invalid.');
+    stableAssert($build['files'] === 5 && $build['directories'] === 1 && $build['nodes'] === 6, 'Built statistics are invalid.');
     stableAssert(is_string($build['recovery_key']) && strlen($build['recovery_key']) === 43, 'Recovery key was not emitted as canonical base64url.');
 
     $raw = file_get_contents($package);
@@ -152,8 +154,8 @@ try {
         $password, $pattern, str_repeat('0', 48), false), 'All-zero package identifier was accepted by the writer.');
     stableAssert(!file_exists($zeroIdPackage), 'All-zero package identifier produced an output file.');
     $restored = $reader->restore($package, $restore, $password, $pattern);
-    stableAssert($restored['files'] === 3 && $restored['directories'] === 1, 'Round-trip statistics are incorrect.');
-    foreach (['hello.txt', 'empty.bin', 'nested/binary.dat'] as $relative) {
+    stableAssert($restored['files'] === 5 && $restored['directories'] === 1, 'Round-trip statistics are incorrect.');
+    foreach (['hello.txt', 'empty.bin', 'one-byte.bin', 'exact-chunk.bin', 'nested/binary.dat'] as $relative) {
         $expected = hash_file('sha256', $source . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
         $actual = hash_file('sha256', $restore . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
         stableAssert(is_string($expected) && is_string($actual) && hash_equals($expected, $actual), 'Round-trip mismatch: ' . $relative);
@@ -161,7 +163,7 @@ try {
 
     $recoveryDestination = $root . DIRECTORY_SEPARATOR . 'recovery-restore';
     $recovered = $reader->restore($package, $recoveryDestination, '', '', $build['recovery_key']);
-    stableAssert($recovered['files'] === 3, 'Recovery-key restore failed.');
+    stableAssert($recovered['files'] === 5, 'Recovery-key restore failed.');
     stableAssert(hash_file('sha256', $source . '/nested/binary.dat') === hash_file('sha256', $recoveryDestination . '/nested/binary.dat'), 'Recovery restore content mismatch.');
 
     stableExpectFailure(fn() => $reader->restore($package, $root . DIRECTORY_SEPARATOR . 'wrong-recovery',
@@ -336,7 +338,7 @@ try {
     stableAssert(Format::isZeroBytes(substr((string) $noRecoveryBytes, 149, Format::SLOT_BYTES)), 'Disabled recovery slot is not all-zero.');
     $noRecoveryDestination = $root . DIRECTORY_SEPARATOR . 'no-recovery-restore';
     $noRecoveryRestored = $reader->restore($noRecoveryPackage, $noRecoveryDestination, $password, $pattern);
-    stableAssert($noRecoveryRestored['files'] === 3, 'No-recovery package did not restore.');
+    stableAssert($noRecoveryRestored['files'] === 5, 'No-recovery package did not restore.');
 
     echo "Stable binary package round-trip and adversarial tests passed.\n";
 } finally {
