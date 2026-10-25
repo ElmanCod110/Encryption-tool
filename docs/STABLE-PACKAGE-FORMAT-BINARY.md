@@ -33,8 +33,8 @@ Header offsets, byte order, record values, key-derivation domains, path rules, a
 | Accepted KDF memory | 64 MiB through 256 MiB inclusive, aligned to 1024 bytes |
 | Maximum single file | 16 GiB |
 | Maximum total plaintext | 100 GiB |
-| Maximum manifest plaintext | 64 MiB |
-| Maximum entries | 100,000 |
+| Maximum manifest plaintext | 8 MiB |
+| Maximum entries | 10,000 |
 | Maximum filename component | 255 UTF-8 bytes |
 | Maximum relative path | 4096 UTF-8 bytes |
 | Maximum nesting | 256 components |
@@ -158,7 +158,7 @@ The body is:
 
 'manifest_nonce[24] || manifest_ciphertext_and_tag'.
 
-Manifest plaintext is at most 67,108,864 bytes. The encrypted body is plaintext length plus 40 bytes (24-byte nonce plus 16-byte AEAD tag); the maximum body is 67,108,904 bytes.
+Manifest plaintext is at most 8,388,608 bytes. The encrypted body is plaintext length plus 40 bytes (24-byte nonce plus 16-byte AEAD tag); the maximum body is 8,388,648 bytes.
 
 'manifest_key = HKDF-SHA-256(IKM=root_key, length=32, info=ASCII("SPKG/MANIFEST") || 0x00, salt=package_id)'.
 
@@ -177,7 +177,7 @@ Every entry begins with:
 
 A regular-file entry appends 'plaintext_size:u64be' (at most 16 GiB) and 'chunk_count:u32be'. Chunk count MUST equal 'max(1, ceil(plaintext_size / 4 MiB))'. Directory entries have no suffix. No version, schema, archive name, release tag, generation, or extension fields exist in the grammar. All names and tree structure remain encrypted because the full manifest is AEAD-encrypted.
 
-Entry count is 1–100,000; at least one entry is a regular file. Total declared plaintext is at most 100 GiB. Readers MUST reject unknown entry types, duplicate IDs, truncated fields, trailing data, invalid UTF-8, invalid names, invalid sizes/counts, missing parents, non-directory parents, cycles, excessive depth, paths above 4096 bytes, and colliding siblings.
+Entry count is 1–10,000; at least one entry is a regular file. Total declared plaintext is at most 100 GiB. Readers MUST reject unknown entry types, duplicate IDs, truncated fields, trailing data, invalid UTF-8, invalid names, invalid sizes/counts, missing parents, non-directory parents, cycles, excessive depth, paths above 4096 bytes, and colliding siblings.
 
 ### 7.2 Canonical manifest order and path graph
 
