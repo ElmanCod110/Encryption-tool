@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__) . '/bootstrap.php';
-use SecurePackage\\Security\\SecurityDiagnostics;
+use SecurePackage\Security\SecurityDiagnostics;
 $d = SecurityDiagnostics::run(dirname(__DIR__));
 if (($d['version'] ?? null) !== SECURE_PACKAGE_MAJOR_VERSION) {
     throw new RuntimeException('Diagnostics application major version mismatch.');
@@ -21,4 +21,4 @@ if (($d['checks']['zip'] ?? false) !== true && getenv('SPK_ALLOW_ZIPLESS_DIAGNOS
 if (($d['checks']['sodium'] ?? false) !== true) {
     throw new RuntimeException('Sodium is required.');
 }
-echo "Security diagnostics tests passed.\\n";
+echo "Security diagnostics tests passed.\n";
