@@ -33,8 +33,8 @@ $checks = [
         && !str_contains($failurePath, '$this->removeJobDirectory($jobId);'),
     'Incomplete encrypted artifacts are cleaned only before catalog creation' =>
         str_contains($failurePath, 'if (!$packageCreated)')
-        && str_contains($failurePath, '$this->removePath($portableArchive)')
-        && str_contains($failurePath, '$this->removePath($packageDirectory)'),
+        && str_contains($failurePath, '$this->removePath($packageFile)')
+        && !str_contains($failurePath, '$this->removePath($packageDirectory)'),
     'Cleanup verifies the job path no longer exists' =>
         str_contains($cleanupHelper, 'if (file_exists($path) || is_link($path)'),
 ];
