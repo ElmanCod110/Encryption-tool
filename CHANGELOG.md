@@ -2,6 +2,7 @@
 
 ## Unreleased — MVP readiness and repository maintenance
 
+- Add an executable release-signing regression that verifies Ed25519 signatures against an independently pinned external trust root.
 - Fail closed when the audit hash-chain head is missing or corrupt, verify chain integrity before appending, and redact sensitive audit context keys by normalized fragments.
 - Stage all existing encrypted package representations before revoking access or deleting catalog metadata; roll back staged files on pre-commit failures and test injected deletion/cleanup failures.
 
