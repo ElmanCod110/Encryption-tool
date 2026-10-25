@@ -294,7 +294,7 @@ try {
     $bytes = file_get_contents($zeroStreamHeader);
     $streamHeaderOffset = Format::HEADER_BYTES + Format::RECORD_HEADER_BYTES + 16 + 8;
     $bytes = substr((string) $bytes, 0, $streamHeaderOffset)
-        . str_repeat("\\0", Format::STREAM_HEADER_BYTES)
+        . str_repeat("\0", Format::STREAM_HEADER_BYTES)
         . substr((string) $bytes, $streamHeaderOffset + Format::STREAM_HEADER_BYTES);
     file_put_contents($zeroStreamHeader, $bytes, LOCK_EX);
     stableExpectFailure(fn() => $reader->restore($zeroStreamHeader, $root . DIRECTORY_SEPARATOR . 'zero-stream-header-restore', $password, $pattern), 'All-zero secretstream header was accepted.');
