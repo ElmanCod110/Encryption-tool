@@ -104,6 +104,24 @@ try {
 
     $reader = new StablePackageReader();
 
+    // Immutable on-disk bytes from an earlier writer build must remain readable;
+    // a same-process writer/reader round trip cannot by itself prove compatibility.
+    $fixtureEncoded = trim((string) file_get_contents(__DIR__ . '/fixtures/stable-format-v1.spkg.b64'));
+    $fixtureBytes = base64_decode($fixtureEncoded, true);
+    stableAssert(is_string($fixtureBytes) && strlen($fixtureBytes) > Format::HEADER_BYTES,
+        'Immutable stable-format fixture is missing or malformed.');
+    $fixturePath = $root . DIRECTORY_SEPARATOR . 'stable-format-v1.spkg';
+    stableAssert(file_put_contents($fixturePath, $fixtureBytes, LOCK_EX) === strlen($fixtureBytes),
+        'Unable to materialize immutable stable-format fixture.');
+    $fixtureDestination = $root . DIRECTORY_SEPARATOR . 'stable-format-v1-restore';
+    $fixtureResult = $reader->restore($fixturePath, $fixtureDestination,
+        'Golden!FixturePassword2026#', 'Golden#Pattern!92Secure');
+    stableAssert($fixtureResult['package_id'] === str_repeat('2', 48) && $fixtureResult['files'] === 1,
+        'Immutable stable-format fixture metadata changed.');
+    stableAssert(file_get_contents($fixtureDestination . DIRECTORY_SEPARATOR . 'fixture.txt')
+        === "Stable binary format golden fixture v1\n",
+        'Immutable stable-format fixture plaintext changed.');
+
     // Header parsers must reject unsafe values before any Argon2id invocation.
     $headerMutations = [
         [0, ord($raw[0]) ^ 0x01, 'bad magic'],
