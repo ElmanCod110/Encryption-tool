@@ -69,11 +69,25 @@ final class StablePackageDescriptor
         if (PHP_INT_SIZE < 8) {
             throw new RuntimeException('The stable package format requires a 64-bit PHP runtime.');
         }
+        $requiredFunctions = [
+            'sodium_crypto_pwhash',
+            'sodium_memzero',
+            'sodium_crypto_aead_xchacha20poly1305_ietf_encrypt',
+            'sodium_crypto_aead_xchacha20poly1305_ietf_decrypt',
+            'sodium_crypto_secretstream_xchacha20poly1305_init_push',
+            'sodium_crypto_secretstream_xchacha20poly1305_init_pull',
+            'sodium_crypto_secretstream_xchacha20poly1305_push',
+            'sodium_crypto_secretstream_xchacha20poly1305_pull',
+            'hash_hkdf',
+            'hash_hmac',
+        ];
         if (!extension_loaded('sodium') || !defined('SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13')) {
             throw new RuntimeException('The sodium extension with Argon2id support is required.');
         }
-        if (!function_exists('hash_hkdf')) {
-            throw new RuntimeException('HKDF support is required.');
+        foreach ($requiredFunctions as $function) {
+            if (!function_exists($function)) {
+                throw new RuntimeException('The cryptographic runtime is missing a required function.');
+            }
         }
     }
 
