@@ -69,7 +69,7 @@ Opaque magic bytes (hex): **D3 82 A1 4F C7 5E 90 6B**.
 
 The 'core' is exact bytes 0–76 (77 bytes). The 'header_without_mac' is exact bytes 0–220 (221 bytes). The header MAC is bytes 221–252 (32 bytes).
 
-Readers MUST reject an incorrect magic, unsupported/reserved bits, unsupported algorithm identifiers, out-of-range KDF parameters, a zero package ID, zero salt, zero primary nonce, and a missing/incorrectly sized wrapped key. With recovery disabled, both recovery fields MUST be all zero. With recovery enabled, both fields MUST be valid and nonzero. Every field, including the slot not used for the current decrypt, is authenticated by the header MAC.
+Readers MUST reject an incorrect magic, unsupported/reserved bits, unsupported algorithm identifiers, out-of-range KDF parameters, a zero package ID, zero salt, zero primary nonce, and a missing/incorrectly sized wrapped key. With recovery disabled, both recovery fields MUST be all zero. With recovery enabled, the recovery nonce MUST be nonzero and the wrapped-key field MUST be exactly 48 bytes; ciphertext bytes are not constrained to a particular bit pattern. Every field, including the slot not used for the current decrypt, is authenticated by the header MAC.
 
 ### 3.1 Credential derivation
 
