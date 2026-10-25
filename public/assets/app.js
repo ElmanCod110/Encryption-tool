@@ -38,11 +38,9 @@ async function api(action, options = {}) {
   return payload;
 }
 
-function openAuth() { $('authModal').classList.remove('hidden'); }
 function requireAuth() {
   if (state.authenticated) return true;
-  openAuth();
-  log('Sign in is required for package management.');
+  window.location.href = 'login.php';
   return false;
 }
 
@@ -258,50 +256,11 @@ function renderPackages(items) {
 }
 
 $('refreshPackages').onclick = async () => { if (requireAuth()) loadPackages(); };
-const modal = $('authModal');
-$('authButton').onclick = openAuth;
-$('closeAuth').onclick = () => modal.classList.add('hidden');
-$('loginTab').onclick = () => switchAuth('login');
-$('registerTab').onclick = () => switchAuth('register');
-
-function switchAuth(mode) {
-  state.authMode = mode;
-  $('loginTab').classList.toggle('active', mode === 'login');
-  $('registerTab').classList.toggle('active', mode === 'register');
-  $('authTitle').textContent = mode === 'login' ? 'Sign in' : 'Create account';
-  $('authSubmit').textContent = mode === 'login' ? 'Sign in' : 'Create account';
-  $('authPassword').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
-}
-
-$('authSubmit').onclick = async () => {
-  try {
-    const action = state.authMode === 'login' ? 'login' : 'register';
-    const data = await api(action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('authUsername').value, password: $('authPassword').value }) });
-    state.authenticated = true;
-    $('authPassword').value = '';
-    modal.classList.add('hidden');
-    $('authButton').textContent = 'Account';
-    log(data);
-    await loadPackages();
-  } catch (error) { log(error.message); }
-};
-
-$('logoutButton').onclick = async () => {
-  try {
-    const data = await api('logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    state.authenticated = false;
-    $('authButton').textContent = 'Sign in';
-    $('packageList').className = 'package-list empty';
-    $('packageList').innerHTML = '<strong>Signed out</strong><span>Sign in again to manage packages.</span>';
-    log(data);
-  } catch (error) { log(error.message); }
-};
-
 (async () => {
   try {
     const me = await api('me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     state.authenticated = !!me.authenticated;
-    if (state.authenticated) { $('authButton').textContent = 'Account'; loadPackages(); }
+    if (state.authenticated) loadPackages();
     const status = await api('security-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     $('log').textContent = `Format: ${status.format}\nCrypto: ${status.crypto.kdf} + ${status.crypto.aead}\nControls: ${Object.entries(status.controls).filter(([, value]) => value).map(([name]) => name).join(', ')}`;
 
