@@ -48,8 +48,8 @@ Use disposable fixtures only. Never use production data or real credentials.
 
 | Scenario | Expected result | Result / evidence |
 | --- | --- | --- |
-| Password + pattern | A package created with the intended credential flow restores the exact fixture | NOT RUN |
-| Independent recovery key | The documented recovery flow restores the fixture independently of the normal credential path | NOT RUN |
+| Stable password + pattern | A `.spkg` package created with the intended credential flow restores the exact fixture | NOT RUN |
+| Independent recovery key | The stable format's canonical base64url recovery key restores the fixture independently of the normal credential path | NOT RUN |
 | Wrong password / pattern | Restore fails safely; no plaintext is emitted | NOT RUN |
 | Wrong recovery key | Recovery fails safely; no plaintext is emitted | NOT RUN |
 | Empty file and nested directories | Restored structure and file contents match the fixture | NOT RUN |
@@ -69,7 +69,8 @@ Record browser name/version, operating system, commit, and console errors.
 | Scenario | Expected result | Result / evidence |
 | --- | --- | --- |
 | Browser V13 build and restore | Browser package round-trips a disposable fixture | NOT RUN |
-| Format boundary | Browser V13 package is not accepted as a server V14 package, and vice versa unless explicitly documented | NOT RUN |
+| Format boundary | Browser V13, stable `.spkg`, and legacy V14 `.spkg14` remain distinct; malformed stable packages never silently downgrade to V14 | NOT RUN |
+| Legacy compatibility | Existing V14 directory packages and `.spkg14` archives remain restorable | NOT RUN |
 | Wrong credentials and tampering | Operation fails without exposing plaintext or secret values | NOT RUN |
 | Keyboard-only navigation | Controls can be reached and used with a keyboard; focus remains visible | NOT RUN |
 | Responsive layout | Main and browser compatibility views remain usable at narrow and wide viewport sizes | NOT RUN |
