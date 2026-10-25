@@ -341,7 +341,7 @@ final class PackageController
                 $packageFormat = 'SECURE-PKG-V14';
                 $result = (new V14PackageReader())->restore($legacyDirectory, $outputDir, $password, $pattern, $recoveryKey);
             } elseif (file_exists($legacyArchive) || is_link($legacyArchive)) {
-                if (is_link($legacyArchive) || !is_file($legacyArchive)) {
+                if (!PackageArchive::hasZipSignature($legacyArchive)) {
                     throw new RuntimeException('Legacy package archive is invalid.');
                 }
                 $temporaryPackageDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'package-' . bin2hex(random_bytes(16));
@@ -349,7 +349,7 @@ final class PackageController
                 $packageFormat = 'SECURE-PKG-V14';
                 $result = (new V14PackageReader())->restore($temporaryPackageDir, $outputDir, $password, $pattern, $recoveryKey);
             } elseif (file_exists($legacySpkgArchive) || is_link($legacySpkgArchive)) {
-                if (is_link($legacySpkgArchive) || !is_file($legacySpkgArchive)) {
+                if (!PackageArchive::hasZipSignature($legacySpkgArchive)) {
                     throw new RuntimeException('Legacy package archive is invalid.');
                 }
                 $temporaryPackageDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'package-' . bin2hex(random_bytes(16));
@@ -422,11 +422,11 @@ final class PackageController
                 $size = false;
                 $format = 'SECURE-PKG-V14';
             } elseif (file_exists($legacyArchive) || is_link($legacyArchive)) {
-                $available = !is_link($legacyArchive) && is_file($legacyArchive);
+                $available = PackageArchive::hasZipSignature($legacyArchive);
                 $size = $available ? @filesize($legacyArchive) : false;
                 $format = 'SECURE-PKG-V14';
             } elseif (file_exists($legacySpkgArchive) || is_link($legacySpkgArchive)) {
-                $available = !is_link($legacySpkgArchive) && is_file($legacySpkgArchive);
+                $available = PackageArchive::hasZipSignature($legacySpkgArchive);
                 $size = $available ? @filesize($legacySpkgArchive) : false;
                 $format = 'SECURE-PKG-V14';
             } else {
