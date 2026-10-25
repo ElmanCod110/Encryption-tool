@@ -405,7 +405,18 @@ final class StablePackageReader
                 // Never unlink $target here: fopen('xb') did not establish ownership if it failed.
                 throw new RuntimeException('Unable to create restored file without overwriting.');
             }
-            $createdFiles[] = ['path' => $target, 'identity' => $this->captureIdentity($target)];
+            $targetIdentity = $this->captureIdentity($target);
+            $openedStat = fstat($out);
+            if (!is_array($targetIdentity) || !is_array($openedStat)
+                || ($targetIdentity['dev'] ?? null) !== (int) ($openedStat['dev'] ?? -1)
+                || ($targetIdentity['ino'] ?? null) !== (int) ($openedStat['ino'] ?? 0)
+                || ($targetIdentity['type'] ?? null) !== 0100000
+                || (((int) ($openedStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+                fclose($in);
+                fclose($out);
+                throw new RuntimeException('Restored file identity could not be verified.');
+            }
+            $createdFiles[] = ['path' => $target, 'identity' => $targetIdentity];
             @chmod($target, 0600);
             try {
                 $copied = stream_copy_to_stream($in, $out);
@@ -422,6 +433,9 @@ final class StablePackageReader
             // file_exists() is checked before creation; clear PHP's negative stat cache
             // before verifying the newly written output, especially for empty files.
             clearstatcache(true, $target);
+            if (is_link($target) || !$this->matchesIdentity($target, $targetIdentity) || !is_file($target)) {
+                throw new RuntimeException('Restored file identity changed during publication.');
+            }
             $actualSize = filesize($target);
             if ($actualSize === false || (int) $actualSize !== $entry['size']) {
                 throw new RuntimeException('Restored file size does not match the authenticated manifest.');
