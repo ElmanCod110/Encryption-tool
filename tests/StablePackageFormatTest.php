@@ -355,6 +355,9 @@ try {
     stableExpectFailure(fn() => $reader->restore($unsafeKdf, $root . DIRECTORY_SEPARATOR . 'unsafe-kdf-restore', $password, $pattern), 'Out-of-range KDF parameters were accepted.');
     stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'unsafe-kdf-restore'), 'Unsafe KDF header left output behind.');
 
+    stableExpectFailure(fn() => Format::decodeManifest(pack('N', Format::MAX_NODES + 1)),
+        'Manifest entry count above the permanent limit was accepted.');
+
     $manifestProbe = Format::decodeManifest(Format::encodeManifest([
         ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(), 'name' => 'only.bin', 'size' => 0, 'chunks' => 1],
     ]));
