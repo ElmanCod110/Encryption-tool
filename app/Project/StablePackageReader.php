@@ -88,7 +88,9 @@ final class StablePackageReader
                     $fileIdHex = bin2hex($fileId);
                     $size = StablePackageDescriptor::unpackUint64(substr($body, 16, 8));
                     $streamHeader = substr($body, 24, StablePackageDescriptor::STREAM_HEADER_BYTES);
-                    if (StablePackageDescriptor::isZeroBytes($fileId) || isset($observedIds[$fileIdHex])
+                    if (StablePackageDescriptor::isZeroBytes($fileId)
+                        || StablePackageDescriptor::isZeroBytes($streamHeader)
+                        || isset($observedIds[$fileIdHex])
                         || $size > StablePackageDescriptor::MAX_FILE_BYTES) {
                         throw new RuntimeException('Package file header is invalid.');
                     }
@@ -209,6 +211,9 @@ final class StablePackageReader
                     }
                     $body = StablePackageDescriptor::readExact($input, (int) $bodyLength);
                     $nonce = substr($body, 0, StablePackageDescriptor::NONCE_BYTES);
+                    if (StablePackageDescriptor::isZeroBytes($nonce)) {
+                        throw new RuntimeException('Manifest nonce is invalid.');
+                    }
                     $cipher = substr($body, StablePackageDescriptor::NONCE_BYTES);
                     $manifestPlain = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt(
                         $cipher,
