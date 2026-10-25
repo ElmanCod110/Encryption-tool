@@ -137,6 +137,63 @@ try {
     );
     $expect(401, $invalidLogin, 'Malformed username login');
 
+    // Exercise the authenticated encrypted-package inventory without creating real user data.
+    $registered = $request(
+        'api.php?action=register',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['username' => 'inventory-test-user', 'password' => 'BlueRiver!Inventory2026'], JSON_THROW_ON_ERROR)
+    );
+    $expect(201, $registered, 'Register inventory test account');
+    $registeredData = json_decode($registered['body'], true, 16, JSON_THROW_ON_ERROR);
+    if (!is_string($registeredData['account_id'] ?? null) || !is_string($registeredData['csrf'] ?? null)) {
+        throw new RuntimeException('Registration did not return account and CSRF metadata.');
+    }
+    foreach ($registered['headers'] as $header) {
+        if (stripos($header, 'Set-Cookie: SECUREPKGSESSID=') === 0
+            && preg_match('/SECUREPKGSESSID=([^;]+)/', $header, $cookieMatch)) {
+            $cookie = 'SECUREPKGSESSID=' . $cookieMatch[1];
+        }
+    }
+    $csrf = $registeredData['csrf'];
+    $common = ['Content-Type: application/json', 'Cookie: ' . $cookie];
+    $packageId = str_repeat('a', 48);
+    $storageRoot = $fixture . DIRECTORY_SEPARATOR . 'storage';
+    $catalogDir = $storageRoot . DIRECTORY_SEPARATOR . 'catalog';
+    $packagesDir = $storageRoot . DIRECTORY_SEPARATOR . 'packages';
+    if (!is_dir($catalogDir) && !mkdir($catalogDir, 0700, true) && !is_dir($catalogDir)) {
+        throw new RuntimeException('Unable to prepare inventory catalog fixture.');
+    }
+    if (!is_dir($packagesDir) && !mkdir($packagesDir, 0700, true) && !is_dir($packagesDir)) {
+        throw new RuntimeException('Unable to prepare inventory package fixture.');
+    }
+    $encryptedFixture = "test-only-encrypted-package";
+    if (file_put_contents($packagesDir . DIRECTORY_SEPARATOR . $packageId . '.spkg14', $encryptedFixture) === false) {
+        throw new RuntimeException('Unable to prepare encrypted package fixture.');
+    }
+    $catalogRecord = [
+        'package_id' => $packageId,
+        'owner_hash' => hash('sha256', 'account:' . $registeredData['account_id']),
+        'name_hash' => hash('sha256', 'inventory-test-package'),
+        'created_at' => time(),
+        'expires_at' => null,
+        'revoked_at' => null,
+    ];
+    if (file_put_contents($catalogDir . DIRECTORY_SEPARATOR . $packageId . '.json', json_encode($catalogRecord, JSON_THROW_ON_ERROR)) === false) {
+        throw new RuntimeException('Unable to prepare inventory catalog record.');
+    }
+    $inventory = $request('api.php?action=packages', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf]), '{}');
+    $expect(200, $inventory, 'Authenticated encrypted package inventory');
+    $inventoryData = json_decode($inventory['body'], true, 16, JSON_THROW_ON_ERROR);
+    $listed = $inventoryData['packages'][0] ?? null;
+    if (!is_array($listed)
+        || ($listed['package_id'] ?? null) !== $packageId
+        || ($listed['storage_available'] ?? null) !== true
+        || ($listed['size_bytes'] ?? null) !== strlen($encryptedFixture)
+        || ($listed['revoked'] ?? null) !== false) {
+        throw new RuntimeException('Encrypted package inventory omitted or misreported safe package metadata.');
+    }
+
     $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';
     if (!is_file($accountFile) || file_put_contents($accountFile, '{broken-account-store') === false) {
         throw new RuntimeException('Unable to prepare internal-error response fixture.');
