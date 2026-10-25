@@ -62,3 +62,5 @@ jobs:
           }
       - name: Validate SPK13 icon integration safeguards
         run: php tests/WindowsSpk13IconIntegrationTest.php
+      - name: Stable binary package format regression
+        run: php tests/StablePackageFormatTest.php
