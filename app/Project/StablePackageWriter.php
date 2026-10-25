@@ -342,7 +342,7 @@ final class StablePackageWriter
         }
         $rootDev = (int) ($rootStat['dev'] ?? -1);
         $rootIno = (int) ($rootStat['ino'] ?? 0);
-        $rootNormalized = str_replace('\\\\', '/', $root);
+        $rootNormalized = str_replace('\\', '/', $root);
         $rootPrefix = rtrim($rootNormalized, '/') . '/';
         $walk = function (string $directory, string $parentId, string $relative, int $depth,
             int $expectedDev, int $expectedIno) use (&$walk, &$entries, &$seenIds, &$nodeCount, &$totalBytes, $root, $rootPrefix): void {
@@ -350,14 +350,14 @@ final class StablePackageWriter
             // identity immediately before and after enumeration and before descending.
             $beforeDir = @lstat($directory);
             $realBefore = realpath($directory);
-            $realBeforeNormalized = $realBefore === false ? '' : str_replace('\\\\', '/', $realBefore);
+            $realBeforeNormalized = $realBefore === false ? '' : str_replace('\\', '/', $realBefore);
             if (!is_array($beforeDir) || is_link($directory)
                 || (((int) ($beforeDir['mode'] ?? 0) & 0170000) !== 0040000)
                 || (int) ($beforeDir['dev'] ?? -2) !== $expectedDev
                 || (int) ($beforeDir['ino'] ?? 0) !== $expectedIno
                 || $realBefore === false
                 || ($directory !== $root && !str_starts_with($realBeforeNormalized, $rootPrefix))
-                || ($directory === $root && $realBeforeNormalized !== str_replace('\\\\', '/', $root))) {
+                || ($directory === $root && $realBeforeNormalized !== str_replace('\\', '/', $root))) {
                 throw new RuntimeException('Source directory changed or escaped during package creation.');
             }
             $names = @scandir($directory);
@@ -394,7 +394,7 @@ final class StablePackageWriter
                     throw new RuntimeException('Special filesystem entries are not supported.');
                 }
                 $real = realpath($path);
-                $realNormalized = $real === false ? '' : str_replace('\\\\', '/', $real);
+                $realNormalized = $real === false ? '' : str_replace('\\', '/', $real);
                 if ($real === false || !str_starts_with($realNormalized, $rootPrefix)) {
                     throw new RuntimeException('Source entry escaped the source directory.');
                 }
@@ -450,7 +450,7 @@ final class StablePackageWriter
                 if ($isDirectory) {
                     $childStat = @lstat($path);
                     $childReal = realpath($path);
-                    $childRealNormalized = $childReal === false ? '' : str_replace('\\\\', '/', $childReal);
+                    $childRealNormalized = $childReal === false ? '' : str_replace('\\', '/', $childReal);
                     if (!is_array($childStat) || is_link($path)
                         || (int) ($childStat['dev'] ?? -2) !== (int) ($entryStat['dev'] ?? -1)
                         || (int) ($childStat['ino'] ?? 0) !== (int) ($entryStat['ino'] ?? 0)
