@@ -158,7 +158,7 @@ $('buildBtn').onclick = async () => {
     const safeLog = { ...data };
     delete safeLog.recovery_key;
     log(safeLog);
-    setStatus('V14 package created');
+    setStatus('Stable binary package created');
     $('packageId').value = data.package_id;
     addLink('Download encrypted package', data.download);
     if (data.recovery_key) {
