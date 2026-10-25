@@ -400,6 +400,9 @@ final class StablePackageReader
                 fclose($in);
                 fclose($out);
             }
+            // file_exists() is checked before creation; clear PHP's negative stat cache
+            // before verifying the newly written output, especially for empty files.
+            clearstatcache(true, $target);
             $actualSize = filesize($target);
             if ($actualSize === false || (int) $actualSize !== $entry['size']) {
                 throw new RuntimeException('Restored file size does not match the authenticated manifest.');
