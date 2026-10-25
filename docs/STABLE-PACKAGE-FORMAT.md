@@ -1,83 +1,48 @@
 # Stable Package Format Contract
 
-Status: design contract for the first stable release; implementation is not yet approved.
+Status: stable binary format implementation candidate is isolated on the feat/stable-binary-package-format branch. It is not the production/default writer, has not yet passed the complete platform matrix, and is not an independent security audit.
 
 ## Goal
 
-The first stable release must establish one durable on-disk package format. Application releases may evolve, but ordinary application version bumps must not change the serialized package format or make existing packages unreadable.
-
-This document defines requirements and release gates. It does not claim that the new format has already been implemented or audited.
+The v1.0.0 release must establish one durable on-disk format. Changing application release versions must never change the package byte grammar or make compatible old packages unreadable.
 
 ## Non-negotiable serialized-format rules
 
-The stable package MUST NOT serialize any of the following:
+The stable package MUST NOT serialize:
+- an application release version;
+- a format-generation label such as V14 or SECURE-PKG-V14;
+- a schema-version field used to distinguish package/application generations;
+- browser/application build versions, release tags, or version-dependent extensions.
 
-- Application release version (for example, a value derived from the root `VERSION` file).
-- Format-generation/version labels such as `V14`, `SECURE-PKG-V14`, or equivalent generation names.
-- A package schema-version number used only to distinguish successive application/package generations.
-- Browser/application build versions, release tags, or version-dependent extensions.
+The rules apply to every byte written to the package, including the header, record envelopes, file-start and chunk records, and encrypted manifest. See the normative byte-level specification in STABLE-PACKAGE-FORMAT-BINARY.md for fixed field offsets, grammar, key domains, limits and acceptance rules.
 
-These rules apply to every serialized layer: package preamble/header, encrypted or plaintext manifest, per-file records, footer/completion records, and any nested metadata written into the package. Tests must inspect the complete serialized representation, not only the top-level header.
-
-A fixed, version-independent magic byte sequence may be used for file-type recognition if needed. It must remain constant and must not encode an application or format-generation version. The exact byte layout and magic value must be decided and reviewed before implementation.
-
-Cryptographic algorithm identifiers and parameters that are required to interpret and verify the data are not application version numbers. They may be represented only when necessary, must be strictly allowlisted, and must not be used as a hidden substitute for a format-generation identifier.
+A fixed opaque magic byte sequence may identify the file type if it remains constant and contains no version. Algorithm identifiers may describe the cryptographic algorithms required to decode the bytes, but they are allowlisted and must not serve as hidden generation identifiers.
 
 ## Security and correctness requirements
 
-1. **Authenticated framing:** all security-relevant framing and metadata must be cryptographically authenticated. No unauthenticated metadata may influence filesystem paths, output names, algorithm selection, or resource allocation.
-2. **Strict parsing:** reject unknown, duplicate, malformed, truncated, oversized, or out-of-order fields/records. Apply explicit limits before allocating or processing attacker-controlled sizes.
-3. **Cryptographic separation:** use independent, domain-separated keys for metadata, filenames, and file content; bind each chunk to its intended file and sequence; verify final stream completion and integrity before treating a restore as successful.
-4. **Credential handling:** preserve the existing reviewed password/pattern derivation and key-wrapping properties only after validating them against the final format design. Never silently weaken KDF parameters or accept caller-controlled unsafe resource settings.
-5. **Safe output:** restore must not overwrite existing destinations by default, must defend against traversal, symlinks and path collisions, and must clean incomplete output on failure without deleting user data.
-6. **Atomic package creation:** do not publish a package until every required record, final integrity check, and completion marker has been written and validated.
-7. **No false success:** wrong credentials, tampering, truncation, missing final records, and unsupported cryptographic parameters must fail closed with generic external errors and useful internal diagnostics that do not leak secrets.
-8. **Determinism is not required:** salts, nonces, package identifiers, and encrypted layouts must remain unpredictable where cryptographically required; two encryptions of the same input should not be expected to produce identical package bytes.
+1. Authenticate the fixed header and all security-relevant framing before trusting it.
+2. Reject unknown types, bad/reserved flags, malformed/truncated/oversized records, incorrect order and trailing bytes.
+3. Use independent domain-separated keys for key wrapping, header authentication, manifest and each file stream.
+4. Bind every chunk to the package core, intended file, sequence and declared file size.
+5. Bound KDF cost, sizes, entry counts, depth and memory allocation before expensive work.
+6. Validate the complete encrypted manifest, parent graph, canonical path order and all stream/manifest cross-references before creating the requested restore destination.
+7. Never overwrite a pre-existing output. Fail closed if an atomic no-replace filesystem operation is unavailable.
+8. Clean incomplete output only when ownership of the created paths can be established; surface cleanup failures.
+9. Zeroize key material where the runtime supports it and never expose credentials or plaintext in diagnostics.
+10. Preserve V14 server and browser V13 compatibility independently. Do not silently reinterpret or rewrite existing packages.
 
-## Compatibility and migration
+## Implementation boundary
 
-- The existing server `SECURE-PKG-V14` and browser `SECURE-BROWSER-V13` formats are legacy compatibility boundaries. Do not reinterpret or silently rewrite their bytes as the new stable format.
-- Keep legacy readers isolated and explicitly tested. New packages must be emitted only in the stable format after its release gate passes.
-- Decide and document whether old packages can be migrated by decrypting and re-encrypting, or remain readable only through legacy readers. Never promise transparent compatibility until tested.
-- Do not remove a legacy reader or change existing package extensions as a side effect of unrelated security fixes.
-- Application release versioning remains independent of the package serialization. Changing `VERSION`, UI text, or Git tags must not alter the bytes emitted by the stable package writer.
+The candidate implementation consists of these separate classes:
+- app/Project/StablePackageDescriptor.php
+- app/Project/StablePackageCrypto.php
+- app/Project/StablePackageWriter.php
+- app/Project/StablePackageReader.php
 
-## Required test matrix before release
+They are intentionally separate from the V14 builder/reader. This branch adds regression tests and CI coverage, but it must not change the production/default writer or route application endpoints to this format before review and platform validation. Legacy compatibility tests must continue to pass.
 
-### Format contract
-- Inspect every serialized layer and assert that no application version, format-generation label, or schema-version field is present.
-- Verify the fixed file-type marker (if adopted) is identical across application releases and contains no version label.
-- Test strict rejection of malformed lengths, duplicate/unknown fields, unsupported algorithms, reordered records, truncated input, and trailing garbage.
-- Add fixtures created by the final stable writer and ensure a later compatible build reads them unchanged.
+## Required acceptance gates
 
-### Cryptographic integrity
-- Successful round-trip for empty files, nested paths, binary files, large/chunked files, and supported boundary sizes.
-- Wrong password, wrong pattern, wrong recovery key, altered header, altered manifest, altered filename metadata, altered blob/chunk, missing chunk, reordered chunk, and missing final marker must all fail.
-- Verify no plaintext is accepted as a valid package and no partially restored tree is reported as success.
-- Check that package identifiers and key material are generated safely and that temporary secrets are cleared on all reachable paths where the runtime supports it.
+Automated tests must include round-trip coverage for empty, binary, nested and multi-chunk files; credential and recovery flows; tamper/truncation/trailing-data rejection; strict header/KDF checks; manifest graph and path attacks; no-overwrite behavior; and cleanup on failure. Run the PHP matrix and a Windows test that actually writes and restores a stable package. Any manual/shared-hosting test not run must be marked NOT RUN.
 
-### Filesystem and failure injection
-- Existing restore destination remains byte-for-byte unchanged.
-- Traversal paths, absolute paths, symlinks, duplicate/case-colliding paths, and reserved platform names are rejected safely.
-- Inject failures during staging, writing, finalization, catalog update, cleanup, and rollback; preserve source data and avoid leaving a package that appears complete when it is not.
-- Test cleanup failure explicitly and ensure it is surfaced instead of silently ignored.
-
-### Compatibility and platforms
-- Run server stable-format tests on supported PHP versions and Windows.
-- Run browser compatibility tests separately; do not assume browser V13 and server V14 are the same format.
-- Test shared-hosting constraints, filesystem semantics, ZIP extension behavior, and atomic no-overwrite behavior on actual supported environments.
-- Keep unexecuted manual checks marked NOT RUN.
-
-## Implementation sequence
-
-1. Freeze this contract and agree on the byte-level format design before editing the writer.
-2. Add a byte-level format specification and test fixtures.
-3. Implement a new stable writer and reader behind explicit internal interfaces; avoid broad rewrites of the existing V14 implementation.
-4. Add adversarial tests before switching any default writer.
-5. Add migration/legacy compatibility tests and verify that old package fixtures remain readable through their designated readers.
-6. Run the full security suite, PHP matrix, browser tests, Windows smoke tests, and failure-injection tests.
-7. Review the complete diff and release artifact; publish only after all required checks pass.
-
-## Release-blocking rule
-
-A passing CI run alone does not authorize the stable-format release. The final candidate must pass the matrix above, and any unrun manual or platform-specific test must be explicitly disclosed. Do not claim an independent security audit unless one has actually occurred.
+A green round-trip test alone is insufficient. Before v1.0.0, review the byte-level specification, the full writer/reader diff, adversarial parser tests, platform filesystem behavior and final release artifact. Do not claim zero defects or an independent cryptographic audit.
