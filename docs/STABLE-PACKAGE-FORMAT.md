@@ -1,6 +1,6 @@
 # Stable Package Format Contract
 
-Status: stable binary format implementation candidate is isolated on the feat/stable-binary-package-format branch. It is not the production/default writer, has not yet passed the complete platform matrix, and is not an independent security audit.
+Status: the stable binary writer/reader and server API integration are implemented on the integration branch, and automated PHP 8.2/8.3 plus Windows checks are being used as release gates. This is not yet a v1.0.0 release or an independent security audit; real shared-hosting validation remains NOT RUN.
 
 ## Goal
 
@@ -45,4 +45,4 @@ They are intentionally separate from the V14 builder/reader. This branch adds re
 
 Automated tests must include round-trip coverage for empty, binary, nested and multi-chunk files; credential and recovery flows; tamper/truncation/trailing-data rejection; strict header/KDF checks; manifest graph and path attacks; no-overwrite behavior; and cleanup on failure. Run the PHP matrix and a Windows test that actually writes and restores a stable package. Any manual/shared-hosting test not run must be marked NOT RUN.
 
-A green round-trip test alone is insufficient. Before v1.0.0, review the byte-level specification, the full writer/reader diff, adversarial parser tests, platform filesystem behavior and final release artifact. Do not claim zero defects or an independent cryptographic audit.
+A green round-trip test alone is insufficient. Before v1.0.0, review the byte-level specification, the full writer/reader/service/controller diff, adversarial parser tests, Windows and real shared-hosting filesystem behavior, and the final release artifact. Do not claim zero defects or an independent cryptographic audit.
