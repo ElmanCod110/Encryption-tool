@@ -93,6 +93,31 @@ function stableSwapMultiChunkRecords(string $path): void
     throw new RuntimeException('No multi-chunk file stream was found.');
 }
 
+function stableRemoveFinalManifest(string $path): void
+{
+    $bytes = file_get_contents($path);
+    if (!is_string($bytes) || strlen($bytes) < Format::HEADER_BYTES) {
+        throw new RuntimeException('Unable to read missing-manifest fixture.');
+    }
+    $offset = Format::HEADER_BYTES;
+    $total = strlen($bytes);
+    while ($offset + Format::RECORD_HEADER_BYTES <= $total) {
+        $type = ord($bytes[$offset]);
+        $length = unpack('Nvalue', substr($bytes, $offset + 1, 4))['value'] ?? 0;
+        $end = $offset + Format::RECORD_HEADER_BYTES + $length;
+        if ($length < 1 || $end > $total) throw new RuntimeException('Missing-manifest fixture record is malformed.');
+        if ($type === Format::RECORD_MANIFEST) {
+            if ($end !== $total) throw new RuntimeException('Manifest was not the final record in the fixture.');
+            if (file_put_contents($path, substr($bytes, 0, $offset), LOCK_EX) !== $offset) {
+                throw new RuntimeException('Unable to remove final manifest fixture.');
+            }
+            return;
+        }
+        $offset = $end;
+    }
+    throw new RuntimeException('Final manifest record was not found.');
+}
+
 function stableRemoveTree(string $path): void
 {
     if (is_link($path) || is_file($path)) {
@@ -299,6 +324,12 @@ try {
     stableMutateRecord($tamperedManifest, Format::RECORD_MANIFEST, true);
     stableExpectFailure(fn() => $reader->restore($tamperedManifest, $root . DIRECTORY_SEPARATOR . 'bad-manifest-restore', $password, $pattern), 'Tampered manifest was accepted.');
     stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-manifest-restore'), 'Tampered manifest left restored data behind.');
+
+    $missingManifest = $root . DIRECTORY_SEPARATOR . 'missing-manifest.spkg';
+    stableCopy($package, $missingManifest);
+    stableRemoveFinalManifest($missingManifest);
+    stableExpectFailure(fn() => $reader->restore($missingManifest, $root . DIRECTORY_SEPARATOR . 'missing-manifest-restore', $password, $pattern), 'Package without a final manifest was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'missing-manifest-restore'), 'Missing manifest left restored output behind.');
 
     $truncated = $root . DIRECTORY_SEPARATOR . 'truncated.spkg';
     stableCopy($package, $truncated);
