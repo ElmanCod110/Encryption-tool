@@ -289,6 +289,17 @@ try {
     stableExpectFailure(fn() => $reader->restore($invalidLength, $root . DIRECTORY_SEPARATOR . 'invalid-length-restore', $password, $pattern), 'Oversized record length was accepted.');
     stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'invalid-length-restore'), 'Invalid record length left output behind.');
 
+    $zeroStreamHeader = $root . DIRECTORY_SEPARATOR . 'zero-stream-header.spkg';
+    stableCopy($package, $zeroStreamHeader);
+    $bytes = file_get_contents($zeroStreamHeader);
+    $streamHeaderOffset = Format::HEADER_BYTES + Format::RECORD_HEADER_BYTES + 16 + 8;
+    $bytes = substr((string) $bytes, 0, $streamHeaderOffset)
+        . str_repeat("\\0", Format::STREAM_HEADER_BYTES)
+        . substr((string) $bytes, $streamHeaderOffset + Format::STREAM_HEADER_BYTES);
+    file_put_contents($zeroStreamHeader, $bytes, LOCK_EX);
+    stableExpectFailure(fn() => $reader->restore($zeroStreamHeader, $root . DIRECTORY_SEPARATOR . 'zero-stream-header-restore', $password, $pattern), 'All-zero secretstream header was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'zero-stream-header-restore'), 'All-zero secretstream header left output behind.');
+
     $tamperedFileStart = $root . DIRECTORY_SEPARATOR . 'tampered-file-start.spkg';
     stableCopy($package, $tamperedFileStart);
     stableMutateRecord($tamperedFileStart, Format::RECORD_FILE_START);
