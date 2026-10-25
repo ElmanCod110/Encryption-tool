@@ -9,6 +9,7 @@ use SecurePackage\Security\WebSecurity;
 WebSecurity::startSession();
 WebSecurity::applyHeaders(true);
 $csrf = WebSecurity::csrfToken();
+$authenticated = \SecurePackage\Security\AccessContext::isAuthenticated();
 ?><!doctype html>
 <html lang="en">
 <head>
@@ -29,7 +30,7 @@ $csrf = WebSecurity::csrfToken();
   <div class="top-actions">
     <span class="version-pill"><?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?></span>
     <a class="ghost-button" href="client-vault.html">Legacy Browser Vault V13</a>
-    <button class="ghost-button" id="authButton" type="button">Sign in</button>
+    <a class="ghost-button" href="<?= $authenticated ? 'profile.php' : 'login.php' ?>"><?= $authenticated ? 'Profile' : 'Sign in' ?></a>
   </div>
 </header>
 
@@ -141,18 +142,6 @@ $csrf = WebSecurity::csrfToken();
 <footer data-learn-title="Version and runtime notes" data-learn="The footer shows the current application version and runtime reminders. Server package workflows require PHP and the ZIP extension; the legacy browser vault is a separate compatibility format and should not be confused with the server package format."><span>Secure Package · Author: ElmanCod110</span><span>Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · PHP Zip extension required · Browser compatibility remains isolated.</span></footer>
 </div>
 
-<div class="modal hidden" id="authModal">
-  <div class="modal-card glass">
-    <button class="modal-close" id="closeAuth" type="button">×</button>
-    <div class="modal-logo"><svg viewBox="0 0 40 40"><path d="M20 4 33 9v9c0 8.8-5.3 14.7-13 19-7.7-4.3-13-10.2-13-19V9L20 4Z"/><path d="m14 20 4 4 8-9"/></svg></div>
-    <h2 id="authTitle">Sign in</h2><p id="authSubtitle">Manage packages and revoke access from one identity.</p>
-    <div class="auth-tabs"><button class="active" id="loginTab" type="button">Sign in</button><button id="registerTab" type="button">Create account</button></div>
-    <label>Username<input class="text-input" id="authUsername" autocomplete="username"></label>
-    <label>Password<input class="text-input" id="authPassword" type="password" autocomplete="current-password"></label>
-    <button class="primary-button full" id="authSubmit" type="button">Sign in</button>
-    <button class="text-button" id="logoutButton" type="button">Sign out current session</button>
-  </div>
-</div>
 
 <script src="assets/learn.js?v=1" defer></script>\n<script src="assets/app.js" defer></script>
 </body>
