@@ -33,7 +33,7 @@ Header offsets, byte order, record values, key-derivation domains, path rules, a
 | Accepted KDF memory | 64 MiB through 256 MiB inclusive, aligned to 1024 bytes |
 | Maximum single file | 16 GiB |
 | Maximum total plaintext | 100 GiB |
-| Maximum manifest plaintext | 8 MiB |
+| Maximum manifest plaintext | 4 MiB |
 | Maximum entries | 10,000 |
 | Maximum filename component | 255 UTF-8 bytes |
 | Maximum relative path | 4096 UTF-8 bytes |
@@ -158,7 +158,7 @@ The body is:
 
 'manifest_nonce[24] || manifest_ciphertext_and_tag'.
 
-Manifest plaintext is at most 8,388,608 bytes. The encrypted body is plaintext length plus 40 bytes (24-byte nonce plus 16-byte AEAD tag); the maximum body is 8,388,648 bytes.
+Manifest plaintext is at most 4,194,304 bytes. The encrypted body is plaintext length plus 40 bytes (24-byte nonce plus 16-byte AEAD tag); the maximum body is 4,194,344 bytes.
 
 'manifest_key = HKDF-SHA-256(IKM=root_key, length=32, info=ASCII("SPKG/MANIFEST") || 0x00, salt=package_id)'.
 
