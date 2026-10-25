@@ -98,8 +98,39 @@ try {
     stableAssert($header['ops'] === Format::DEFAULT_KDF_OPS, 'KDF operations parameter is not the writer profile.');
     stableAssert($header['memory_bytes'] === Format::DEFAULT_KDF_MEM_BYTES, 'KDF memory parameter is not the writer profile.');
     stableAssert(strlen($header['core']) === Format::CORE_BYTES, 'Core header length is invalid.');
+    stableAssert(!str_contains($raw, 'V14') && !str_contains($raw, 'SECURE-PKG-V14')
+        && !str_contains($raw, 'version') && !str_contains($raw, 'schema'),
+        'The serialized binary package unexpectedly contains a generation/version label or schema field.');
 
     $reader = new StablePackageReader();
+
+    // Header parsers must reject unsafe values before any Argon2id invocation.
+    $headerMutations = [
+        [0, ord($raw[0]) ^ 0x01, 'bad magic'],
+        [8, 0x80, 'reserved flag'],
+        [9, 0x02, 'unknown KDF id'],
+        [10, 0x02, 'unknown AEAD id'],
+        [11, 0x02, 'unknown stream id'],
+        [12, 0x02, 'unknown hash id'],
+        [16, 0x00, 'invalid KDF ops'],
+        [20, 0x01, 'unaligned KDF memory'],
+    ];
+    foreach ($headerMutations as $index => [$offset, $value, $label]) {
+        $casePath = $root . DIRECTORY_SEPARATOR . 'bad-header-field-' . $index . '.spkg';
+        stableCopy($package, $casePath);
+        $bytes = file_get_contents($casePath);
+        $bytes[$offset] = chr($value);
+        file_put_contents($casePath, $bytes, LOCK_EX);
+        $badDestination = $root . DIRECTORY_SEPARATOR . 'bad-header-field-restore-' . $index;
+        stableExpectFailure(fn() => $reader->restore($casePath, $badDestination, $password, $pattern),
+            'Unsupported or unsafe header field was accepted: ' . $label);
+        stableAssert(!file_exists($badDestination), 'Invalid header left output behind: ' . $label);
+    }
+
+    $zeroIdPackage = $root . DIRECTORY_SEPARATOR . 'zero-id.spkg';
+    stableExpectFailure(fn() => (new StablePackageWriter())->build($source, $zeroIdPackage,
+        $password, $pattern, str_repeat('0', 48), false), 'All-zero package identifier was accepted by the writer.');
+    stableAssert(!file_exists($zeroIdPackage), 'All-zero package identifier produced an output file.');
     $restored = $reader->restore($package, $restore, $password, $pattern);
     stableAssert($restored['files'] === 3 && $restored['directories'] === 1, 'Round-trip statistics are incorrect.');
     foreach (['hello.txt', 'empty.bin', 'nested/binary.dat'] as $relative) {
@@ -112,6 +143,13 @@ try {
     $recovered = $reader->restore($package, $recoveryDestination, '', '', $build['recovery_key']);
     stableAssert($recovered['files'] === 3, 'Recovery-key restore failed.');
     stableAssert(hash_file('sha256', $source . '/nested/binary.dat') === hash_file('sha256', $recoveryDestination . '/nested/binary.dat'), 'Recovery restore content mismatch.');
+
+    stableExpectFailure(fn() => $reader->restore($package, $root . DIRECTORY_SEPARATOR . 'wrong-recovery',
+        '', '', str_repeat('A', 43)), 'Wrong recovery key was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'wrong-recovery'), 'Wrong recovery key left output behind.');
+    stableExpectFailure(fn() => $reader->restore($package, $root . DIRECTORY_SEPARATOR . 'malformed-recovery',
+        '', '', 'not a recovery key'), 'Malformed recovery key was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'malformed-recovery'), 'Malformed recovery key left output behind.');
 
     $existingDestination = $root . DIRECTORY_SEPARATOR . 'already-exists';
     mkdir($existingDestination, 0700);
@@ -141,6 +179,24 @@ try {
     file_put_contents($tamperedRecoverySlot, $bytes, LOCK_EX);
     stableExpectFailure(fn() => $reader->restore($tamperedRecoverySlot, $root . DIRECTORY_SEPARATOR . 'bad-recovery-slot-restore', $password, $pattern), 'Tampered recovery slot was accepted with primary credentials.');
     stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'bad-recovery-slot-restore'), 'Tampered recovery slot left restored data behind.');
+
+    $unknownRecord = $root . DIRECTORY_SEPARATOR . 'unknown-record.spkg';
+    stableCopy($package, $unknownRecord);
+    $bytes = file_get_contents($unknownRecord);
+    $bytes[Format::HEADER_BYTES] = chr(0x55);
+    file_put_contents($unknownRecord, $bytes, LOCK_EX);
+    stableExpectFailure(fn() => $reader->restore($unknownRecord, $root . DIRECTORY_SEPARATOR . 'unknown-record-restore', $password, $pattern), 'Unknown record type was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'unknown-record-restore'), 'Unknown record left output behind.');
+
+    $invalidLength = $root . DIRECTORY_SEPARATOR . 'invalid-length.spkg';
+    stableCopy($package, $invalidLength);
+    $bytes = file_get_contents($invalidLength);
+    $bytes = substr((string) $bytes, 0, Format::HEADER_BYTES + 1)
+        . pack('N', 0xFFFFFFFF)
+        . substr((string) $bytes, Format::HEADER_BYTES + Format::RECORD_HEADER_BYTES);
+    file_put_contents($invalidLength, $bytes, LOCK_EX);
+    stableExpectFailure(fn() => $reader->restore($invalidLength, $root . DIRECTORY_SEPARATOR . 'invalid-length-restore', $password, $pattern), 'Oversized record length was accepted.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'invalid-length-restore'), 'Invalid record length left output behind.');
 
     $tamperedChunk = $root . DIRECTORY_SEPARATOR . 'tampered-chunk.spkg';
     stableCopy($package, $tamperedChunk);
