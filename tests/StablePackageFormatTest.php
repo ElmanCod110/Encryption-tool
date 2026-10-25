@@ -340,6 +340,16 @@ try {
     $noRecoveryRestored = $reader->restore($noRecoveryPackage, $noRecoveryDestination, $password, $pattern);
     stableAssert($noRecoveryRestored['files'] === 5, 'No-recovery package did not restore.');
 
+    // Exercise symlink rejection where the host permits creating a test symlink.
+    $sourceLink = $source . DIRECTORY_SEPARATOR . 'nested' . DIRECTORY_SEPARATOR . 'source-link';
+    if (@symlink($source . DIRECTORY_SEPARATOR . 'hello.txt', $sourceLink)) {
+        $symlinkPackage = $root . DIRECTORY_SEPARATOR . 'symlink-source.spkg';
+        stableExpectFailure(fn() => (new StablePackageWriter())->build($source, $symlinkPackage,
+            $password, $pattern, str_repeat('d', 48), false), 'Source symlink was accepted.');
+        stableAssert(!file_exists($symlinkPackage), 'Source symlink produced a package.');
+        if (!@unlink($sourceLink)) throw new RuntimeException('Unable to remove test symlink.');
+    }
+
     echo "Stable binary package round-trip and adversarial tests passed.\n";
 } finally {
     $password = '';
