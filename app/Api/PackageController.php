@@ -10,6 +10,7 @@ use SecurePackage\Archive\ArchiveWorkflow;
 use SecurePackage\Project\PackageArchive;
 use SecurePackage\Project\PackageDeletionTransaction;
 use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\StablePackageDescriptor;
 use SecurePackage\Project\StablePackageReader;
 use SecurePackage\Project\StablePackageService;
 use SecurePackage\Project\StablePackageWriter;
@@ -255,7 +256,7 @@ final class PackageController
                 $createRecovery
             );
             $packageFile = $result['package_file'];
-            $this->catalog->create($result['package_id'], AccessContext::ownerId(), $name);
+            $this->catalog->create($result['package_id'], AccessContext::ownerId(), $name, 'STABLE-BINARY');
             $packageCreated = true;
             $token = $this->accessTokens->issue($result['package_id'], AccessContext::ownerId(), false);
             $this->audit->event('package.created', [
@@ -314,20 +315,22 @@ final class PackageController
                 Validator::validatePassword($password);
                 Validator::validatePattern($pattern);
             }
-            $this->catalog->assertAvailable($packageId);
+            $catalogRecord = $this->catalog->assertAvailable($packageId);
+            $catalogFormat = $catalogRecord['format'] ?? 'SECURE-PKG-V14';
 
             $packagesRoot = $this->config['storage']['packages'];
             $stableFile = $packagesRoot . DIRECTORY_SEPARATOR . $packageId . '.spkg';
             $legacyDirectory = $packagesRoot . DIRECTORY_SEPARATOR . $packageId;
             $legacyArchive = $packagesRoot . DIRECTORY_SEPARATOR . $packageId . '.spkg14';
+            $legacySpkgArchive = $packagesRoot . DIRECTORY_SEPARATOR . $packageId . '.spkg';
             $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
             $packageFormat = null;
 
-            // Prefer the permanent binary format when its canonical path exists. A
-            // malformed or symlinked stable artifact must not silently downgrade to V14.
-            if (file_exists($stableFile) || is_link($stableFile)) {
-                if (is_link($stableFile) || !is_file($stableFile)) {
-                    throw new RuntimeException('Package storage is invalid.');
+            // The catalog format is external metadata. It prevents a damaged stable
+            // artifact from being silently reinterpreted as a legacy ZIP package.
+            if ($catalogFormat === 'STABLE-BINARY') {
+                if (!StablePackageDescriptor::hasMagic($stableFile)) {
+                    throw new RuntimeException('Stable package storage is invalid.');
                 }
                 $packageFormat = 'STABLE-BINARY';
                 $result = (new StablePackageReader())->restore($stableFile, $outputDir, $password, $pattern, $recoveryKey);
@@ -343,6 +346,14 @@ final class PackageController
                 }
                 $temporaryPackageDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'package-' . bin2hex(random_bytes(16));
                 (new PackageArchive())->extract($legacyArchive, $temporaryPackageDir);
+                $packageFormat = 'SECURE-PKG-V14';
+                $result = (new V14PackageReader())->restore($temporaryPackageDir, $outputDir, $password, $pattern, $recoveryKey);
+            } elseif (file_exists($legacySpkgArchive) || is_link($legacySpkgArchive)) {
+                if (is_link($legacySpkgArchive) || !is_file($legacySpkgArchive)) {
+                    throw new RuntimeException('Legacy package archive is invalid.');
+                }
+                $temporaryPackageDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'package-' . bin2hex(random_bytes(16));
+                (new PackageArchive())->extract($legacySpkgArchive, $temporaryPackageDir);
                 $packageFormat = 'SECURE-PKG-V14';
                 $result = (new V14PackageReader())->restore($temporaryPackageDir, $outputDir, $password, $pattern, $recoveryKey);
             } else {
