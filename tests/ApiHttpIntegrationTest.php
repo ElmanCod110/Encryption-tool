@@ -186,13 +186,13 @@ try {
     $stablePackageId = str_repeat('b', 48);
     $stableSource = $base . DIRECTORY_SEPARATOR . 'stable-source';
     if (!mkdir($stableSource, 0700, true)
-        || file_put_contents($stableSource . DIRECTORY_SEPARATOR . 'api-fixture.txt', "stable API round trip\\n") === false) {
+        || file_put_contents($stableSource . DIRECTORY_SEPARATOR . 'api-fixture.txt', "stable API round trip\n") === false) {
         throw new RuntimeException('Unable to prepare stable binary source fixture.');
     }
     $stablePackagePath = $packagesDir . DIRECTORY_SEPARATOR . $stablePackageId . '.spkg';
     $stablePassword = 'Api!StablePassword2026';
     $stablePattern = 'Api#StablePattern2026';
-    (new \\SecurePackage\\Project\\StablePackageWriter())->build(
+    (new \SecurePackage\Project\StablePackageWriter())->build(
         $stableSource,
         $stablePackagePath,
         $stablePassword,
