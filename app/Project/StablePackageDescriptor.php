@@ -87,6 +87,20 @@ final class StablePackageDescriptor
         return $value !== '' && hash_equals(str_repeat("\0", strlen($value)), $value);
     }
 
+    public static function randomNonZeroBytes(int $length): string
+    {
+        if ($length < 1 || $length > 1024) {
+            throw new RuntimeException('Invalid random-byte length.');
+        }
+        for ($attempt = 0; $attempt < 8; $attempt++) {
+            $value = random_bytes($length);
+            if (!self::isZeroBytes($value)) {
+                return $value;
+            }
+        }
+        throw new RuntimeException('Unable to generate nonzero cryptographic randomness.');
+    }
+
     public static function assertKdfParameters(int $ops, int $memoryBytes): void
     {
         // Bounds are checked before Argon2id is invoked. Header bytes are attacker-controlled
@@ -194,13 +208,13 @@ final class StablePackageDescriptor
         }
         self::assertKdfParameters((int) $ops, (int) $memoryBytes);
         if (self::isZeroBytes($packageId) || self::isZeroBytes($salt)
-            || self::isZeroBytes($primaryNonce) || self::isZeroBytes($primaryCipher)) {
+            || self::isZeroBytes($primaryNonce)) {
             throw new RuntimeException('Unable to open package.');
         }
 
         $hasRecovery = ($flags & self::FLAG_RECOVERY_SLOT) !== 0;
         if ($hasRecovery) {
-            if (self::isZeroBytes($recoveryNonce) || self::isZeroBytes($recoveryCipher)) {
+            if (self::isZeroBytes($recoveryNonce)) {
                 throw new RuntimeException('Unable to open package.');
             }
         } elseif (!self::isZeroBytes($recoveryNonce) || !self::isZeroBytes($recoveryCipher)) {
