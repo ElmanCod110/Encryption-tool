@@ -180,7 +180,7 @@ Entries are strictly sorted by resolved relative path using raw UTF-8 byte order
 
 A nonzero parent ID must resolve to exactly one directory. All IDs are unique across files and directories. The complete graph is validated before the requested output directory is created. Maximum depth is 256 components and maximum resolved path size is 4096 bytes.
 
-Cross-platform path validation rejects empty names, '.' and '..', NUL/control characters, slash, backslash, colon, Windows forbidden characters '<', '>', '"', '|', '?', '*', trailing spaces/dots, and reserved device names CON, PRN, AUX, NUL, CONIN$, CONOUT$, COM1–COM9, LPT1–LPT9 (including extensions). If runtime extensions needed for Unicode normalization/case folding are missing, non-ASCII names MUST be rejected rather than checked incompletely. Otherwise names must be NFC and sibling names checked with Unicode-aware case folding.
+Cross-platform path validation rejects empty names, '.' and '..', NUL/control characters, slash, backslash, colon, Windows forbidden characters '<', '>', '"', '|', '?', '*', trailing spaces/dots, and reserved device names CON, PRN, AUX, NUL, CLOCK$, CONIN$, CONOUT$, COM1–COM9, LPT1–LPT9 and the superscript-digit COM/LPT variants (including extensions and names with spaces or dots immediately after the reserved base). If runtime extensions needed for Unicode normalization/case folding are missing, non-ASCII names MUST be rejected rather than checked incompletely. Otherwise names must be NFC and sibling names checked with Unicode-aware case folding.
 
 ## 8. Resource and filesystem rules
 
