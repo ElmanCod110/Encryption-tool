@@ -349,12 +349,23 @@ final class PackageController
         WebSecurity::assertCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
         $this->authorization->requireAuthenticated();
         $items = $this->catalog->listForOwner(AccessContext::ownerId());
-        JsonResponse::send(['ok' => true, 'packages' => array_map(static function (array $item): array {
+        JsonResponse::send(['ok' => true, 'packages' => array_map(function (array $item): array {
+            // Only inspect a strictly validated package ID; never let catalog metadata
+            // influence a filesystem path. The portable encrypted archive is canonical.
+            $packageId = (string) ($item['package_id'] ?? '');
+            $validId = preg_match('/^[a-f0-9]{48}$/', $packageId) === 1;
+            $archive = $validId
+                ? $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId . '.spkg14'
+                : '';
+            $available = $validId && !is_link($archive) && is_file($archive);
+            $size = $available ? @filesize($archive) : false;
             return [
-                'package_id' => $item['package_id'],
-                'created_at' => $item['created_at'],
-                'revoked' => $item['revoked_at'] !== null,
-                'expires_at' => $item['expires_at'],
+                'package_id' => $packageId,
+                'created_at' => (int) ($item['created_at'] ?? 0),
+                'revoked' => ($item['revoked_at'] ?? null) !== null,
+                'expires_at' => $item['expires_at'] ?? null,
+                'storage_available' => $available,
+                'size_bytes' => $size === false ? null : (int) $size,
                 'format' => 'SECURE-PKG-V14',
             ];
         }, $items)]);
