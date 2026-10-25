@@ -97,7 +97,7 @@ The writer generates a random 32-byte 'root_key'.
 - 'header_mac_key = HKDF-SHA-256(IKM=root_key, length=32, info=ASCII("SPKG/HEADER-MAC") || 0x00, salt=package_id)'.
 - 'header_mac = HMAC-SHA-256(header_mac_key, header_without_mac)'.
 
-Each wrapped key is exactly 48 bytes. A reader unwraps the root key through one slot, then compares the header MAC using a constant-time comparison. No record may be processed until both steps succeed. This authenticates the unused slot as well. Recovery keys are encoded as canonical unpadded base64url outside the package; decode must reject noncanonical encodings and any result not exactly 32 bytes. A recovery key MUST fail if the recovery slot flag is clear.
+Each wrapped key is exactly 48 bytes. A reader unwraps the root key through one slot, then compares the header MAC using a constant-time comparison. No record may be processed until both steps succeed. This authenticates the unused slot as well. Recovery keys are encoded as canonical unpadded base64url outside the package; decode MUST reject noncanonical encodings, an all-zero value, and any result not exactly 32 bytes. A recovery key MUST fail if the recovery slot flag is clear.
 
 ## 4. Record envelope and parser state machine
 
