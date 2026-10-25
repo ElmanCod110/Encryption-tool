@@ -66,7 +66,7 @@ final class StablePackageCrypto
 
     public static function encodeRecoveryKey(string $raw): string
     {
-        if (strlen($raw) !== StablePackageDescriptor::KEY_BYTES) {
+        if (strlen($raw) !== StablePackageDescriptor::KEY_BYTES || StablePackageDescriptor::isZeroBytes($raw)) {
             throw new RuntimeException('Invalid recovery key.');
         }
         return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
@@ -81,6 +81,7 @@ final class StablePackageCrypto
         $padded .= str_repeat('=', (4 - strlen($padded) % 4) % 4);
         $raw = base64_decode($padded, true);
         if (!is_string($raw) || strlen($raw) !== StablePackageDescriptor::KEY_BYTES
+            || StablePackageDescriptor::isZeroBytes($raw)
             || !hash_equals(self::encodeRecoveryKey($raw), $encoded)) {
             throw new RuntimeException('Unable to open package.');
         }
