@@ -6,12 +6,12 @@ Secure Package is an open-source encrypted project package engine built around e
 
 ## Stable binary server package format
 
-New server packages use the permanent single-file binary format (\`.spkg\`). Its frozen grammar contains no application release version, format-generation label, or schema-version field. The package starts with a fixed 253-byte header and uses:
+New server packages use the permanent single-file binary format (`.spkg`). Its frozen grammar contains no application release version, format-generation label, or schema-version field. The package starts with a fixed 253-byte header and uses:
 
 - Argon2id13 for independent password and pattern credential derivation through libsodium
 - A random nonzero 256-bit package root key, wrapped separately from the credentials
 - XChaCha20-Poly1305-IETF for authenticated key wrapping and the encrypted binary manifest
-- \`secretstream_xchacha20poly1305\` for authenticated per-file chunk streams
+- `secretstream_xchacha20poly1305` for authenticated per-file chunk streams
 - HKDF-SHA-256 domain separation for the header MAC, manifest, and file-stream keys
 - HMAC-SHA-256 authentication of the fixed header
 - A strict encrypted manifest with canonical path ordering, bounded entry count, and cross-checked stream metadata
@@ -25,7 +25,7 @@ The normative byte layout, field offsets, cryptographic domains, limits, and acc
 
 ## Legacy V14 server package compatibility
 
-The previous \`SECURE-PKG-V14\` directory format and \`.spkg14\` ZIP transport remain available for restoring existing packages. They are not the default format for new packages. The legacy V14 format has its own specification in [docs/FORMAT.md](docs/FORMAT.md); it is not silently reinterpreted as the stable binary format.
+The previous `SECURE-PKG-V14` directory format and `.spkg14` ZIP transport remain available for restoring existing packages. They are not the default format for new packages. The legacy V14 format has its own specification in [docs/FORMAT.md](docs/FORMAT.md); it is not silently reinterpreted as the stable binary format.
 
 ## Browser compatibility boundary
 
