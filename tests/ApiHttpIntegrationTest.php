@@ -182,16 +182,45 @@ try {
     if (file_put_contents($catalogDir . DIRECTORY_SEPARATOR . $packageId . '.json', json_encode($catalogRecord, JSON_THROW_ON_ERROR)) === false) {
         throw new RuntimeException('Unable to prepare inventory catalog record.');
     }
+
+    $stablePackageId = str_repeat('b', 48);
+    $stableFixture = "test-only-stable-binary-package";
+    if (file_put_contents($packagesDir . DIRECTORY_SEPARATOR . $stablePackageId . '.spkg', $stableFixture) === false) {
+        throw new RuntimeException('Unable to prepare stable binary package fixture.');
+    }
+    $stableCatalogRecord = [
+        'package_id' => $stablePackageId,
+        'owner_hash' => hash('sha256', 'account:' . $registeredData['account_id']),
+        'name_hash' => hash('sha256', 'stable-binary-inventory-package'),
+        'created_at' => time() + 1,
+        'expires_at' => null,
+        'revoked_at' => null,
+    ];
+    if (file_put_contents($catalogDir . DIRECTORY_SEPARATOR . $stablePackageId . '.json', json_encode($stableCatalogRecord, JSON_THROW_ON_ERROR)) === false) {
+        throw new RuntimeException('Unable to prepare stable binary catalog record.');
+    }
+
     $inventory = $request('api.php?action=packages', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf]), '{}');
     $expect(200, $inventory, 'Authenticated encrypted package inventory');
     $inventoryData = json_decode($inventory['body'], true, 16, JSON_THROW_ON_ERROR);
-    $listed = $inventoryData['packages'][0] ?? null;
-    if (!is_array($listed)
-        || ($listed['package_id'] ?? null) !== $packageId
-        || ($listed['storage_available'] ?? null) !== true
-        || ($listed['size_bytes'] ?? null) !== strlen($encryptedFixture)
-        || ($listed['revoked'] ?? null) !== false) {
-        throw new RuntimeException('Encrypted package inventory omitted or misreported safe package metadata.');
+    $listedById = [];
+    foreach (($inventoryData['packages'] ?? []) as $item) {
+        if (is_array($item) && is_string($item['package_id'] ?? null)) {
+            $listedById[$item['package_id']] = $item;
+        }
+    }
+    $legacyListed = $listedById[$packageId] ?? null;
+    $stableListed = $listedById[$stablePackageId] ?? null;
+    if (!is_array($legacyListed)
+        || ($legacyListed['storage_available'] ?? null) !== true
+        || ($legacyListed['size_bytes'] ?? null) !== strlen($encryptedFixture)
+        || ($legacyListed['revoked'] ?? null) !== false
+        || ($legacyListed['format'] ?? null) !== 'SECURE-PKG-V14'
+        || !is_array($stableListed)
+        || ($stableListed['storage_available'] ?? null) !== true
+        || ($stableListed['size_bytes'] ?? null) !== strlen($stableFixture)
+        || ($stableListed['format'] ?? null) !== 'STABLE-BINARY') {
+        throw new RuntimeException('Package inventory misreported stable or legacy package metadata.');
     }
 
     $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';
