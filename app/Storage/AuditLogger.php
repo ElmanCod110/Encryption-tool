@@ -94,7 +94,7 @@ final class AuditLogger
         foreach ($lines as $line) {
             try {
                 $record = json_decode($line, true, 32, JSON_THROW_ON_ERROR);
-            } catch (\\Throwable) {
+            } catch (\Throwable) {
                 return false;
             }
             if (!is_array($record)) return false;
