@@ -322,8 +322,8 @@ final class StablePackageWriter
             clearstatcache(true, $path);
             $pathAfter = @lstat($path);
             $realAfter = realpath($path);
-            $realAfterNormalized = $realAfter === false ? '' : str_replace('\\\\', '/', $realAfter);
-            $rootPrefixAfter = rtrim(str_replace('\\\\', '/', $root), '/') . '/';
+            $realAfterNormalized = $realAfter === false ? '' : str_replace('\\', '/', $realAfter);
+            $rootPrefixAfter = rtrim(str_replace('\\', '/', $root), '/') . '/';
             if (!is_array($pathAfter) || is_link($path)
                 || (int) ($pathAfter['dev'] ?? -2) !== (int) ($before['dev'] ?? -1)
                 || (int) ($pathAfter['ino'] ?? 0) !== (int) ($before['ino'] ?? 0)
