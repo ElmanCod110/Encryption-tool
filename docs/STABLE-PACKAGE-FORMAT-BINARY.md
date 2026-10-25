@@ -92,8 +92,8 @@ The caller-supplied password and pattern are validated UTF-8 byte strings. They 
 
 The writer generates a random 32-byte 'root_key'.
 
-- 'primary_cipher = XChaCha20-Poly1305.Encrypt(root_key, primary_nonce, credential_key, AAD=ASCII("SPKG/KEYWRAP/PRIMARY") || 0x00 || core)'.
-- If recovery is enabled, 'recovery_cipher = XChaCha20-Poly1305.Encrypt(root_key, recovery_nonce, recovery_key_raw, AAD=ASCII("SPKG/KEYWRAP/RECOVERY") || 0x00 || core)', where 'recovery_key_raw' is a random 32-byte secret.
+- 'primary_cipher = AEAD_Encrypt(key=credential_key, nonce=primary_nonce, plaintext=root_key, aad=ASCII("SPKG/KEYWRAP/PRIMARY") || 0x00 || core)', using XChaCha20-Poly1305-IETF.
+- If recovery is enabled, 'recovery_cipher = AEAD_Encrypt(key=recovery_key_raw, nonce=recovery_nonce, plaintext=root_key, aad=ASCII("SPKG/KEYWRAP/RECOVERY") || 0x00 || core)', using XChaCha20-Poly1305-IETF, where 'recovery_key_raw' is a random 32-byte secret.
 - 'header_mac_key = HKDF-SHA-256(IKM=root_key, length=32, info=ASCII("SPKG/HEADER-MAC") || 0x00, salt=package_id)'.
 - 'header_mac = HMAC-SHA-256(header_mac_key, header_without_mac)'.
 
@@ -161,6 +161,8 @@ The body is:
 Manifest plaintext is at most 4,194,304 bytes. The encrypted body is plaintext length plus 40 bytes (24-byte nonce plus 16-byte AEAD tag); the maximum body is 4,194,344 bytes.
 
 'manifest_key = HKDF-SHA-256(IKM=root_key, length=32, info=ASCII("SPKG/MANIFEST") || 0x00, salt=package_id)'.
+
+'manifest_ciphertext_and_tag = AEAD_Encrypt(key=manifest_key, nonce=manifest_nonce, plaintext=manifest_plain, aad=ASCII("SPKG/MANIFEST") || 0x00 || core_hash)' using XChaCha20-Poly1305-IETF.
 
 Manifest associated data is 'ASCII("SPKG/MANIFEST") || 0x00 || core_hash'. The nonce is fresh random 24-byte data. Manifest is custom binary, not JSON and not string-valued metadata.
 
