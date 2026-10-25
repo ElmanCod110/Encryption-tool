@@ -4,30 +4,45 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use SecurePackage\Project\V14PackageBuilder;
 use SecurePackage\Project\PackageId;
+use SecurePackage\Project\StablePackageWriter;
 use SecurePackage\Security\Validator;
 
 if ($argc !== 4) {
     fwrite(STDERR, "Usage: php encrypt-directory.php <source-dir> <output-dir> <password>\n");
+    fwrite(STDERR, "Set SPK_PATTERN to the independent high-entropy pattern.\n");
     exit(1);
 }
 
 [, $source, $output, $password] = $argv;
 $pattern = getenv('SPK_PATTERN') ?: '';
-if ($pattern === '') { fwrite(STDERR, "SPK_PATTERN environment variable is required.\n"); exit(1); }
 try {
     Validator::validatePassword($password);
     Validator::validatePattern($pattern);
-    if (!is_dir($source)) throw new RuntimeException('Source directory does not exist.');
+    if (!is_dir($source) || is_link($source)) {
+        throw new RuntimeException('Source directory does not exist or is unsafe.');
+    }
+    if (is_link($output)) {
+        throw new RuntimeException('Output directory must not be a symbolic link.');
+    }
+    if (!is_dir($output) && !@mkdir($output, 0700, true) && !is_dir($output)) {
+        throw new RuntimeException('Unable to create output directory.');
+    }
+    $outputRoot = realpath($output);
+    if ($outputRoot === false || is_link($outputRoot)) {
+        throw new RuntimeException('Unable to validate output directory.');
+    }
+
     $packageId = PackageId::generate();
-    $packageDir = rtrim($output, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $packageId;
-    @mkdir($packageDir, 0700, true);
-    $result = (new V14PackageBuilder())->build($source, $packageDir, $password, $pattern, $packageId, true);
-    echo "Package created: {$packageDir}\n";
-    echo "Format: {$result['format']}\n";
-    if ($result['recovery_key'] !== null) echo "Recovery key: {$result['recovery_key']}\n";
-} catch (Throwable $e) {
+    $packageFile = rtrim($outputRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $packageId . '.spkg';
+    $result = (new StablePackageWriter())->build($source, $packageFile, $password, $pattern, $packageId, true);
+    echo "Package created: {$packageFile}\n";
+    echo "Format: STABLE-BINARY\n";
+    if ($result['recovery_key'] !== null) {
+        echo "Recovery key: {$result['recovery_key']}\n";
+        echo "Store this recovery key offline. It cannot be recovered from the package.\n";
+    }
+} catch (Throwable) {
     fwrite(STDERR, "Unable to create package.\n");
     exit(2);
 } finally {
