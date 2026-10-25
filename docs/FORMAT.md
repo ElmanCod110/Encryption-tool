@@ -1,4 +1,6 @@
-# SECURE-PKG-V14 Format
+# Legacy SECURE-PKG-V14 Format
+
+> Compatibility specification for existing V14 packages only. New server packages use the stable single-file binary format documented in [STABLE-PACKAGE-FORMAT-BINARY.md](STABLE-PACKAGE-FORMAT-BINARY.md). Do not create new V14 packages or reinterpret V14 bytes as the stable format.
 
 ## Overview
 
