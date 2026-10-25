@@ -14,7 +14,8 @@ use RuntimeException;
  */
 final class StablePackageDescriptor
 {
-    public const MAGIC = "\xD3\x82\xA1\x4F\xC7\x5E\x90\x6B"; // opaque 8-byte marker; no readable format name or version.
+    public const MAGIC = "\xD3\x82\xA1\x4F\xC7\x5E\x90\x6B"; // opaque marker; no readable format name or version.
+    public const MAGIC_BYTES = 8;
 
     public const HEADER_BYTES = 253;
     public const CORE_BYTES = 77;
