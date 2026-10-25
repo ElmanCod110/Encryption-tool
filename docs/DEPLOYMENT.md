@@ -47,16 +47,16 @@ Use restrictive filesystem permissions for package, upload, temporary, catalog, 
 
 ## Recovery key handling
 
-The V14 recovery key is displayed once. Store it offline and separately from the encrypted package. Never place it in issue trackers, source control, server logs, or application telemetry.
+The stable-format recovery key is a canonical 43-character unpadded base64url value displayed once. Store it offline and separately from the encrypted `.spkg` file. Legacy V14 recovery keys use the legacy V14 encoding; do not interchange the two formats' recovery keys. Never place either key in issue trackers, source control, server logs, or application telemetry.
 
 
 ## Local secret bootstrap
 
 `SPK_NAME_PEPPER` is recommended for managed production deployments. If it is not set, the application generates a persistent 256-bit local secret at `storage/secrets/name-pepper.bin` with restrictive permissions. Keep the entire `storage/` directory private and backed up with the application data it protects.
 
-The server workspace requires PHP `ext-zip`; `/health.php` reports the deployment as degraded until it is available. `bin/self-check.php` also treats `ext-zip` as a required V14 runtime component.
+The server workspace requires PHP `ext-zip`; `/health.php` reports the deployment as degraded until it is available. `bin/self-check.php` treats `ext-zip` as a required application workflow component.
 
 
 ### Runtime preflight
 
-The main V14 workspace requires PHP `ext-zip` because incoming ZIP archives and portable `.spkg14` releases are processed server-side. The application health endpoint and web UI report this as a required runtime component.
+The application requires PHP `ext-zip` to extract incoming ZIP uploads and to read legacy `.spkg14` archives. Stable `.spkg` packages are already single-file binary packages and do not require ZIP wrapping. The health endpoint still reports `ext-zip` as required for the full application workflow.
