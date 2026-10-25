@@ -491,7 +491,16 @@ final class StablePackageWriter
         if ($real === false || !is_dir($real)) {
             throw new RuntimeException('Source directory does not exist.');
         }
-        return rtrim($real, DIRECTORY_SEPARATOR);
+        $trimmed = rtrim($real, DIRECTORY_SEPARATOR);
+        if ($trimmed === '') {
+            return DIRECTORY_SEPARATOR;
+        }
+        // On Windows, trimming the root separator from "C:\\" yields "C:",
+        // which has drive-relative rather than drive-root semantics.
+        if (DIRECTORY_SEPARATOR === '\\\\' && preg_match('/^[A-Za-z]:$/D', $trimmed) === 1) {
+            return $trimmed . DIRECTORY_SEPARATOR;
+        }
+        return $trimmed;
     }
 
     private function canonicalDestinationFile(string $path): string
