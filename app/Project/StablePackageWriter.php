@@ -316,6 +316,21 @@ final class StablePackageWriter
             if ($extra === false || $extra !== '') {
                 throw new RuntimeException('Source file changed during package creation.');
             }
+            // Also verify the path still names the exact inode opened above. Checking only
+            // fstat() would miss replacement of the directory entry while its old handle
+            // remained readable.
+            clearstatcache(true, $path);
+            $pathAfter = @lstat($path);
+            $realAfter = realpath($path);
+            $realAfterNormalized = $realAfter === false ? '' : str_replace('\\\\', '/', $realAfter);
+            $rootPrefixAfter = rtrim(str_replace('\\\\', '/', $root), '/') . '/';
+            if (!is_array($pathAfter) || is_link($path)
+                || (int) ($pathAfter['dev'] ?? -2) !== (int) ($before['dev'] ?? -1)
+                || (int) ($pathAfter['ino'] ?? 0) !== (int) ($before['ino'] ?? 0)
+                || (((int) ($pathAfter['mode'] ?? 0) & 0170000) !== 0100000)
+                || $realAfter === false || !str_starts_with($realAfterNormalized, $rootPrefixAfter)) {
+                throw new RuntimeException('Source path changed during package creation.');
+            }
             $after = fstat($input);
             if (!is_array($after) || (int) ($after['size'] ?? -1) !== $entry['size']
                 || (int) ($after['mtime'] ?? -1) !== (int) ($before['mtime'] ?? -1)
