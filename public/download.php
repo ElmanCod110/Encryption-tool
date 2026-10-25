@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
+use SecurePackage\Project\PackageArchive;
 use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\StablePackageDescriptor;
 use SecurePackage\Security\PackageAccessTokenStore;
 use SecurePackage\Security\WebSecurity;
 
@@ -22,22 +24,29 @@ try {
     $stable = $root . DIRECTORY_SEPARATOR . $packageId . '.spkg';
     $legacyArchive = $root . DIRECTORY_SEPARATOR . $packageId . '.spkg14';
     $legacyDirectory = $root . DIRECTORY_SEPARATOR . $packageId;
-    if (file_exists($stable) || is_link($stable)) {
-        if (is_link($stable) || !is_file($stable)) throw new RuntimeException('Unavailable.');
+    $legacySpkgArchive = $stable;
+    $format = $record['format'] ?? 'SECURE-PKG-V14';
+
+    if ($format === 'STABLE-BINARY') {
+        if (!StablePackageDescriptor::hasMagic($stable)) throw new RuntimeException('Unavailable.');
         $file = $stable;
         $downloadName = $packageId . '.spkg';
     } elseif (file_exists($legacyArchive) || is_link($legacyArchive)) {
-        if (is_link($legacyArchive) || !is_file($legacyArchive)) throw new RuntimeException('Unavailable.');
+        if (!PackageArchive::hasZipSignature($legacyArchive)) throw new RuntimeException('Unavailable.');
         $file = $legacyArchive;
+        $downloadName = $packageId . '.spkg14';
+    } elseif (file_exists($legacySpkgArchive) || is_link($legacySpkgArchive)) {
+        if (!PackageArchive::hasZipSignature($legacySpkgArchive)) throw new RuntimeException('Unavailable.');
+        $file = $legacySpkgArchive;
         $downloadName = $packageId . '.spkg14';
     } elseif (file_exists($legacyDirectory) || is_link($legacyDirectory)) {
         if (is_link($legacyDirectory) || !is_dir($legacyDirectory)) throw new RuntimeException('Unavailable.');
         $file = $legacyDirectory . DIRECTORY_SEPARATOR . $packageId . '.spkg14';
-        if (!file_exists($file) && !is_link($file)) {
+        if (!PackageArchive::hasZipSignature($file)) {
             $file = $legacyDirectory . DIRECTORY_SEPARATOR . $packageId . '.spkg';
         }
-        if (is_link($file) || !is_file($file)) throw new RuntimeException('Unavailable.');
-        $downloadName = str_ends_with($file, '.spkg14') ? $packageId . '.spkg14' : $packageId . '.spkg';
+        if (!PackageArchive::hasZipSignature($file)) throw new RuntimeException('Unavailable.');
+        $downloadName = $packageId . '.spkg14';
     } else {
         throw new RuntimeException('Unavailable.');
     }
