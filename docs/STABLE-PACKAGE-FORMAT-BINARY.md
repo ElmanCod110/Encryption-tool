@@ -90,7 +90,7 @@ The caller-supplied password and pattern are validated UTF-8 byte strings. They 
 
 ### 3.2 Root-key wrapping and header authentication
 
-The writer generates a random 32-byte 'root_key'.
+The writer generates a random, nonzero 32-byte 'root_key'. Readers MUST reject an all-zero unwrapped root key.
 
 - 'primary_cipher = AEAD_Encrypt(key=credential_key, nonce=primary_nonce, plaintext=root_key, aad=ASCII("SPKG/KEYWRAP/PRIMARY") || 0x00 || core)', using XChaCha20-Poly1305-IETF.
 - If recovery is enabled, 'recovery_cipher = AEAD_Encrypt(key=recovery_key_raw, nonce=recovery_nonce, plaintext=root_key, aad=ASCII("SPKG/KEYWRAP/RECOVERY") || 0x00 || core)', using XChaCha20-Poly1305-IETF, where 'recovery_key_raw' is a random 32-byte secret.
