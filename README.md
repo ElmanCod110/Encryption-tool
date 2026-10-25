@@ -56,7 +56,7 @@ SPK_PATTERN='<high-entropy-pattern>' php bin/encrypt-directory.php <source-dir> 
 SPK_PATTERN='<high-entropy-pattern>' php bin/decrypt-package.php <package-file-or-legacy-dir-or-spkg14> <destination-dir> <password> [recovery-key]
 ```
 
-A generated package may also expose a one-time recovery key. Keep that key outside the package and outside logs.
+A generated stable package may also expose a one-time 43-character base64url recovery key. Keep it offline and outside logs. Existing V14 packages use their legacy recovery-key encoding.
 
 ## Production security baseline
 
