@@ -2,6 +2,9 @@
 
 ## Unreleased — MVP readiness and repository maintenance
 
+- Stage all existing encrypted package representations before revoking access or deleting catalog metadata; roll back staged files on pre-commit failures and test injected deletion/cleanup failures.
+
+
 - Expanded the authenticated account profile into a responsive encrypted-package dashboard with package inventory, storage metadata, access controls, and regression coverage.
 - Zeroize each derived V14 per-file encryption key in a `finally` block, including when stream encryption throws.
 
