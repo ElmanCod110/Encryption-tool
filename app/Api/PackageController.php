@@ -12,6 +12,7 @@ use SecurePackage\Project\PackageDeletionTransaction;
 use SecurePackage\Project\PackageCatalog;
 use SecurePackage\Project\StablePackageReader;
 use SecurePackage\Project\StablePackageService;
+use SecurePackage\Project\StablePackageWriter;
 use SecurePackage\Project\V14PackageReader;
 use SecurePackage\Security\AccessContext;
 use SecurePackage\Security\ApplicationSecrets;
