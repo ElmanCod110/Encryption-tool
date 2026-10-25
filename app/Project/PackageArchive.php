@@ -17,6 +17,8 @@ final class PackageArchive
         $this->assertZipRuntime();
         $root = realpath($packageDir);
         if ($root === false || !is_dir($root)) throw new RuntimeException('Package directory does not exist.');
+        // Never replace an existing archive or follow a destination symlink.
+        if (file_exists($outputFile) || is_link($outputFile)) throw new RuntimeException('Package archive destination already exists.');
         $tmpOutput = $outputFile . '.partial.' . bin2hex(random_bytes(12));
         $zip = new ZipArchive();
         if ($zip->open($tmpOutput, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -40,11 +42,17 @@ final class PackageArchive
                 $zip->setCompressionName($relative, ZipArchive::CM_STORE);
             }
             if (!$zip->close()) throw new RuntimeException('Unable to finalize package archive.');
-            if (!rename($tmpOutput, $outputFile)) throw new RuntimeException('Unable to finalize package archive.');
+            // link() creates the final name atomically and fails if it already exists.
+            // The temporary file is in the same directory, so it is on the same filesystem.
+            if (!@link($tmpOutput, $outputFile)) throw new RuntimeException('Unable to finalize package archive without overwriting an existing file.');
+            if (!@unlink($tmpOutput)) {
+                @unlink($outputFile);
+                throw new RuntimeException('Unable to finalize package archive.');
+            }
         } catch (\Throwable $e) {
             @$zip->close();
             @unlink($tmpOutput);
-            @unlink($outputFile);
+            // Do not remove $outputFile here: it may predate this operation.
             throw $e;
         }
         @chmod($outputFile, 0600);
