@@ -335,10 +335,41 @@ final class StablePackageWriter
         $seenIds = [];
         $nodeCount = 0;
         $totalBytes = 0;
-        $walk = function (string $directory, string $parentId, string $relative, int $depth) use (&$walk, &$entries, &$seenIds, &$nodeCount, &$totalBytes, $root): void {
+        $rootStat = @lstat($root);
+        if (!is_array($rootStat) || is_link($root)
+            || (((int) ($rootStat['mode'] ?? 0) & 0170000) !== 0040000)) {
+            throw new RuntimeException('Source root is not a stable directory.');
+        }
+        $rootDev = (int) ($rootStat['dev'] ?? -1);
+        $rootIno = (int) ($rootStat['ino'] ?? 0);
+        $rootNormalized = str_replace('\\\\', '/', $root);
+        $rootPrefix = rtrim($rootNormalized, '/') . '/';
+        $walk = function (string $directory, string $parentId, string $relative, int $depth,
+            int $expectedDev, int $expectedIno) use (&$walk, &$entries, &$seenIds, &$nodeCount, &$totalBytes, $root, $rootPrefix): void {
+            // PHP lacks a portable openat(O_NOFOLLOW) tree-walk API. Verify directory
+            // identity immediately before and after enumeration and before descending.
+            $beforeDir = @lstat($directory);
+            $realBefore = realpath($directory);
+            $realBeforeNormalized = $realBefore === false ? '' : str_replace('\\\\', '/', $realBefore);
+            if (!is_array($beforeDir) || is_link($directory)
+                || (((int) ($beforeDir['mode'] ?? 0) & 0170000) !== 0040000)
+                || (int) ($beforeDir['dev'] ?? -2) !== $expectedDev
+                || (int) ($beforeDir['ino'] ?? 0) !== $expectedIno
+                || $realBefore === false
+                || ($directory !== $root && !str_starts_with($realBeforeNormalized, $rootPrefix))
+                || ($directory === $root && $realBeforeNormalized !== str_replace('\\\\', '/', $root))) {
+                throw new RuntimeException('Source directory changed or escaped during package creation.');
+            }
             $names = @scandir($directory);
             if ($names === false) {
                 throw new RuntimeException('Unable to inspect the source directory.');
+            }
+            $afterDir = @lstat($directory);
+            if (!is_array($afterDir) || is_link($directory)
+                || (int) ($afterDir['dev'] ?? -2) !== $expectedDev
+                || (int) ($afterDir['ino'] ?? 0) !== $expectedIno
+                || (((int) ($afterDir['mode'] ?? 0) & 0170000) !== 0040000)) {
+                throw new RuntimeException('Source directory changed during enumeration.');
             }
             $names = array_values(array_diff($names, ['.', '..']));
             sort($names, SORT_STRING);
@@ -352,19 +383,20 @@ final class StablePackageWriter
                 $siblings[$fold] = true;
 
                 $path = $directory . DIRECTORY_SEPARATOR . $name;
-                if (is_link($path)) {
-                    throw new RuntimeException('Symbolic links are not supported in package sources.');
+                $entryStat = @lstat($path);
+                if (!is_array($entryStat) || is_link($path)) {
+                    throw new RuntimeException('Symbolic links or unstable source entries are not supported.');
                 }
-                $real = realpath($path);
-                $rootPrefix = rtrim(str_replace('\\', '/', $root), '/') . '/';
-                $realNormalized = $real === false ? '' : str_replace('\\', '/', $real);
-                if ($real === false || !str_starts_with($realNormalized, $rootPrefix)) {
-                    throw new RuntimeException('Source entry escaped the source directory.');
-                }
-                $isDirectory = is_dir($path);
-                $isFile = is_file($path);
+                $entryType = ((int) ($entryStat['mode'] ?? 0)) & 0170000;
+                $isDirectory = $entryType === 0040000;
+                $isFile = $entryType === 0100000;
                 if (!$isDirectory && !$isFile) {
                     throw new RuntimeException('Special filesystem entries are not supported.');
+                }
+                $real = realpath($path);
+                $realNormalized = $real === false ? '' : str_replace('\\\\', '/', $real);
+                if ($real === false || !str_starts_with($realNormalized, $rootPrefix)) {
+                    throw new RuntimeException('Source entry escaped the source directory.');
                 }
                 $nodeDepth = $depth;
                 if ($nodeDepth > StablePackageDescriptor::MAX_DEPTH) {
@@ -398,19 +430,17 @@ final class StablePackageWriter
                     'path' => $pathName,
                     'source_path' => $path,
                     'source_root' => $root,
+                    'source_dev' => (int) ($entryStat['dev'] ?? -1),
+                    'source_ino' => (int) ($entryStat['ino'] ?? 0),
                     'size' => 0,
                     'chunks' => null,
                 ];
                 if ($isFile) {
-                    $stat = @lstat($path);
-                    if (!is_array($stat) || !isset($stat['size']) || (int) $stat['size'] < 0
-                        || (int) $stat['size'] > StablePackageDescriptor::MAX_FILE_BYTES
-                        || (((int) ($stat['mode'] ?? 0) & 0170000) !== 0100000)) {
+                    if (!isset($entryStat['size']) || (int) $entryStat['size'] < 0
+                        || (int) $entryStat['size'] > StablePackageDescriptor::MAX_FILE_BYTES) {
                         throw new RuntimeException('Source file exceeds the supported size limit.');
                     }
-                    $entry['source_dev'] = $stat['dev'] ?? null;
-                    $entry['source_ino'] = $stat['ino'] ?? null;
-                    $entry['size'] = (int) $stat['size'];
+                    $entry['size'] = (int) $entryStat['size'];
                     $totalBytes += $entry['size'];
                     if ($totalBytes > StablePackageDescriptor::MAX_TOTAL_PLAIN_BYTES) {
                         throw new RuntimeException('Source tree exceeds the total package size limit.');
@@ -418,11 +448,22 @@ final class StablePackageWriter
                 }
                 $entries[] = $entry;
                 if ($isDirectory) {
-                    $walk($path, $id, $pathName, $depth + 1);
+                    $childStat = @lstat($path);
+                    $childReal = realpath($path);
+                    $childRealNormalized = $childReal === false ? '' : str_replace('\\\\', '/', $childReal);
+                    if (!is_array($childStat) || is_link($path)
+                        || (int) ($childStat['dev'] ?? -2) !== (int) ($entryStat['dev'] ?? -1)
+                        || (int) ($childStat['ino'] ?? 0) !== (int) ($entryStat['ino'] ?? 0)
+                        || (((int) ($childStat['mode'] ?? 0) & 0170000) !== 0040000)
+                        || $childReal === false || !str_starts_with($childRealNormalized, $rootPrefix)) {
+                        throw new RuntimeException('Source directory changed before descent.');
+                    }
+                    $walk($path, $id, $pathName, $depth + 1,
+                        (int) ($entryStat['dev'] ?? -1), (int) ($entryStat['ino'] ?? 0));
                 }
             }
         };
-        $walk($root, StablePackageDescriptor::zeroId(), '', 1);
+        $walk($root, StablePackageDescriptor::zeroId(), '', 1, $rootDev, $rootIno);
         return $entries;
     }
 
