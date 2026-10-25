@@ -302,48 +302,78 @@ final class PackageController
         $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
         $ipRateKey = 'package:ip:' . hash('sha256', $ip);
         if (!$this->rateLimiter->allow($ipRateKey) || !$this->rateLimiter->allow($rateKey)) {
-            sodium_memzero($password); sodium_memzero($pattern);
+            sodium_memzero($password);
+            sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Too many failed attempts.'], 429);
         }
         $outputDir = null;
+        $temporaryPackageDir = null;
         try {
             if ($recoveryKey === null || $recoveryKey === '') {
                 Validator::validatePassword($password);
                 Validator::validatePattern($pattern);
             }
-            // Centralize revocation and expiry checks so decrypt uses the same boundary as downloads.
             $this->catalog->assertAvailable($packageId);
-            $packageDir = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
-            $temporaryPackageDir = null;
-            $portable = $packageDir . '.spkg14';
-            try {
-                if (!is_dir($packageDir)) {
-                    if (!is_file($portable)) throw new RuntimeException('Package does not exist.');
-                    $temporaryPackageDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'package-' . bin2hex(random_bytes(16));
-                    (new PackageArchive())->extract($portable, $temporaryPackageDir);
-                    $packageDir = $temporaryPackageDir;
+
+            $packagesRoot = $this->config['storage']['packages'];
+            $stableFile = $packagesRoot . DIRECTORY_SEPARATOR . $packageId . '.spkg';
+            $legacyDirectory = $packagesRoot . DIRECTORY_SEPARATOR . $packageId;
+            $legacyArchive = $packagesRoot . DIRECTORY_SEPARATOR . $packageId . '.spkg14';
+            $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
+
+            // Prefer the permanent binary format when its canonical path exists. A
+            // malformed or symlinked stable artifact must not silently downgrade to V14.
+            if (file_exists($stableFile) || is_link($stableFile)) {
+                if (is_link($stableFile) || !is_file($stableFile)) {
+                    throw new RuntimeException('Package storage is invalid.');
                 }
-                $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
-                $result = (new V14PackageReader())->restore($packageDir, $outputDir, $password, $pattern, $recoveryKey);
-            } finally {
-                if ($temporaryPackageDir !== null) $this->removePath($temporaryPackageDir);
+                $result = (new StablePackageReader())->restore($stableFile, $outputDir, $password, $pattern, $recoveryKey);
+            } elseif (file_exists($legacyDirectory) || is_link($legacyDirectory)) {
+                if (is_link($legacyDirectory) || !is_dir($legacyDirectory)) {
+                    throw new RuntimeException('Legacy package storage is invalid.');
+                }
+                $result = (new V14PackageReader())->restore($legacyDirectory, $outputDir, $password, $pattern, $recoveryKey);
+            } elseif (file_exists($legacyArchive) || is_link($legacyArchive)) {
+                if (is_link($legacyArchive) || !is_file($legacyArchive)) {
+                    throw new RuntimeException('Legacy package archive is invalid.');
+                }
+                $temporaryPackageDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'package-' . bin2hex(random_bytes(16));
+                (new PackageArchive())->extract($legacyArchive, $temporaryPackageDir);
+                $result = (new V14PackageReader())->restore($temporaryPackageDir, $outputDir, $password, $pattern, $recoveryKey);
+            } else {
+                throw new RuntimeException('Package does not exist.');
+            }
+
+            if (($result['package_id'] ?? null) !== $packageId) {
+                throw new RuntimeException('Package identifier does not match catalog metadata.');
             }
             $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
             $restoreToken = $tokenStore->issue($outputDir);
             $this->rateLimiter->success($rateKey);
             $this->rateLimiter->success($ipRateKey);
-            $this->audit->event('package.restored', ['package_id' => $packageId, 'account_id' => AccessContext::accountId(), 'files' => $result['files'] ?? null]);
-            sodium_memzero($password); sodium_memzero($pattern);
+            $this->audit->event('package.restored', [
+                'package_id' => $packageId,
+                'account_id' => AccessContext::accountId(),
+                'files' => $result['files'] ?? null,
+                'format' => is_file($stableFile) ? 'STABLE-BINARY' : 'SECURE-PKG-V14',
+            ]);
+            sodium_memzero($password);
+            sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
-            JsonResponse::send(['ok' => true, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
+            JsonResponse::send([
+                'ok' => true,
+                'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken),
+                'stats' => $result,
+            ]);
         } catch (\Throwable) {
-            // A failed restore can leave partially or fully decrypted files behind.
-            // Remove them before returning an error; only successful responses expose a restore token.
             if (is_string($outputDir)) $this->removePath($outputDir);
-            sodium_memzero($password); sodium_memzero($pattern);
+            sodium_memzero($password);
+            sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 422);
+        } finally {
+            if (is_string($temporaryPackageDir)) $this->removePath($temporaryPackageDir);
         }
     }
 
