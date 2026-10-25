@@ -20,6 +20,10 @@ final class AuditLogger
         }
         $this->headFile = $file . '.head';
         if (!is_file($this->headFile)) {
+            $logSize = is_file($this->file) ? filesize($this->file) : 0;
+            if ($logSize === false || $logSize > 0) {
+                throw new RuntimeException('Audit log head is missing; refusing to reset the integrity chain.');
+            }
             AtomicFile::write($this->headFile, str_repeat('0', 64));
         }
     }
@@ -40,10 +44,13 @@ final class AuditLogger
             if (!flock($handle, LOCK_EX) || !flock($headHandle, LOCK_EX)) {
                 throw new RuntimeException('Unable to lock audit log.');
             }
+            if (!$this->verify()) {
+                throw new RuntimeException('Audit log integrity check failed; refusing to append.');
+            }
             rewind($headHandle);
             $previous = trim((string) stream_get_contents($headHandle));
             if (!preg_match('/^[a-f0-9]{64}$/', $previous)) {
-                $previous = str_repeat('0', 64);
+                throw new RuntimeException('Audit log head is invalid; refusing to reset the integrity chain.');
             }
             $record = [
                 'time' => gmdate('c'),
@@ -87,7 +94,7 @@ final class AuditLogger
         foreach ($lines as $line) {
             try {
                 $record = json_decode($line, true, 32, JSON_THROW_ON_ERROR);
-            } catch (\Throwable) {
+            } catch (\\Throwable) {
                 return false;
             }
             if (!is_array($record)) return false;
@@ -105,10 +112,23 @@ final class AuditLogger
 
     private function sanitize(array $context): array
     {
-        $blocked = ['password', 'pattern', 'secret', 'token', 'csrf', 'authorization', 'cookie'];
+        // Context keys are supplied by callers and may evolve over time. Match sensitive
+        // fragments instead of exact names so suffixes/prefixes such as password_hash,
+        // api_token, session_id, recovery_key, and authorization_header are redacted too.
+        $blockedFragments = [
+            'password', 'passphrase', 'pattern', 'secret', 'token', 'csrf',
+            'authorization', 'cookie', 'session', 'credential', 'recoverykey',
+            'privatekey', 'signingkey', 'encryptionkey', 'apikey', 'accesskey',
+            'keymaterial', 'pepper',
+        ];
         $result = [];
         foreach ($context as $key => $value) {
-            if (in_array(strtolower((string) $key), $blocked, true)) continue;
+            $normalizedKey = strtolower((string) preg_replace('/[^a-z0-9]/i', '', (string) $key));
+            foreach ($blockedFragments as $fragment) {
+                if (str_contains($normalizedKey, $fragment)) {
+                    continue 2;
+                }
+            }
             if (is_scalar($value) || $value === null) $result[(string) $key] = $value;
         }
         ksort($result);
