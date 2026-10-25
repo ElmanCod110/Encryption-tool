@@ -15,6 +15,7 @@ final class V14Stream
     public static function encryptFile(string $source, string $destination, string $key, string $aad, int $plainSize, int $chunkBytes = 4 * 1024 * 1024): void
     {
         if (strlen($key) !== V14Descriptor::KEY_BYTES || $plainSize < 0 || $chunkBytes < 64 * 1024 || $chunkBytes > 8 * 1024 * 1024) throw new RuntimeException('Invalid stream configuration.');
+        if (file_exists($destination) || is_link($destination)) throw new RuntimeException('Encrypted destination already exists.');
         if (!is_file($source)) throw new RuntimeException('Source file does not exist.');
         $in = fopen($source, 'rb');
         if ($in === false) throw new RuntimeException('Unable to open source file.');
@@ -46,13 +47,15 @@ final class V14Stream
             fflush($out);
             fclose($out); $out = null;
             fclose($in); $in = null;
-            if (!rename($tmp, $destination)) throw new RuntimeException('Unable to finalize encrypted file.');
+            // link() atomically creates the final path and fails rather than replacing an existing file.
+            if (!@link($tmp, $destination)) throw new RuntimeException('Unable to finalize encrypted file without overwriting an existing destination.');
+            if (!@unlink($tmp)) throw new RuntimeException('Unable to remove encrypted temporary file.');
             @chmod($destination, 0600);
         } catch (\Throwable $e) {
             if (is_resource($in)) fclose($in);
             if (is_resource($out)) fclose($out);
             @unlink($tmp);
-            @unlink($destination);
+            // Never delete the destination here: it may belong to the caller.
             throw $e;
         }
     }
@@ -60,6 +63,7 @@ final class V14Stream
     public static function decryptFile(string $source, string $destination, string $key, string $aad, int $expectedPlainSize): void
     {
         if (strlen($key) !== V14Descriptor::KEY_BYTES || $expectedPlainSize < 0) throw new RuntimeException('Invalid stream configuration.');
+        if (file_exists($destination) || is_link($destination)) throw new RuntimeException('Restored destination already exists.');
         $in = fopen($source, 'rb');
         if ($in === false) throw new RuntimeException('Unable to open encrypted file.');
         $tmp = $destination . '.partial.' . bin2hex(random_bytes(12));
@@ -100,13 +104,15 @@ final class V14Stream
             fflush($out);
             fclose($out); $out = null;
             fclose($in); $in = null;
-            if (!rename($tmp, $destination)) throw new RuntimeException('Unable to finalize restored file.');
+            // link() atomically creates the final path and fails rather than replacing an existing file.
+            if (!@link($tmp, $destination)) throw new RuntimeException('Unable to finalize restored file without overwriting an existing destination.');
+            if (!@unlink($tmp)) throw new RuntimeException('Unable to remove restored temporary file.');
             @chmod($destination, 0600);
         } catch (\Throwable $e) {
             if (is_resource($in)) fclose($in);
             if (is_resource($out)) fclose($out);
             @unlink($tmp);
-            @unlink($destination);
+            // Never delete the destination here: it may belong to the caller.
             throw $e;
         }
     }
