@@ -86,7 +86,7 @@ Let 'salt' be the header's 32-byte salt and 'package_id' be the 24 raw bytes.
 4. 'pattern_key = Argon2id13(pattern, pattern_salt, ops, memory_bytes, output=32)'.
 5. 'credential_key = HKDF-SHA-256(IKM=password_key || pattern_key, length=32, info=ASCII("SPKG/CREDENTIAL-WRAP") || 0x00 || package_id, salt=salt)'.
 
-The caller-supplied password and pattern are validated UTF-8 byte strings. They are not trimmed, case-folded, normalized, or transcoded implicitly. Password and pattern keys MUST be zeroized as soon as possible after the combined key is derived.
+The frozen format-level byte contract for each credential is: nonempty, at most 4096 bytes, valid UTF-8, and contains no NUL byte. The exact supplied bytes are used; they are not trimmed, case-folded, normalized, or transcoded implicitly. A writer MAY apply a stricter application password-strength policy when creating new packages, but a reader MUST NOT apply a version-dependent strength policy to an existing package credential: future UI policy changes must not make previously valid packages unreadable. Password and pattern KDF keys MUST be zeroized as soon as possible after the combined key is derived.
 
 ### 3.2 Root-key wrapping and header authentication
 
