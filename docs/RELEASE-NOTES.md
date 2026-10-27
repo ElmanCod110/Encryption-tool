@@ -27,4 +27,4 @@ Use the [reproducible release QA matrix](RELEASE-QA.md) to record automated CI e
 
 ### Known release prerequisites
 
-A production release should include a real committed `composer.lock`, an independently trusted Ed25519 release public key, and the completed adversarial/fuzzing gates documented in the security roadmap. The release workflow currently fails closed when `composer.lock` is absent; do not bypass this gate with a fabricated lockfile.
+A Composer-generated `composer.lock` is now present on the reconciliation candidate branch and the workflow that refreshes it fails before opening a PR when dependency auditing fails. Strict validation and dependency audit must still pass on the exact release candidate. Production publication also requires an independently trusted Ed25519 release public key, completed adversarial/fuzzing gates, Windows/XAMPP and real-browser QA, and explicit release approval. Do not bypass a failing lockfile or audit gate. The stable binary format remains isolated in PR #38; the production writer has not been switched.
