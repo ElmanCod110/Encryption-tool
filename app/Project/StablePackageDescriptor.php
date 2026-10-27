@@ -450,7 +450,7 @@ final class StablePackageDescriptor
             if (!function_exists('mb_convert_case') || !defined('MB_CASE_FOLD') || !class_exists('Normalizer')) {
                 throw new RuntimeException('Non-ASCII names require Unicode normalization and full case-folding support.');
             }
-            $normalized = \\Normalizer::normalize($name, \\Normalizer::FORM_C);
+            $normalized = \Normalizer::normalize($name, \Normalizer::FORM_C);
             if (!is_string($normalized) || !hash_equals($normalized, $name)) {
                 throw new RuntimeException('Non-ASCII filenames must use Unicode NFC normalization.');
             }
