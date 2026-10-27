@@ -424,7 +424,9 @@ final class StablePackageDescriptor
         if ($size < 0) {
             throw new RuntimeException('Invalid file size.');
         }
-        return max(1, (int) ceil($size / self::CHUNK_BYTES));
+        // Integer arithmetic keeps the grammar deterministic for every supported
+        // size and avoids floating-point rounding at large file boundaries.
+        return $size === 0 ? 1 : intdiv($size - 1, self::CHUNK_BYTES) + 1;
     }
 
     public static function assertName(string $name): void
