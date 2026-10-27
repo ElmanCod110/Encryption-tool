@@ -39,6 +39,12 @@ A copied package permits offline password-and-pattern guessing against the wrapp
 
 The format authenticates encrypted content to the key material, not the identity of the person who sent the package. Use a trusted transfer channel and verify any sender/publisher signature or checksum through an independently trusted channel when origin authenticity matters.
 
+## KDF cost and deployment budget
+
+The current writer profile uses Argon2id with 3 operations and 256 MiB; the parser accepts only the documented bounded range, up to 4 operations and 256 MiB. These parameters are checked before derivation, but the wrapped key cannot be authenticated until a credential-derived key has been tried. Consequently, a malformed or wrong-credential request can still consume the maximum permitted KDF cost.
+
+Before production integration, benchmark wall-clock latency and peak process/container memory on the supported PHP versions and target Windows/XAMPP/shared-hosting environments. Test multiple concurrent failed unlocks against realistic memory limits. A profile that can exhaust the host is not acceptable merely because its parameters are cryptographically strong. Do not silently lower the KDF profile: any change must be reviewed against the binary contract, fixture, compatibility requirements and security goals.
+
 ## Implementation boundary
 
 The candidate implementation consists of these separate classes:
