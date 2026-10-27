@@ -728,7 +728,7 @@ final class StablePackageWriter
         }
         // PHP exposes no portable Windows ACL API. On POSIX systems, verify that group
         // and other permissions are absent rather than trusting chmod's return alone.
-        if (DIRECTORY_SEPARATOR !== '\\\\') {
+        if (DIRECTORY_SEPARATOR !== '\\') {
             $permissions = @fileperms($path);
             if (!is_int($permissions) || (($permissions & 0777) !== ($mode & 0777))) {
                 throw new RuntimeException('Private package file permissions did not take effect.');
