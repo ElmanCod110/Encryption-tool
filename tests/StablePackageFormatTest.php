@@ -132,6 +132,22 @@ function stableRemoveTree(string $path): void
 }
 
 Format::assertRuntime();
+
+$chunkCountCases = [
+    0 => 1,
+    1 => 1,
+    Format::CHUNK_BYTES - 1 => 1,
+    Format::CHUNK_BYTES => 1,
+    Format::CHUNK_BYTES + 1 => 2,
+    (2 * Format::CHUNK_BYTES) => 2,
+    (2 * Format::CHUNK_BYTES) + 1 => 3,
+    Format::MAX_FILE_BYTES => 4096,
+];
+foreach ($chunkCountCases as $size => $expectedChunks) {
+    stableAssert(Format::expectedChunkCount((int) $size) === $expectedChunks,
+        'Integer chunk-count calculation failed at size ' . $size . '.');
+}
+
 $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'stable-package-format-' . bin2hex(random_bytes(8));
 $source = $root . DIRECTORY_SEPARATOR . 'source';
 $package = $root . DIRECTORY_SEPARATOR . 'archive.spkg';
