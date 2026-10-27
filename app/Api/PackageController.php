@@ -566,14 +566,100 @@ final class PackageController
 
     private function removePath(string $path): void
     {
-        if (is_file($path) || is_link($path)) { @unlink($path); return; }
-        if (!is_dir($path)) return;
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
-        foreach ($iterator as $item) {
-            $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+        clearstatcache(true, $path);
+        $stat = @lstat($path);
+        if (!is_array($stat)) {
+            if (file_exists($path) || is_link($path)) {
+                throw new PackageStorageException('Unable to inspect cleanup target.');
+            }
+            return;
         }
-        @rmdir($path);
+
+        $mode = ((int) ($stat['mode'] ?? 0)) & 0170000;
+        $identity = [
+            'dev' => (int) ($stat['dev'] ?? -1),
+            'ino' => (int) ($stat['ino'] ?? 0),
+            'mode' => $mode,
+        ];
+
+        if (is_link($path) || $mode !== 0040000) {
+            clearstatcache(true, $path);
+            $current = @lstat($path);
+            if (!is_array($current)
+                || (int) ($current['dev'] ?? -2) !== $identity['dev']
+                || (int) ($current['ino'] ?? -1) !== $identity['ino']
+                || ((((int) ($current['mode'] ?? 0)) & 0170000) !== $mode)) {
+                throw new PackageStorageException('Cleanup target identity changed before deletion.');
+            }
+            if (!@unlink($path) && (file_exists($path) || is_link($path))) {
+                throw new PackageStorageException('Unable to remove cleanup file.');
+            }
+            clearstatcache(true, $path);
+            if (file_exists($path) || is_link($path)) {
+                throw new PackageStorageException('Cleanup file remains after deletion.');
+            }
+            return;
+        }
+
+        $assertRoot = static function () use ($path, $identity): void {
+            clearstatcache(true, $path);
+            $current = @lstat($path);
+            if (!is_array($current)
+                || is_link($path)
+                || (((int) ($current['mode'] ?? 0) & 0170000) !== 0040000)
+                || (int) ($current['dev'] ?? -2) !== $identity['dev']
+                || ((int) ($identity['ino'] ?? 0) !== 0
+                    && (int) ($current['ino'] ?? 0) !== $identity['ino'])) {
+                throw new PackageStorageException('Cleanup directory identity changed.');
+            }
+        };
+
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($iterator as $item) {
+                $assertRoot();
+                $itemPath = $item->getPathname();
+                clearstatcache(true, $itemPath);
+                $itemStat = @lstat($itemPath);
+                if (!is_array($itemStat)) {
+                    if (file_exists($itemPath) || is_link($itemPath)) {
+                        throw new PackageStorageException('Unable to inspect cleanup entry.');
+                    }
+                    continue;
+                }
+                $itemMode = ((int) ($itemStat['mode'] ?? 0)) & 0170000;
+                if ($itemMode === 0040000 && !is_link($itemPath)) {
+                    if (!@rmdir($itemPath) && is_dir($itemPath)) {
+                        throw new PackageStorageException('Unable to remove cleanup directory.');
+                    }
+                } else {
+                    if (!@unlink($itemPath) && (file_exists($itemPath) || is_link($itemPath))) {
+                        throw new PackageStorageException('Unable to remove cleanup entry.');
+                    }
+                }
+                clearstatcache(true, $itemPath);
+                if (file_exists($itemPath) || is_link($itemPath)) {
+                    throw new PackageStorageException('Cleanup entry remains after deletion.');
+                }
+            }
+        } catch (\Throwable $exception) {
+            if ($exception instanceof PackageStorageException) throw $exception;
+            throw new PackageStorageException('Unable to enumerate cleanup directory.', 0, $exception);
+        }
+
+        $assertRoot();
+        if (!@rmdir($path) && is_dir($path)) {
+            throw new PackageStorageException('Unable to remove cleanup directory.');
+        }
+        clearstatcache(true, $path);
+        if (file_exists($path) || is_link($path)) {
+            throw new PackageStorageException('Cleanup directory remains after deletion.');
+        }
     }
+
 
     private function makePackageService(): V14PackageService
     {
