@@ -18,7 +18,7 @@ jobs:
         uses: shivammathur/setup-php@2.37.2
         with:
           php-version: '8.3'
-          extensions: sodium,zip,pdo_mysql
+          extensions: sodium,zip,pdo_mysql,mbstring,intl
           coverage: none
 
       - name: PHP syntax check
@@ -86,6 +86,8 @@ jobs:
           php tests/V14PackageArchiveTest.php
           php tests/V14PackageArchiveStorageTest.php
           php tests/StablePackageFormatTest.php
+          php tests/StablePackageUnicodeFallbackTest.php
+          php -n tests/StablePackageUnicodeFallbackTest.php
 
       - name: Self check
         run: php bin/self-check.php
