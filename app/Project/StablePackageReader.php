@@ -369,10 +369,16 @@ final class StablePackageReader
         }
         $createdRoot = true;
         $createdRootIdentity = $this->captureIdentity($destination);
-        if (!is_array($createdRootIdentity)) {
-            throw new RuntimeException('Unable to verify restore destination identity.');
+        if (!is_array($createdRootIdentity) || $createdRootIdentity['type'] !== 0040000
+            || is_link($destination) || !$this->matchesIdentity($destination, $createdRootIdentity)) {
+            throw new RuntimeException('Unable to verify restore destination directory identity.');
         }
         $ownedDirectories = [$destination => $createdRootIdentity];
+        // mkdir(..., 0700) already applies the restrictive mode at creation. Recheck
+        // identity and symlink status before chmod because chmod follows symlinks.
+        if (is_link($destination) || !$this->matchesIdentity($destination, $createdRootIdentity)) {
+            throw new RuntimeException('Restore destination changed before permission hardening.');
+        }
         @chmod($destination, 0700);
 
         $directories = array_values(array_filter($entries, static fn(array $entry): bool => $entry['type'] === 1));
@@ -386,11 +392,18 @@ final class StablePackageReader
                 throw new RuntimeException('Unable to create restored directory safely.');
             }
             $identity = $this->captureIdentity($target);
-            $createdDirectories[] = ['path' => $target, 'identity' => $identity];
-            if (!is_array($identity)) {
+            if (is_array($identity) && $identity['type'] === 0040000 && !is_link($target)) {
+                $createdDirectories[] = ['path' => $target, 'identity' => $identity];
+            }
+            if (!is_array($identity) || $identity['type'] !== 0040000
+                || is_link($target) || !$this->matchesIdentity($target, $identity)) {
                 throw new RuntimeException('Unable to verify restored directory identity.');
             }
             $ownedDirectories[$target] = $identity;
+            // As above, do not chmod a path that may have become a symlink.
+            if (is_link($target) || !$this->matchesIdentity($target, $identity)) {
+                throw new RuntimeException('Restored directory changed before permission hardening.');
+            }
             @chmod($target, 0700);
         }
 
