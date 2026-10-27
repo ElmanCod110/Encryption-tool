@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
+use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\PackageId;
+use SecurePackage\Project\V14PackageBuilder;
+
 $sourceRoot = dirname(__DIR__);
 $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'spk-api-http-' . bin2hex(random_bytes(8));
 $fixture = $base . DIRECTORY_SEPARATOR . 'fixture';
@@ -114,7 +118,7 @@ try {
     }
     try {
         $configSentinel = 'CONFIG_PRIVATE_SENTINEL_' . bin2hex(random_bytes(8));
-        $brokenConfig = "<?php\n declare(strict_types=1);\n throw new RuntimeException('" . $configSentinel . "');\n";
+        $brokenConfig = "<?php\ndeclare(strict_types=1);\nthrow new RuntimeException('" . $configSentinel . "');\n";
         if (file_put_contents($configFile, $brokenConfig) === false) {
             throw new RuntimeException('Unable to prepare configuration failure fixture.');
         }
@@ -190,10 +194,58 @@ try {
     }
     $csrf = $registeredData['csrf'];
     $common = ['Content-Type: application/json', 'Cookie: ' . $cookie];
-    $packageId = str_repeat('a', 48);
+
+    // A malformed or missing job must not be reported as a generic server failure.
+    $missingJob = $request(
+        'api.php?action=archive-step',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['job_id' => 'invalid', 'archive_id' => 'invalid', 'password' => ''], JSON_THROW_ON_ERROR)
+    );
+    $expect(404, $missingJob, 'Missing archive job');
+
+    $missingPackage = $request(
+        'api.php?action=access-token',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['package_id' => str_repeat('f', 48)], JSON_THROW_ON_ERROR)
+    );
+    $expect(404, $missingPackage, 'Missing package access token');
+
     $storageRoot = $fixture . DIRECTORY_SEPARATOR . 'storage';
     $catalogDir = $storageRoot . DIRECTORY_SEPARATOR . 'catalog';
     $packagesDir = $storageRoot . DIRECTORY_SEPARATOR . 'packages';
+
+    // A catalog initialization failure is a storage fault, not a missing-package 404.
+    $catalogBackup = $storageRoot . DIRECTORY_SEPARATOR . 'catalog-backup';
+    if (!is_dir($catalogDir) || !rename($catalogDir, $catalogBackup)) {
+        throw new RuntimeException('Unable to prepare catalog initialization failure fixture.');
+    }
+    try {
+        if (file_put_contents($catalogDir, 'not-a-directory') === false) {
+            throw new RuntimeException('Unable to prepare catalog initialization failure fixture.');
+        }
+        $catalogFailure = $request(
+            'api.php?action=packages',
+            'POST',
+            array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+            '{}'
+        );
+        $expect(500, $catalogFailure, 'Package catalog initialization failure');
+        if (!str_contains($catalogFailure['body'], 'Internal server error.')
+            || str_contains($catalogFailure['body'], 'RuntimeException')
+            || str_contains($catalogFailure['body'], 'catalog')
+            || str_contains($catalogFailure['body'], $fixture)) {
+            throw new RuntimeException('Catalog initialization failure exposed implementation details.');
+        }
+    } finally {
+        if (is_file($catalogDir) || is_link($catalogDir)) @unlink($catalogDir);
+        if (is_dir($catalogBackup) && !@rename($catalogBackup, $catalogDir)) {
+            throw new RuntimeException('Unable to restore catalog directory after fault injection.');
+        }
+    }
+
+    $packageId = str_repeat('a', 48);
     if (!is_dir($catalogDir) && !mkdir($catalogDir, 0700, true) && !is_dir($catalogDir)) {
         throw new RuntimeException('Unable to prepare inventory catalog fixture.');
     }
@@ -225,6 +277,64 @@ try {
         || ($listed['size_bytes'] ?? null) !== strlen($encryptedFixture)
         || ($listed['revoked'] ?? null) !== false) {
         throw new RuntimeException('Encrypted package inventory omitted or misreported safe package metadata.');
+    }
+
+    // Use a real encrypted package to reach the restore directory creation path.
+    $restorePackageId = PackageId::generate();
+    $restoreSource = $base . DIRECTORY_SEPARATOR . 'restore-source';
+    $restorePackageDir = $packagesDir . DIRECTORY_SEPARATOR . $restorePackageId;
+    if (!mkdir($restoreSource, 0700, true)
+        || file_put_contents($restoreSource . DIRECTORY_SEPARATOR . 'restore-fixture.txt', "restore storage test\n") === false) {
+        throw new RuntimeException('Unable to prepare restore source fixture.');
+    }
+    $restorePassword = 'Strong!Password2026#';
+    $restorePattern = 'Az!71_xYp#42Qw9';
+    try {
+        (new V14PackageBuilder())->build($restoreSource, $restorePackageDir, $restorePassword, $restorePattern, $restorePackageId, true);
+    } finally {
+        sodium_memzero($restorePassword);
+        sodium_memzero($restorePattern);
+    }
+    (new PackageCatalog($catalogDir))->create(
+        $restorePackageId,
+        'account:' . $registeredData['account_id'],
+        'restore-failure-fixture'
+    );
+
+    // Keep job/token subdirectories intact, but make only the temporary root unwritable.
+    // This lets API service construction succeed and exercises the actual restore-output write.
+    $tempPath = $storageRoot . DIRECTORY_SEPARATOR . 'temp';
+    $tempMode = is_dir($tempPath) ? (fileperms($tempPath) & 0777) : false;
+    $blockedRestoreTest = is_int($tempMode) && @chmod($tempPath, 0500);
+    clearstatcache(true, $tempPath);
+    if ($blockedRestoreTest && !is_writable($tempPath)) {
+        try {
+            $restoreFailure = $request(
+                'api.php?action=decrypt',
+                'POST',
+                array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+                json_encode([
+                    'package_id' => $restorePackageId,
+                    'password' => 'Strong!Password2026#',
+                    'pattern' => 'Az!71_xYp#42Qw9',
+                ], JSON_THROW_ON_ERROR)
+            );
+            $expect(500, $restoreFailure, 'Restore destination storage failure');
+            if (!str_contains($restoreFailure['body'], 'Internal server error.')
+                || str_contains($restoreFailure['body'], 'PackageStorageException')
+                || str_contains($restoreFailure['body'], 'restore')
+                || str_contains($restoreFailure['body'], $fixture)
+                || str_contains($restoreFailure['body'], $restorePackageId)) {
+                throw new RuntimeException('Restore storage failure exposed implementation details.');
+            }
+        } finally {
+            if (!@chmod($tempPath, $tempMode)) {
+                throw new RuntimeException('Unable to restore temporary storage permissions.');
+            }
+        }
+    } else {
+        if (is_int($tempMode)) @chmod($tempPath, $tempMode);
+        echo "Restore destination permission-failure scenario skipped (host does not enforce directory mode changes).\n";
     }
 
     $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';
