@@ -73,10 +73,14 @@ final class JobStore
             throw new JobNotAvailableException();
         }
         $path = $this->root . DIRECTORY_SEPARATOR . $id;
-        try {
-            $this->directoryIdentity($path);
-        } catch (RuntimeException) {
-            throw new JobNotAvailableException();
+        clearstatcache(true, $path);
+        $stat = @lstat($path);
+        if (!is_array($stat)) {
+            if (!file_exists($path) && !is_link($path)) throw new JobNotAvailableException();
+            throw new RuntimeException('Unable to inspect job directory.');
+        }
+        if (is_link($path) || (((int) ($stat['mode'] ?? 0) & 0170000) !== 0040000)) {
+            throw new RuntimeException('Job path is not a regular directory.');
         }
         return $path;
     }
@@ -319,7 +323,7 @@ final class JobStore
         if ((int) ($stat['ino'] ?? 0) === 0) {
             throw new RuntimeException('Unable to verify job state identity.');
         }
-        return ['dev' => (int) ($stat['dev'] ?? -1), 'ino' => (int) $stat['ino'];
+        return ['dev' => (int) ($stat['dev'] ?? -1), 'ino' => (int) $stat['ino']];
     }
 
     private function assertRegularFileIdentity(string $path, array $expected, string $message): void
@@ -426,12 +430,4 @@ final class JobStore
         }
     }
 
-    public function assertOwner(string $id, string $ownerToken): void
-    {
-        $state = $this->readState($id);
-        $stored = (string) ($state['owner_hash'] ?? '');
-        if ($stored === '' || !hash_equals($stored, hash('sha256', $ownerToken))) {
-            throw new JobNotAvailableException();
-        }
-    }
 }
