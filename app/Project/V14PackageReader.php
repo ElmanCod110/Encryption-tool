@@ -88,7 +88,14 @@ final class V14PackageReader
             $destinationStat = @lstat($destinationDir);
             if (!is_array($destinationStat) || is_link($destinationDir)
                 || (((int) ($destinationStat['mode'] ?? 0) & 0170000) !== 0040000)) {
-                if (is_dir($destinationDir) && !is_link($destinationDir)) @rmdir($destinationDir);
+                if (is_dir($destinationDir) && !is_link($destinationDir)) {
+                    if (!@rmdir($destinationDir) && is_dir($destinationDir)) {
+                        throw new PackageStorageException('Unable to clean restore destination after identity verification failed.');
+                    }
+                }
+                if (file_exists($destinationDir) || is_link($destinationDir)) {
+                    throw new PackageStorageException('Unverified restore destination remains after cleanup.');
+                }
                 throw new PackageStorageException('Unable to verify restore destination identity.');
             }
             $destinationIdentity = [
