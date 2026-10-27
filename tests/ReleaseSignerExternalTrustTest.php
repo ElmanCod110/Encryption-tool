@@ -25,7 +25,7 @@ try {
             throw new RuntimeException('Unable to prepare release-signing fixture.');
         }
     }
-    foreach (['bootstrap.php', 'composer.json', 'VERSION'] as $file) {
+    foreach (['bootstrap.php', 'composer.json', 'composer.lock', 'VERSION'] as $file) {
         if (!copy($sourceRoot . DIRECTORY_SEPARATOR . $file, $fixture . DIRECTORY_SEPARATOR . $file)) {
             throw new RuntimeException('Unable to copy release-signing fixture.');
         }
