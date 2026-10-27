@@ -15,48 +15,144 @@ final class PackageArchive
     public function create(string $packageDir, string $outputFile): void
     {
         $this->assertZipRuntime();
-        $root = realpath($packageDir);
-        if ($root === false || !is_dir($root)) throw new RuntimeException('Package directory does not exist.');
-        // Never replace an existing archive or follow a destination symlink.
-        if (file_exists($outputFile) || is_link($outputFile)) throw new RuntimeException('Package archive destination already exists.');
-        $tmpOutput = $outputFile . '.partial.' . bin2hex(random_bytes(12));
-        $zip = new ZipArchive();
-        if ($zip->open($tmpOutput, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            @unlink($tmpOutput);
-            throw new RuntimeException('Unable to create package archive.');
+        if (is_link($packageDir)) {
+            throw new RuntimeException('Package directory must not be a symlink.');
         }
+        $root = realpath($packageDir);
+        if ($root === false || !is_dir($root)) {
+            throw new RuntimeException('Package directory does not exist.');
+        }
+
+        // Never replace an existing archive or follow a destination symlink.
+        if (file_exists($outputFile) || is_link($outputFile)) {
+            throw new PackageStorageException('Package archive destination already exists.');
+        }
+        $parent = dirname($outputFile);
+        clearstatcache(true, $parent);
+        $parentStat = @lstat($parent);
+        if (!is_dir($parent) || is_link($parent) || !is_array($parentStat)
+            || (((int) ($parentStat['mode'] ?? 0) & 0170000) !== 0040000)) {
+            throw new PackageStorageException('Package archive output directory is unavailable.');
+        }
+
+        $tmpOutput = $parent . DIRECTORY_SEPARATOR . basename($outputFile) . '.partial.' . bin2hex(random_bytes(12));
+        if (file_exists($tmpOutput) || is_link($tmpOutput)) {
+            throw new PackageStorageException('Temporary package archive path already exists.');
+        }
+
+        $zip = new ZipArchive();
+        $openResult = $zip->open($tmpOutput, ZipArchive::CREATE | ZipArchive::EXCL);
+        if ($openResult !== true) {
+            clearstatcache(true, $tmpOutput);
+            if (file_exists($tmpOutput) || is_link($tmpOutput)) {
+                // A failed ZipArchive open does not prove ownership of the path it left behind.
+                throw new PackageStorageException('Unable to initialize package archive output.');
+            }
+            throw new PackageStorageException('Unable to create package archive.');
+        }
+
+        $tmpIdentity = null;
+        $published = false;
         try {
+            clearstatcache(true, $tmpOutput);
+            $tempStat = @lstat($tmpOutput);
+            if (!is_array($tempStat) || is_link($tmpOutput)
+                || (((int) ($tempStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+                throw new PackageStorageException('Temporary package archive identity could not be verified.');
+            }
+            $tmpIdentity = [
+                'dev' => (int) ($tempStat['dev'] ?? -1),
+                'ino' => (int) ($tempStat['ino'] ?? 0),
+            ];
+
             $count = 0;
             $used = [];
-            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+            $rootStat = @lstat($root);
+            if (!is_array($rootStat) || is_link($root)
+                || (((int) ($rootStat['mode'] ?? 0) & 0170000) !== 0040000)) {
+                throw new PackageStorageException('Package source directory identity is invalid.');
+            }
+            $rootIdentity = [
+                'dev' => (int) ($rootStat['dev'] ?? -1),
+                'ino' => (int) ($rootStat['ino'] ?? 0),
+            ];
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
+            );
             foreach ($iterator as $file) {
+                $currentRoot = @lstat($root);
+                if (!is_array($currentRoot) || is_link($root)
+                    || (int) ($currentRoot['dev'] ?? -2) !== $rootIdentity['dev']
+                    || (int) ($currentRoot['ino'] ?? 0) !== $rootIdentity['ino']) {
+                    throw new PackageStorageException('Package source directory changed while archiving.');
+                }
                 if (!$file->isFile() || $file->isLink() || $file->getFilename() === 'record.json') continue;
-                if (++$count > self::MAX_ENTRIES) throw new RuntimeException('Package archive contains too many entries.');
+                if (++$count > self::MAX_ENTRIES) {
+                    throw new PackageRestoreRejectedException('Package archive contains too many entries.');
+                }
                 $path = $file->getPathname();
+                clearstatcache(true, $path);
+                $sourceStat = @lstat($path);
+                if (!is_array($sourceStat) || is_link($path)
+                    || (((int) ($sourceStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+                    throw new PackageStorageException('Package source entry is not a regular file.');
+                }
                 $relative = str_replace('\\', '/', substr($path, strlen(rtrim($root, DIRECTORY_SEPARATOR)) + 1));
                 $this->assertArchivePath($relative);
                 $normalized = function_exists('mb_strtolower') ? mb_strtolower($relative, 'UTF-8') : strtolower($relative);
-                if (isset($used[$normalized])) throw new RuntimeException('Package archive contains colliding paths.');
+                if (isset($used[$normalized])) {
+                    throw new PackageRestoreRejectedException('Package archive contains colliding paths.');
+                }
                 $used[$normalized] = true;
-                if (!$zip->addFile($path, $relative)) throw new RuntimeException('Unable to add package file to archive.');
-                $zip->setCompressionName($relative, ZipArchive::CM_STORE);
+                if (!$zip->addFile($path, $relative)) {
+                    throw new PackageStorageException('Unable to add package file to archive.');
+                }
+                if (!$zip->setCompressionName($relative, ZipArchive::CM_STORE)) {
+                    throw new PackageStorageException('Unable to configure package archive entry.');
+                }
             }
-            if (!$zip->close()) throw new RuntimeException('Unable to finalize package archive.');
-            // link() creates the final name atomically and fails if it already exists.
-            // The temporary file is in the same directory, so it is on the same filesystem.
-            if (!@link($tmpOutput, $outputFile)) throw new RuntimeException('Unable to finalize package archive without overwriting an existing file.');
-            if (!@unlink($tmpOutput)) {
-                @unlink($outputFile);
-                throw new RuntimeException('Unable to finalize package archive.');
+            if (!$zip->close()) {
+                throw new PackageStorageException('Unable to finalize package archive.');
             }
-        } catch (\Throwable $e) {
-            @$zip->close();
-            @unlink($tmpOutput);
-            // Do not remove $outputFile here: it may predate this operation.
-            throw $e;
+
+            clearstatcache(true, $tmpOutput);
+            $tempStat = @lstat($tmpOutput);
+            if (!is_array($tempStat) || is_link($tmpOutput)
+                || (int) ($tempStat['dev'] ?? -2) !== $tmpIdentity['dev']
+                || (int) ($tempStat['ino'] ?? 0) !== $tmpIdentity['ino']
+                || (((int) ($tempStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+                throw new PackageStorageException('Temporary package archive changed during creation.');
+            }
+            if (!@chmod($tmpOutput, 0600)) {
+                throw new PackageStorageException('Unable to protect temporary package archive.');
+            }
+
+            // link() publishes atomically and fails rather than replacing an existing destination.
+            if (!@link($tmpOutput, $outputFile)) {
+                throw new PackageStorageException('Unable to publish package archive without overwriting an existing destination.');
+            }
+            $published = true;
+            clearstatcache(true, $outputFile);
+            $outputStat = @lstat($outputFile);
+            if (!is_array($outputStat) || is_link($outputFile)
+                || (int) ($outputStat['dev'] ?? -2) !== $tmpIdentity['dev']
+                || (int) ($outputStat['ino'] ?? 0) !== $tmpIdentity['ino']) {
+                throw new PackageStorageException('Published package archive identity could not be verified.');
+            }
+            if (!@unlink($tmpOutput) && (file_exists($tmpOutput) || is_link($tmpOutput))) {
+                throw new PackageStorageException('Unable to remove temporary package archive after publication.');
+            }
+            if (file_exists($tmpOutput) || is_link($tmpOutput)) {
+                throw new PackageStorageException('Temporary package archive remains after publication.');
+            }
+            $published = false;
+        } catch (\Throwable $exception) {
+            try { $zip->close(); } catch (\Throwable) {}
+            $this->cleanupFailedCreate($tmpOutput, $outputFile, $published, $tmpIdentity, $exception);
+            throw $exception;
         }
-        @chmod($outputFile, 0600);
     }
+
 
     public function extract(string $archiveFile, string $destinationDir): void
     {
@@ -211,6 +307,53 @@ final class PackageArchive
                 throw new PackageStorageException('Unable to clean failed package extraction.', 0, $cleanupError);
             }
             throw $exception;
+        }
+    }
+
+    private function cleanupFailedCreate(string $temporaryPath, string $destinationPath, bool $published, ?array $temporaryIdentity, \Throwable $previous): void
+    {
+        $cleanupFailed = false;
+        if ($published) {
+            clearstatcache(true, $destinationPath);
+            $destStat = @lstat($destinationPath);
+            if (is_array($destStat) && !is_link($destinationPath)
+                && is_array($temporaryIdentity)
+                && (int) ($destStat['dev'] ?? -2) === (int) ($temporaryIdentity['dev'] ?? -1)
+                && (int) ($destStat['ino'] ?? 0) === (int) ($temporaryIdentity['ino'] ?? -1)
+                && (((int) ($destStat['mode'] ?? 0) & 0170000) === 0100000)) {
+                if (!@unlink($destinationPath) && (file_exists($destinationPath) || is_link($destinationPath))) {
+                    $cleanupFailed = true;
+                }
+            } elseif (file_exists($destinationPath) || is_link($destinationPath)) {
+                // Do not delete a destination whose identity cannot be proved to belong to this operation.
+                $cleanupFailed = true;
+            }
+        }
+
+        clearstatcache(true, $temporaryPath);
+        if (file_exists($temporaryPath) || is_link($temporaryPath)) {
+            $tempStat = @lstat($temporaryPath);
+            if (is_array($tempStat) && !is_link($temporaryPath)
+                && is_array($temporaryIdentity)
+                && (int) ($tempStat['dev'] ?? -2) === (int) ($temporaryIdentity['dev'] ?? -1)
+                && (int) ($tempStat['ino'] ?? 0) === (int) ($temporaryIdentity['ino'] ?? -1)
+                && (((int) ($tempStat['mode'] ?? 0) & 0170000) === 0100000)) {
+                if (!@unlink($temporaryPath) && (file_exists($temporaryPath) || is_link($temporaryPath))) {
+                    $cleanupFailed = true;
+                }
+            } else {
+                $cleanupFailed = true;
+            }
+        }
+
+        clearstatcache(true, $temporaryPath);
+        clearstatcache(true, $destinationPath);
+        if (file_exists($temporaryPath) || is_link($temporaryPath)
+            || ($published && (file_exists($destinationPath) || is_link($destinationPath)))) {
+            $cleanupFailed = true;
+        }
+        if ($cleanupFailed) {
+            throw new PackageStorageException('Unable to clean failed package archive output safely.', 0, $previous);
         }
     }
 
