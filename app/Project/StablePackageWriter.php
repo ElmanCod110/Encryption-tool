@@ -487,6 +487,7 @@ final class StablePackageWriter
         $entries = [];
         $seenIds = [];
         $nodeCount = 0;
+        $pendingCount = 0;
         $totalBytes = 0;
         $rootStat = @lstat($root);
         if (!is_array($rootStat) || is_link($root)
@@ -498,7 +499,7 @@ final class StablePackageWriter
         $rootNormalized = str_replace('\\', '/', $root);
         $rootPrefix = rtrim($rootNormalized, '/') . '/';
         $walk = function (string $directory, string $parentId, string $relative, int $depth,
-            int $expectedDev, int $expectedIno) use (&$walk, &$entries, &$seenIds, &$nodeCount, &$totalBytes, $root, $rootPrefix): void {
+            int $expectedDev, int $expectedIno) use (&$walk, &$entries, &$seenIds, &$nodeCount, &$pendingCount, &$totalBytes, $root, $rootPrefix): void {
             // PHP lacks a portable openat(O_NOFOLLOW) tree-walk API. Verify directory
             // identity immediately before and after enumeration and before descending.
             $beforeDir = @lstat($directory);
@@ -513,9 +514,27 @@ final class StablePackageWriter
                 || ($directory === $root && $realBeforeNormalized !== str_replace('\\', '/', $root))) {
                 throw new RuntimeException('Source directory changed or escaped during package creation.');
             }
-            $names = @scandir($directory);
-            if ($names === false) {
+            // Read directory entries incrementally. The global pending count includes
+            // siblings still held by ancestor frames, so a wide directory cannot allocate
+            // an unbounded array before MAX_NODES is enforced.
+            $directoryHandle = @opendir($directory);
+            if ($directoryHandle === false) {
                 throw new RuntimeException('Unable to inspect the source directory.');
+            }
+            $names = [];
+            try {
+                while (($name = readdir($directoryHandle)) !== false) {
+                    if ($name === '.' || $name === '..') {
+                        continue;
+                    }
+                    if ($nodeCount + $pendingCount >= StablePackageDescriptor::MAX_NODES) {
+                        throw new RuntimeException('Source tree contains too many entries.');
+                    }
+                    $names[] = $name;
+                    $pendingCount++;
+                }
+            } finally {
+                closedir($directoryHandle);
             }
             $afterDir = @lstat($directory);
             if (!is_array($afterDir) || is_link($directory)
@@ -528,6 +547,7 @@ final class StablePackageWriter
             sort($names, SORT_STRING);
             $siblings = [];
             foreach ($names as $name) {
+                $pendingCount--;
                 StablePackageDescriptor::assertName($name);
                 $fold = StablePackageDescriptor::foldName($name);
                 if (isset($siblings[$fold])) {
