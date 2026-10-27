@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
+use SecurePackage\Project\StablePackageCrypto;
 use SecurePackage\Project\StablePackageDescriptor as Format;
 use SecurePackage\Project\StablePackageReader;
 use SecurePackage\Project\StablePackageWriter;
@@ -132,6 +133,15 @@ function stableRemoveTree(string $path): void
 }
 
 Format::assertRuntime();
+
+// The immutable format accepts any nonempty, bounded UTF-8 credential byte string.
+// UI password-strength policy is applied when creating new packages, not when reading
+// old packages, so future policy changes cannot make a valid legacy credential unreadable.
+StablePackageCrypto::assertCredentialBytes('low-strength-but-format-valid');
+foreach (['', str_repeat('a', 4097), "nul\0byte", "\xFF"] as $invalidCredential) {
+    stableExpectFailure(fn() => StablePackageCrypto::assertCredentialBytes($invalidCredential),
+        'Invalid format-level credential bytes were accepted.');
+}
 
 $chunkCountCases = [
     0 => 1,
