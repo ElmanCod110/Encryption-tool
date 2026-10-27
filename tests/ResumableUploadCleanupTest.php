@@ -35,6 +35,40 @@ try {
         }
     }
 
+    $direct = $store->initialize(10, 'owner-direct-cleanup');
+    $directDir = $root . DIRECTORY_SEPARATOR . $direct['id'];
+    if (!mkdir($directDir . DIRECTORY_SEPARATOR . 'nested', 0700, true)
+        || file_put_contents($directDir . DIRECTORY_SEPARATOR . 'nested' . DIRECTORY_SEPARATOR . 'inside.txt', 'remove me') === false) {
+        throw new RuntimeException('Unable to prepare nested upload cleanup fixture.');
+    }
+    $externalKeep = $outside . DIRECTORY_SEPARATOR . 'survive-direct-remove.txt';
+    file_put_contents($externalKeep, 'outside upload storage');
+    $nestedLink = $directDir . DIRECTORY_SEPARATOR . 'nested' . DIRECTORY_SEPARATOR . 'external-link';
+    if (@symlink($outside, $nestedLink)) {
+        $store->remove($direct['id']);
+        if (file_exists($directDir) || is_link($directDir)) {
+            throw new RuntimeException('Direct upload removal left owned storage behind.');
+        }
+        if (!is_file($externalKeep) || file_get_contents($externalKeep) !== 'outside upload storage') {
+            throw new RuntimeException('Direct upload removal followed a nested symlink.');
+        }
+    } else {
+        $store->remove($direct['id']);
+        if (file_exists($directDir) || is_link($directDir)) {
+            throw new RuntimeException('Direct upload removal failed without a symlink fixture.');
+        }
+    }
+
+    $invalidIdRejected = false;
+    try {
+        $store->remove('../outside');
+    } catch (RuntimeException) {
+        $invalidIdRejected = true;
+    }
+    if (!$invalidIdRejected) {
+        throw new RuntimeException('Invalid upload cleanup identifier was silently ignored.');
+    }
+
     echo "Resumable upload cleanup tests passed.\n";
 } finally {
     foreach ([$root, $outside] as $directory) {
