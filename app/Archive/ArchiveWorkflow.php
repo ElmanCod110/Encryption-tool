@@ -44,7 +44,11 @@ final class ArchiveWorkflow
             $this->jobs->writeState($job['id'], $state);
             return ['job_id' => $job['id'], 'state' => $this->publicState($state)];
         } catch (\Throwable $error) {
-            try { $this->jobs->remove($job['id']); } catch (\Throwable) {}
+            try {
+                $this->jobs->remove($job['id']);
+            } catch (\Throwable $cleanupError) {
+                throw new RuntimeException('Unable to clean failed archive initialization.', 0, $cleanupError);
+            }
             throw $error;
         }
     }
@@ -163,13 +167,30 @@ final class ArchiveWorkflow
             return $this->publicState($state);
         } catch (\Throwable $e) {
             try { $zip->close(); } catch (\Throwable) {}
-            $this->rollbackMergedEntries($mergedEntries);
-            $this->removeDirectory($stage);
-            // Nested archives moved out of staging are not committed to state until the whole
-            // parent archive succeeds; remove those orphan copies when processing fails.
+
+            // Attempt every cleanup even if one operation fails. Cleanup failures must not be
+            // silently hidden behind the original bad-archive response.
+            $cleanupFailure = null;
+            try {
+                $this->rollbackMergedEntries($mergedEntries);
+            } catch (\Throwable $cleanupError) {
+                $cleanupFailure ??= $cleanupError;
+            }
+            try {
+                $this->removeDirectory($stage);
+            } catch (\Throwable $cleanupError) {
+                $cleanupFailure ??= $cleanupError;
+            }
             foreach ($newArchives as $child) {
                 $childPath = $jobPath . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $child['file']);
-                if (is_link($childPath) || is_file($childPath)) @unlink($childPath);
+                if (is_link($childPath) || is_file($childPath)) {
+                    if (!@unlink($childPath) || file_exists($childPath) || is_link($childPath)) {
+                        $cleanupFailure ??= new RuntimeException('Unable to remove an uncommitted nested archive.');
+                    }
+                }
+            }
+            if ($cleanupFailure !== null) {
+                throw new RuntimeException('Unable to clean failed archive extraction.', 0, $cleanupFailure);
             }
             if ($e instanceof ArchiveProcessingException) {
                 throw new ArchiveProcessingException('Unable to extract archive. The supplied archive password may be invalid.', 0, $e);
@@ -236,15 +257,24 @@ final class ArchiveWorkflow
 
     private function rollbackMergedEntries(array $moves): void
     {
+        $failed = false;
         foreach (array_reverse($moves) as $move) {
             $source = (string) ($move['source'] ?? '');
             $destination = (string) ($move['destination'] ?? '');
             if ($source === '' || $destination === '' || (!file_exists($destination) && !is_link($destination))) {
                 continue;
             }
-            if (!file_exists($source) && !is_link($source)) {
-                @rename($destination, $source);
+            if (file_exists($source) || is_link($source)) {
+                $failed = true;
+                continue;
             }
+            if (!@rename($destination, $source)
+                && (file_exists($destination) || is_link($destination))) {
+                $failed = true;
+            }
+        }
+        if ($failed) {
+            throw new RuntimeException('Unable to roll back partially merged archive output.');
         }
     }
 
@@ -281,18 +311,17 @@ final class ArchiveWorkflow
     }
     private function removeDirectory(string $path): void
     {
-        if (is_link($path)) {
-            @unlink($path);
-            return;
-        }
-        if (is_file($path)) {
-            @unlink($path);
+        if (is_link($path) || is_file($path)) {
+            if (!@unlink($path) && (file_exists($path) || is_link($path))) {
+                throw new RuntimeException('Unable to remove archive staging path.');
+            }
             return;
         }
         if (!is_dir($path)) {
             return;
         }
 
+        $failed = false;
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::CHILD_FIRST
@@ -300,12 +329,19 @@ final class ArchiveWorkflow
         foreach ($iterator as $item) {
             $itemPath = $item->getPathname();
             if ($item->isLink() || !$item->isDir()) {
-                @unlink($itemPath);
-            } else {
-                @rmdir($itemPath);
+                if (!@unlink($itemPath) && (file_exists($itemPath) || is_link($itemPath))) {
+                    $failed = true;
+                }
+            } elseif (!@rmdir($itemPath) && is_dir($itemPath)) {
+                $failed = true;
             }
         }
-        @rmdir($path);
+        if (!@rmdir($path) && is_dir($path)) {
+            $failed = true;
+        }
+        if ($failed || file_exists($path) || is_link($path)) {
+            throw new RuntimeException('Unable to remove archive staging directory.');
+        }
     }
 
 }
