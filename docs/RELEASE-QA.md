@@ -87,4 +87,4 @@ Before release approval, attach:
 - Sanitized reproduction/evidence for every FAIL or BLOCKED result.
 - Release notes that describe untested platforms, limitations and outstanding blockers.
 
-**Current decision:** this branch is still an integration/reconciliation draft, not a release candidate. PR #21 remains open and must not be merged without explicit approval. Windows/XAMPP and real-browser validation, independent security review and signed release-artifact verification remain release blockers. Do not change the default writer or create/publish a v1.0.0 tag or release until the explicit release gates are satisfied.
+**Current decision:** this document is a test plan, not a claim that the listed manual scenarios have passed. This branch remains an integration/reconciliation draft, not a release candidate. PR #21 remains open and must not be merged without explicit approval. Windows/XAMPP and real-browser validation, independent security review and signed release-artifact verification remain release blockers. Do not change the default writer or create/publish a v1.0.0 tag or release until the explicit release gates are satisfied.
