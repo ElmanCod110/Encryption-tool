@@ -273,6 +273,7 @@ final class StablePackageWriter
             $this->writeRecord($out, StablePackageDescriptor::RECORD_FILE_START, $startBody,
                 StablePackageDescriptor::MAX_FILE_CHUNK_RECORD_BYTES);
 
+            $sourceHash = hash_init('sha256');
             $remaining = $entry['size'];
             $sequence = 0;
             if ($remaining === 0) {
@@ -289,6 +290,7 @@ final class StablePackageWriter
                     $wanted = min(StablePackageDescriptor::CHUNK_BYTES, $remaining);
                     $plain = $this->readExactFromFile($input, $wanted);
                     try {
+                        hash_update($sourceHash, $plain);
                         $remaining -= strlen($plain);
                         if (strlen($plain) !== $wanted) {
                             throw new RuntimeException('Source file changed during package creation.');
@@ -332,15 +334,117 @@ final class StablePackageWriter
                 throw new RuntimeException('Source path changed during package creation.');
             }
             $after = fstat($input);
-            if (!is_array($after) || (int) ($after['size'] ?? -1) !== $entry['size']
+            if (!is_array($after) || (int) ($after['dev'] ?? -2) !== (int) ($before['dev'] ?? -1)
+                || (int) ($after['ino'] ?? 0) !== (int) ($before['ino'] ?? -1)
+                || (int) ($after['size'] ?? -1) !== $entry['size']
                 || (int) ($after['mtime'] ?? -1) !== (int) ($before['mtime'] ?? -1)
                 || (int) ($after['ctime'] ?? -1) !== (int) ($before['ctime'] ?? -1)) {
                 throw new RuntimeException('Source file changed during package creation.');
+            }
+
+            // Timestamp granularity can be coarse on some filesystems. Hash the exact
+            // plaintext read into the stream and compare it with a fresh streaming read,
+            // so same-size in-place changes are not missed merely because timestamps match.
+            $expectedDigest = hash_final($sourceHash, true);
+            try {
+                $this->verifySourceDigest($path, $root, $before, $expectedDigest);
+            } finally {
+                sodium_memzero($expectedDigest);
             }
         } finally {
             fclose($input);
             sodium_memzero($fileKey);
             if (is_string($state)) sodium_memzero($state);
+        }
+    }
+
+    private function verifySourceDigest(string $path, string $root, array $expectedStat, string $expectedDigest): void
+    {
+        if (is_link($path)) {
+            throw new RuntimeException('Source file changed during package creation.');
+        }
+        $realBefore = realpath($path);
+        $rootPrefix = rtrim(str_replace('\\\\', '/', $root), '/') . '/';
+        $realBeforeNormalized = $realBefore === false ? '' : str_replace('\\\\', '/', $realBefore);
+        if ($realBefore === false || !str_starts_with($realBeforeNormalized, $rootPrefix)) {
+            throw new RuntimeException('Source file escaped the source directory during verification.');
+        }
+
+        $verify = @fopen($path, 'rb');
+        if ($verify === false) {
+            throw new RuntimeException('Unable to verify source file stability.');
+        }
+        try {
+            clearstatcache(true, $path);
+            $pathStat = @lstat($path);
+            $openedStat = fstat($verify);
+            $matchesExpected = is_array($pathStat) && is_array($openedStat) && !is_link($path)
+                && (((int) ($pathStat['mode'] ?? 0) & 0170000) === 0100000)
+                && (((int) ($openedStat['mode'] ?? 0) & 0170000) === 0100000)
+                && (int) ($pathStat['dev'] ?? -2) === (int) ($openedStat['dev'] ?? -1)
+                && (int) ($pathStat['ino'] ?? 0) === (int) ($openedStat['ino'] ?? -1)
+                && (int) ($openedStat['dev'] ?? -2) === (int) ($expectedStat['dev'] ?? -1)
+                && (int) ($openedStat['ino'] ?? 0) === (int) ($expectedStat['ino'] ?? -1)
+                && (int) ($openedStat['size'] ?? -1) === (int) ($expectedStat['size'] ?? -2)
+                && (int) ($openedStat['mtime'] ?? -1) === (int) ($expectedStat['mtime'] ?? -2)
+                && (int) ($openedStat['ctime'] ?? -1) === (int) ($expectedStat['ctime'] ?? -2);
+            if (!$matchesExpected) {
+                throw new RuntimeException('Source file changed before content verification.');
+            }
+
+            $context = hash_init('sha256');
+            $bytesRead = 0;
+            while (!feof($verify)) {
+                $buffer = fread($verify, 1_048_576);
+                if ($buffer === false) {
+                    throw new RuntimeException('Unable to verify source file contents.');
+                }
+                if ($buffer === '') {
+                    if (feof($verify)) {
+                        break;
+                    }
+                    throw new RuntimeException('Source file verification stalled.');
+                }
+                try {
+                    $bytesRead += strlen($buffer);
+                    if ($bytesRead > (int) ($expectedStat['size'] ?? -1)) {
+                        throw new RuntimeException('Source file grew during content verification.');
+                    }
+                    hash_update($context, $buffer);
+                } finally {
+                    sodium_memzero($buffer);
+                }
+            }
+
+            clearstatcache(true, $path);
+            $pathAfter = @lstat($path);
+            $after = fstat($verify);
+            $realAfter = realpath($path);
+            $realAfterNormalized = $realAfter === false ? '' : str_replace('\\\\', '/', $realAfter);
+            if (!is_array($pathAfter) || !is_array($after) || is_link($path)
+                || (int) ($pathAfter['dev'] ?? -2) !== (int) ($expectedStat['dev'] ?? -1)
+                || (int) ($pathAfter['ino'] ?? 0) !== (int) ($expectedStat['ino'] ?? -1)
+                || (((int) ($pathAfter['mode'] ?? 0) & 0170000) !== 0100000)
+                || (int) ($after['dev'] ?? -2) !== (int) ($expectedStat['dev'] ?? -1)
+                || (int) ($after['ino'] ?? 0) !== (int) ($expectedStat['ino'] ?? -1)
+                || (int) ($after['size'] ?? -1) !== (int) ($expectedStat['size'] ?? -2)
+                || (int) ($after['mtime'] ?? -1) !== (int) ($expectedStat['mtime'] ?? -2)
+                || (int) ($after['ctime'] ?? -1) !== (int) ($expectedStat['ctime'] ?? -2)
+                || $bytesRead !== (int) ($expectedStat['size'] ?? -1)
+                || $realAfter === false || !str_starts_with($realAfterNormalized, $rootPrefix)) {
+                throw new RuntimeException('Source file changed during content verification.');
+            }
+
+            $actualDigest = hash_final($context, true);
+            try {
+                if (!hash_equals($expectedDigest, $actualDigest)) {
+                    throw new RuntimeException('Source content changed during package creation.');
+                }
+            } finally {
+                sodium_memzero($actualDigest);
+            }
+        } finally {
+            fclose($verify);
         }
     }
 
