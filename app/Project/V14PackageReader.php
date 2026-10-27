@@ -83,9 +83,18 @@ final class V14PackageReader
             if (count($referenced) !== count($blobs)) throw new PackageRestoreRejectedException('Package contains unreachable blobs.');
             if (!hash_equals((string) $manifest['merkle_root'], V14Merkle::root($leaves))) throw new PackageRestoreRejectedException('Merkle integrity verification failed.');
 
-            if (file_exists($destinationDir)) throw new PackageRestoreRejectedException('Destination directory already exists.');
+            if (file_exists($destinationDir) || is_link($destinationDir)) throw new PackageStorageException('Restore target already exists.');
             if (!mkdir($destinationDir, 0700, true)) throw new PackageStorageException('Unable to create destination directory.');
-            $created = true;
+            $destinationStat = @lstat($destinationDir);
+            if (!is_array($destinationStat) || is_link($destinationDir)
+                || (((int) ($destinationStat['mode'] ?? 0) & 0170000) !== 0040000)) {
+                if (is_dir($destinationDir) && !is_link($destinationDir)) @rmdir($destinationDir);
+                throw new PackageStorageException('Unable to verify restore destination identity.');
+            }
+            $destinationIdentity = [
+                'dev' => (int) ($destinationStat['dev'] ?? -1),
+                'ino' => (int) ($destinationStat['ino'] ?? 0),
+            ];
             try {
                 $paths = $this->preflightPaths($manifest, $filenameKey, $header['package_id'], $binding, $destinationDir);
                 $directories = [];
@@ -112,8 +121,11 @@ final class V14PackageReader
                     }
                 }
             } catch (\Throwable $e) {
-                $this->removeDirectory($destinationDir);
-                $created = false;
+                try {
+                    $this->removeDirectory($destinationDir, $destinationIdentity);
+                } catch (\Throwable $cleanupError) {
+                    throw new PackageStorageException('Unable to clean failed restore output.', 0, $cleanupError);
+                }
                 throw $e;
             }
 
@@ -274,11 +286,50 @@ final class V14PackageReader
         return $raw;
     }
 
-    private function removeDirectory(string $path): void
+    private function removeDirectory(string $path, array $expectedIdentity): void
     {
-        if (!is_dir($path)) return;
-        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
-        foreach ($it as $item) $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
-        @rmdir($path);
+        $this->assertOwnedDirectoryIdentity($path, $expectedIdentity);
+        try {
+            $it = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($it as $item) {
+                $this->assertOwnedDirectoryIdentity($path, $expectedIdentity);
+                $itemPath = $item->getPathname();
+                if ($item->isLink() || !$item->isDir()) {
+                    if (!@unlink($itemPath) && (file_exists($itemPath) || is_link($itemPath))) {
+                        throw new RuntimeException('Unable to remove failed restore file.');
+                    }
+                } elseif (!@rmdir($itemPath) && is_dir($itemPath)) {
+                    throw new RuntimeException('Unable to remove failed restore directory.');
+                }
+            }
+        } catch (\Throwable $exception) {
+            throw new PackageStorageException('Unable to inspect failed restore cleanup paths.', 0, $exception);
+        }
+
+        $this->assertOwnedDirectoryIdentity($path, $expectedIdentity);
+        if (!@rmdir($path) && is_dir($path)) {
+            throw new PackageStorageException('Unable to remove failed restore output.');
+        }
+        clearstatcache(true, $path);
+        if (file_exists($path) || is_link($path)) {
+            throw new PackageStorageException('Failed restore output remains after cleanup.');
+        }
+    }
+
+    private function assertOwnedDirectoryIdentity(string $path, array $expectedIdentity): void
+    {
+        clearstatcache(true, $path);
+        $actual = @lstat($path);
+        if (!is_array($actual)
+            || is_link($path)
+            || (((int) ($actual['mode'] ?? 0) & 0170000) !== 0040000)
+            || (int) ($actual['dev'] ?? -2) !== (int) ($expectedIdentity['dev'] ?? -1)
+            || ((int) ($expectedIdentity['ino'] ?? 0) !== 0
+                && (int) ($actual['ino'] ?? 0) !== (int) $expectedIdentity['ino'])) {
+            throw new PackageStorageException('Restore output identity changed during cleanup.');
+        }
     }
 }
