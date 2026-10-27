@@ -11,6 +11,8 @@ final class StablePackageCrypto
     public static function deriveCredentialKey(string $password, string $pattern, string $salt, string $packageId, int $ops, int $memoryBytes): string
     {
         StablePackageDescriptor::assertRuntime();
+        self::assertCredentialBytes($password);
+        self::assertCredentialBytes($pattern);
         StablePackageDescriptor::assertKdfParameters($ops, $memoryBytes);
         if (strlen($salt) !== StablePackageDescriptor::SALT_BYTES
             || strlen($packageId) !== StablePackageDescriptor::PACKAGE_ID_BYTES) {
@@ -32,6 +34,19 @@ final class StablePackageCrypto
         } finally {
             sodium_memzero($passwordKey);
             if (is_string($patternKey)) sodium_memzero($patternKey);
+        }
+    }
+
+    /**
+     * Validate the frozen byte-level credential contract, not today's application
+     * password-strength policy. Readers must remain able to open old packages after
+     * the UI's minimum-strength rules change in a later release.
+     */
+    public static function assertCredentialBytes(string $value): void
+    {
+        if ($value === '' || strlen($value) > 4096 || str_contains($value, "\0")
+            || preg_match('//u', $value) !== 1) {
+            throw new RuntimeException('Unable to open package.');
         }
     }
 
@@ -107,8 +122,8 @@ final class StablePackageCrypto
                     $recoveryRaw
                 );
             } else {
-                \SecurePackage\Security\Validator::validatePassword($password);
-                \SecurePackage\Security\Validator::validatePattern($pattern);
+                self::assertCredentialBytes($password);
+                self::assertCredentialBytes($pattern);
                 $credentialKey = self::deriveCredentialKey($password, $pattern, $header['salt'],
                     $header['package_id'], $header['ops'], $header['memory_bytes']);
                 $rootKey = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt(
