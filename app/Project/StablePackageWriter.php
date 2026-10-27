@@ -364,8 +364,8 @@ final class StablePackageWriter
             throw new RuntimeException('Source file changed during package creation.');
         }
         $realBefore = realpath($path);
-        $rootPrefix = rtrim(str_replace('\\\\', '/', $root), '/') . '/';
-        $realBeforeNormalized = $realBefore === false ? '' : str_replace('\\\\', '/', $realBefore);
+        $rootPrefix = rtrim(str_replace('\\', '/', $root), '/') . '/';
+        $realBeforeNormalized = $realBefore === false ? '' : str_replace('\\', '/', $realBefore);
         if ($realBefore === false || !str_starts_with($realBeforeNormalized, $rootPrefix)) {
             throw new RuntimeException('Source file escaped the source directory during verification.');
         }
@@ -420,7 +420,7 @@ final class StablePackageWriter
             $pathAfter = @lstat($path);
             $after = fstat($verify);
             $realAfter = realpath($path);
-            $realAfterNormalized = $realAfter === false ? '' : str_replace('\\\\', '/', $realAfter);
+            $realAfterNormalized = $realAfter === false ? '' : str_replace('\\', '/', $realAfter);
             if (!is_array($pathAfter) || !is_array($after) || is_link($path)
                 || (int) ($pathAfter['dev'] ?? -2) !== (int) ($expectedStat['dev'] ?? -1)
                 || (int) ($pathAfter['ino'] ?? 0) !== (int) ($expectedStat['ino'] ?? -1)
