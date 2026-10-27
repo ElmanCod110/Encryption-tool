@@ -44,13 +44,21 @@ try {
     }
     if (!$storageFailureTyped) throw new RuntimeException('Missing encrypted stream was not classified as a storage failure.');
 
+    $existingContentHash = hash_file('sha256', $restore . '/docs/deep/readme.txt');
+    $existingDestinationRejected = false;
     try {
         (new V14PackageReader())->restore($package, $restore, $password, $pattern);
-        throw new RuntimeException('Existing destination was accepted.');
-    } catch (Throwable) {
-        // Expected: fail before touching any existing destination content.
+    } catch (PackageStorageException) {
+        $existingDestinationRejected = true;
     }
-    if (file_get_contents($restore . '/docs/deep/readme.txt') === false) throw new RuntimeException('Existing destination was altered.');
+    if (!$existingDestinationRejected) {
+        throw new RuntimeException('Existing destination was accepted instead of rejected as a storage conflict.');
+    }
+    $afterRejectedRestore = hash_file('sha256', $restore . '/docs/deep/readme.txt');
+    if ($existingContentHash === false || $afterRejectedRestore === false
+        || !hash_equals($existingContentHash, $afterRejectedRestore)) {
+        throw new RuntimeException('Existing destination content changed after rejected restore.');
+    }
 
     echo "V14 restore safety and non-overwrite test passed.\n";
 } finally {
