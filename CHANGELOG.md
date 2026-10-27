@@ -5,6 +5,7 @@
 - Put API configuration loading and service initialization inside the generic error boundary; typed authentication failures now return HTTP 401, and missing resources are separated from storage/programming failures.
 - Added typed archive-step conflicts, rejected archive/package input, and storage faults so malformed input can return a documented 4xx while I/O failures remain generic 500 responses.
 - Hardened restore rollback, controller path cleanup, portable archive publication, and resumable-upload deletion with ownership checks, no-overwrite publication, post-cleanup verification, and surfaced cleanup errors.
+- Verified cleanup of incomplete V14 package builds and added a regression ensuring a failed build leaves no encrypted-package artifacts behind.
 - Made catalog listings fail closed on malformed JSON, invalid records, and symlinked records instead of silently presenting an incomplete inventory.
 - Ensured missing and unauthorized package lookups use the same privacy-preserving catalog response, and exposed the legacy server package format explicitly in runtime diagnostics.
 - Added regression coverage for runtime version metadata consistency and the diagnostics package-format contract.
