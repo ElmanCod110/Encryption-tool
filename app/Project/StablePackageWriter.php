@@ -561,7 +561,9 @@ final class StablePackageWriter
                 }
                 $siblings[$fold] = true;
 
-                $path = $directory . DIRECTORY_SEPARATOR . $name;
+                $hasTrailingSeparator = str_ends_with($directory, DIRECTORY_SEPARATOR)
+                    || (DIRECTORY_SEPARATOR === '\\\\' && str_ends_with($directory, '/'));
+                $path = $directory . ($hasTrailingSeparator ? '' : DIRECTORY_SEPARATOR) . $name;
                 $entryStat = @lstat($path);
                 if (!is_array($entryStat) || is_link($path)) {
                     throw new RuntimeException('Symbolic links or unstable source entries are not supported.');
