@@ -56,7 +56,6 @@ $accounts = new AccountStore($config['storage']['accounts'] . DIRECTORY_SEPARATO
 $audit = new AuditLogger($config['storage']['audit'] . DIRECTORY_SEPARATOR . 'events.jsonl');
 $controller = new PackageController($config, $jobs, $limiter, $archives, $uploads, $catalog, $accessTokens, $accounts, $audit, new \SecurePackage\Security\AuthorizationService());
 
-try {
     switch ($action) {
         case 'me': $controller->me();
         case 'register': $controller->register();
