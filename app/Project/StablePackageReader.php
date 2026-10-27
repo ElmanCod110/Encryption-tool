@@ -131,17 +131,17 @@ final class StablePackageReader
                         if (is_string($streamState)) sodium_memzero($streamState);
                         throw new RuntimeException('Staged file handle identity could not be verified.');
                     }
-                    $stageIdentity = [
+                    $stagedFileIdentity = [
                         'dev' => (int) ($stageHandleStat['dev'] ?? -1),
                         'ino' => (int) $stageHandleStat['ino'],
                         'type' => ((int) ($stageHandleStat['mode'] ?? 0)) & 0170000,
                     ];
                     try {
-                        if (!$this->matchesIdentity($stagePath, $stageIdentity)) {
+                        if (!$this->matchesIdentity($stagePath, $stagedFileIdentity)) {
                             throw new RuntimeException('Staged file path does not match the exclusive-create handle.');
                         }
-                        $stageOwnedFiles[$fileIdHex] = ['path' => $stagePath, 'identity' => $stageIdentity];
-                        $this->enforcePrivateMode($stagePath, 0600, $stageIdentity);
+                        $stageOwnedFiles[$fileIdHex] = ['path' => $stagePath, 'identity' => $stagedFileIdentity];
+                        $this->enforcePrivateMode($stagePath, 0600, $stagedFileIdentity);
                     } catch (Throwable $stageError) {
                         fclose($out);
                         sodium_memzero($fileKey);
@@ -161,7 +161,7 @@ final class StablePackageReader
                         'state' => $streamState,
                         'out' => $out,
                         'stage_path' => $stagePath,
-                        'stage_identity' => $stageIdentity,
+                        'stage_identity' => $stagedFileIdentity,
                         'hash' => hash_init('sha256'),
                     ];
                     continue;
