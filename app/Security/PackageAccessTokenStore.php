@@ -5,7 +5,6 @@ namespace SecurePackage\Security;
 
 use FilesystemIterator;
 use RuntimeException;
-use SecurePackage\Storage\AtomicFile;
 
 final class PackageAccessTokenStore
 {
@@ -57,10 +56,15 @@ final class PackageAccessTokenStore
             throw new RuntimeException('Unable to create access token.');
         }
         $stat = fstat($handle);
-        if (!is_array($stat) || (((int) ($stat['mode'] ?? 0) & 0170000) !== 0100000)
-            || (int) ($stat['ino'] ?? 0) === 0) {
+        $pathStat = @lstat($file);
+        if (!is_array($stat) || !is_array($pathStat) || is_link($file)
+            || (((int) ($stat['mode'] ?? 0) & 0170000) !== 0100000)
+            || (((int) ($pathStat['mode'] ?? 0) & 0170000) !== 0100000)
+            || (int) ($stat['ino'] ?? 0) === 0
+            || (int) ($stat['dev'] ?? -2) !== (int) ($pathStat['dev'] ?? -1)
+            || (int) ($stat['ino'] ?? 0) !== (int) ($pathStat['ino'] ?? -1)) {
             fclose($handle);
-            $this->removeUnverifiedNewFile($file);
+            // Do not unlink a path whose ownership cannot be established.
             throw new RuntimeException('Unable to verify access-token storage identity.');
         }
         $identity = ['dev' => (int) ($stat['dev'] ?? -1), 'ino' => (int) $stat['ino']];
@@ -348,21 +352,6 @@ final class PackageAccessTokenStore
         }
     }
 
-    private function removeUnverifiedNewFile(string $file): void
-    {
-        if (is_link($file) || !is_file($file)) {
-            if (file_exists($file) || is_link($file)) {
-                throw new RuntimeException('Unable to clean invalid access-token file.');
-            }
-            return;
-        }
-        if (!@unlink($file) && (file_exists($file) || is_link($file))) {
-            throw new RuntimeException('Unable to clean invalid access-token file.');
-        }
-        if (file_exists($file) || is_link($file)) {
-            throw new RuntimeException('Invalid access-token file remains after cleanup.');
-        }
-    }
 
     private static function writeAll($handle, string $contents): void
     {
