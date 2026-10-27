@@ -23,3 +23,18 @@ An optional independent recovery key can wrap the same root key in a separate sl
 ## No implicit conversion
 
 There is intentionally no automatic V13-to-V14 conversion inside the V14 reader. Format migration must be an explicit, testable workflow so a parser never guesses the intended security profile.
+
+## Stable single-file format and v1.0.0 compatibility policy
+
+The planned stable binary format is a separate, version-independent format. Its writer/reader candidate is still isolated for review and is not the active/default server writer yet.
+
+The compatibility policy is **read old formats explicitly; do not silently convert or reinterpret them**:
+
+- Keep the V14 server reader for existing `.spkg14` packages during the supported migration window.
+- Keep the browser V13 reader as a separate boundary for existing `.spk13` packages.
+- Add the stable-format reader as a separate parser selected only by the stable format's exact fixed marker. Never try another parser as an automatic fallback after a parse/authentication failure.
+- Keep new stable-format writing behind its own reviewed integration gate. Changing `VERSION` must not rewrite any package or change how old package bytes are interpreted.
+
+A dedicated in-place converter is **not currently available**. It is not required merely to keep old packages readable because the legacy readers remain separate. If/when a conversion tool is added, it must restore the source package to a private temporary location, verify the restored files, write a new stable package to a distinct no-overwrite destination, verify the new package by restoring it to a second temporary location, and only then report success. It must preserve the original package and clean only temporary paths it can prove it owns. Never convert by changing a version field or overwriting the original package.
+
+Until stable-format integration and compatibility tests are approved, do not promise that v1.0.0 can create or migrate to the stable format in the production UI/CLI.
