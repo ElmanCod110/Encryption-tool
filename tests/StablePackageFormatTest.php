@@ -470,6 +470,17 @@ try {
     ]);
     stableExpectFailure(fn() => Format::decodeManifest($caseCollisionManifest), 'Case-colliding sibling names were accepted.');
 
+    if (class_exists('Normalizer') && function_exists('mb_convert_case') && defined('MB_CASE_FOLD')) {
+        $unicodeFoldCollisionManifest = Format::encodeManifest([
+            ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(),
+                'name' => 'Straße.txt', 'size' => 0, 'chunks' => 1],
+            ['type' => 2, 'id' => random_bytes(16), 'parent_id' => Format::zeroId(),
+                'name' => 'STRASSE.txt', 'size' => 0, 'chunks' => 1],
+        ]);
+        stableExpectFailure(fn() => Format::decodeManifest($unicodeFoldCollisionManifest),
+            'Unicode full-case-folding collisions were accepted.');
+    }
+
     $existingPackagePath = $root . DIRECTORY_SEPARATOR . 'existing-package.spkg';
     file_put_contents($existingPackagePath, 'preserve-existing-package');
     $existingPackageHash = hash_file('sha256', $existingPackagePath);
