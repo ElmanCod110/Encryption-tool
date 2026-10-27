@@ -179,7 +179,7 @@ final class StablePackageWriter
                 'ino' => (int) $temporaryStat['ino'],
                 'type' => ((int) ($temporaryStat['mode'] ?? 0)) & 0170000,
             ];
-            @chmod($temporaryFile, 0600);
+            $this->enforcePrivateFileMode($temporaryFile, 0600, $temporaryIdentity);
             StablePackageDescriptor::writeAll($out, $header);
 
             $fileRootKey = StablePackageCrypto::deriveSubkey($rootKey, 'FILE-ROOT', $packageIdRaw);
@@ -714,6 +714,25 @@ final class StablePackageWriter
                 @unlink($destination);
             }
             throw new RuntimeException('Package publication cleanup failed.');
+        }
+    }
+
+    private function enforcePrivateFileMode(string $path, int $mode, ?array $expectedIdentity): void
+    {
+        if (!$this->matchesPathIdentity($path, $expectedIdentity) || !@chmod($path, $mode)) {
+            throw new RuntimeException('Unable to set private package file permissions safely.');
+        }
+        clearstatcache(true, $path);
+        if (!$this->matchesPathIdentity($path, $expectedIdentity)) {
+            throw new RuntimeException('Temporary package path changed during permission hardening.');
+        }
+        // PHP exposes no portable Windows ACL API. On POSIX systems, verify that group
+        // and other permissions are absent rather than trusting chmod's return alone.
+        if (DIRECTORY_SEPARATOR !== '\\\\') {
+            $permissions = @fileperms($path);
+            if (!is_int($permissions) || (($permissions & 0777) !== ($mode & 0777))) {
+                throw new RuntimeException('Private package file permissions did not take effect.');
+            }
         }
     }
 
