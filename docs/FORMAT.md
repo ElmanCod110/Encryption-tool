@@ -60,6 +60,12 @@ Each file is encrypted through libsodium secretstream. The package stores a smal
 
 The reader performs all package, manifest, blob, hash, Merkle, and path preflight checks before writing. Directories are created in depth order, followed by file restoration into temporary files. Existing destination directories and existing child paths are rejected.
 
+## Metadata visibility and offline guessing
+
+The V14 header and completion record are readable. They expose the format/version/schema identifiers, package ID, creation timestamp, KDF and cryptographic profile, recovery-slot presence, and integrity-binding values. The encrypted manifest hides filenames and directory relationships, but the archive structure and per-blob ciphertext lengths can reveal the number of file blobs, approximate file sizes, and total package size.
+
+Anyone who obtains a package can test password-and-pattern guesses offline against the wrapped key slot. Argon2id makes each attempt more expensive but does not prevent offline guessing; server-side rate limits do not help once a copy has been taken. Use a long, unique password and a separate non-reused pattern. Package encryption also does not establish the sender's identity: use a trusted transfer channel and verify checksums or signatures out of band when authenticity matters.
+
 ## Limits
 
 The V14 descriptor defines maximum header size, manifest size, node count, file size, package plaintext size, blob count, and path depth. The outer `.spkg14` ZIP transport allows the V14 plaintext ceiling plus bounded authentication/format overhead. These are parser and resource-safety boundaries, not encryption parameters.
