@@ -398,12 +398,16 @@ final class StablePackageReader
         $filesById = [];
         foreach ($observedFiles as $idHex => $observed) {
             $path = $observed['path'] ?? null;
+            $identity = $observed['identity'] ?? null;
+            $digest = $observed['sha256'] ?? null;
             if (!is_string($idHex) || !preg_match('/^[a-f0-9]{32}$/D', $idHex)
                 || !is_string($path) || is_link($path) || !is_file($path)
-                || dirname($path) !== $stage || basename($path) !== $idHex . '.plain') {
+                || dirname($path) !== $stage || basename($path) !== $idHex . '.plain'
+                || !is_array($identity) || !is_string($digest) || strlen($digest) !== 32
+                || !$this->matchesIdentity($path, $identity)) {
                 throw new RuntimeException('Private staging inventory is invalid.');
             }
-            $filesById[$idHex] = $path;
+            $filesById[$idHex] = ['path' => $path, 'identity' => $identity, 'sha256' => $digest];
         }
         if (count($filesById) !== count(array_filter($entries, static fn(array $entry): bool => $entry['type'] === 2))) {
             throw new RuntimeException('Private staging inventory does not match the manifest.');
@@ -456,9 +460,14 @@ final class StablePackageReader
                 || file_exists($target) || is_link($target)) {
                 throw new RuntimeException('Restored file destination is unsafe.');
             }
-            $source = $filesById[$entry['id_hex']] ?? null;
-            if (!is_string($source) || is_link($source) || !is_file($source)) {
-                throw new RuntimeException('Authenticated file staging data is missing.');
+            $sourceInfo = $filesById[$entry['id_hex']] ?? null;
+            $source = is_array($sourceInfo) ? ($sourceInfo['path'] ?? null) : null;
+            $sourceIdentity = is_array($sourceInfo) ? ($sourceInfo['identity'] ?? null) : null;
+            $expectedDigest = is_array($sourceInfo) ? ($sourceInfo['sha256'] ?? null) : null;
+            if (!is_string($source) || is_link($source) || !is_file($source)
+                || !is_array($sourceIdentity) || !is_string($expectedDigest) || strlen($expectedDigest) !== 32
+                || !$this->matchesIdentity($source, $sourceIdentity)) {
+                throw new RuntimeException('Authenticated file staging data is missing or changed.');
             }
             $in = @fopen($source, 'rb');
             $out = @fopen($target, 'xb');
@@ -467,6 +476,16 @@ final class StablePackageReader
                 if (is_resource($out)) fclose($out);
                 // Never unlink $target here: fopen('xb') did not establish ownership if it failed.
                 throw new RuntimeException('Unable to create restored file without overwriting.');
+            }
+            $inputStat = fstat($in);
+            if (!is_array($inputStat)
+                || (((int) ($inputStat['mode'] ?? 0) & 0170000) !== 0100000)
+                || (int) ($inputStat['dev'] ?? -2) !== (int) ($sourceIdentity['dev'] ?? -1)
+                || (int) ($inputStat['ino'] ?? 0) !== (int) ($sourceIdentity['ino'] ?? -1)
+                || !$this->matchesIdentity($source, $sourceIdentity)) {
+                fclose($in);
+                fclose($out);
+                throw new RuntimeException('Staged plaintext handle does not match the verified file.');
             }
             $openedStat = fstat($out);
             if (!is_array($openedStat)
@@ -503,9 +522,42 @@ final class StablePackageReader
                 throw $permissionError;
             }
             try {
-                $copied = stream_copy_to_stream($in, $out);
-                if (!is_int($copied) || $copied !== $entry['size']) {
-                    throw new RuntimeException('Restored file copy was incomplete.');
+                // Copy in bounded chunks and authenticate the staged bytes against the
+                // digest accumulated from secretstream plaintext before publication.
+                $copyHash = hash_init('sha256');
+                $copied = 0;
+                while (!feof($in)) {
+                    $buffer = fread($in, 1_048_576);
+                    if ($buffer === false) {
+                        throw new RuntimeException('Unable to read authenticated staged plaintext.');
+                    }
+                    if ($buffer === '') {
+                        if (feof($in)) {
+                            break;
+                        }
+                        throw new RuntimeException('Staged plaintext copy stalled.');
+                    }
+                    try {
+                        $copied += strlen($buffer);
+                        if ($copied > $entry['size']) {
+                            throw new RuntimeException('Staged plaintext exceeds the manifest size.');
+                        }
+                        hash_update($copyHash, $buffer);
+                        StablePackageDescriptor::writeAll($out, $buffer);
+                    } finally {
+                        sodium_memzero($buffer);
+                    }
+                }
+                $copiedDigest = hash_final($copyHash, true);
+                try {
+                    if ($copied !== $entry['size'] || !hash_equals($expectedDigest, $copiedDigest)) {
+                        throw new RuntimeException('Staged plaintext changed after authentication.');
+                    }
+                } finally {
+                    sodium_memzero($copiedDigest);
+                }
+                if (!$this->matchesIdentity($source, $sourceIdentity)) {
+                    throw new RuntimeException('Staged plaintext path changed during publication.');
                 }
                 if (!fflush($out) || (function_exists('fsync') && !fsync($out))) {
                     throw new RuntimeException('Unable to synchronize restored file.');
