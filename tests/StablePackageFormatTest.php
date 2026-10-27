@@ -452,7 +452,13 @@ try {
     ]));
     stableAssert(array_keys($manifestProbe) === ['entries', 'file_count', 'directory_count', 'total_plain_bytes'], 'Stable manifest decoder exposed unexpected metadata fields.');
     stableAssert(array_keys($manifestProbe['entries'][0]) === ['type', 'id', 'id_hex', 'parent_id', 'parent_hex', 'name', 'size', 'chunks', 'path', 'depth'], 'Stable manifest entry contains unexpected version or schema fields.');
-    foreach (['../escape', 'CON', 'CON .txt', 'CLOCK' . chr(36), 'COM¹.log', 'LPT²', 'trailing.', 'trailing ', "nul\0name", 'a/b', 'a\\b'] as $unsafeName) {
+    foreach ([
+        '../escape', 'CON', 'CON .txt', 'CLOCK' . chr(36), 'COM¹.log', 'LPT²',
+        'trailing.', 'trailing ', "nul\0name", 'a/b', 'a\\b',
+        'c1' . "\u{0085}" . 'control.txt',
+        'bidi' . "\u{202E}" . 'spoof.txt',
+        'joiner' . "\u{200D}" . 'name',
+    ] as $unsafeName) {
         stableExpectFailure(fn() => Format::assertName($unsafeName), 'Unsafe package name was accepted: ' . $unsafeName);
     }
 
