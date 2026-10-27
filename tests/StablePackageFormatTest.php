@@ -302,6 +302,10 @@ try {
     stableAssert($recovered['files'] === 5, 'Recovery-key restore failed.');
     stableAssert(hash_file('sha256', $source . '/nested/binary.dat') === hash_file('sha256', $recoveryDestination . '/nested/binary.dat'), 'Recovery restore content mismatch.');
 
+    stableExpectFailure(fn() => $reader->restore($package, $root . DIRECTORY_SEPARATOR . 'empty-recovery',
+        $password, $pattern, ''), 'Explicitly empty recovery credential silently fell back to primary credentials.');
+    stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'empty-recovery'), 'Empty recovery credential created restore output.');
+
     stableExpectFailure(fn() => $reader->restore($package, $root . DIRECTORY_SEPARATOR . 'wrong-recovery',
         '', '', str_repeat('A', 43)), 'Wrong recovery key was accepted.');
     stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'wrong-recovery'), 'Wrong recovery key left output behind.');
