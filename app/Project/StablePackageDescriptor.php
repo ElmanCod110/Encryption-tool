@@ -442,24 +442,19 @@ final class StablePackageDescriptor
 
     public static function foldName(string $name): string
     {
-        $hasNonAscii = preg_match('/[^\x00-\x7F]/', $name) === 1;
+        $hasNonAscii = preg_match('/[^\\x00-\\x7F]/', $name) === 1;
         if ($hasNonAscii) {
-            // Unicode normalization and case-folding vary across filesystems. To avoid
-            // generating packages whose paths collide after transfer, require both APIs
-            // for non-ASCII names and accept only already-normalized NFC names.
-            if (!function_exists('mb_strtolower') || !class_exists('Normalizer')) {
-                throw new RuntimeException('Non-ASCII names require mbstring and intl for portable path validation.');
+            // A lowercase transform is not equivalent to full Unicode case folding
+            // (for example, ß and ss). Reject runtimes without the exact operation
+            // instead of accepting names that can collide after transfer.
+            if (!function_exists('mb_convert_case') || !defined('MB_CASE_FOLD') || !class_exists('Normalizer')) {
+                throw new RuntimeException('Non-ASCII names require Unicode normalization and full case-folding support.');
             }
-            $normalized = \Normalizer::normalize($name, \Normalizer::FORM_C);
+            $normalized = \\Normalizer::normalize($name, \\Normalizer::FORM_C);
             if (!is_string($normalized) || !hash_equals($normalized, $name)) {
                 throw new RuntimeException('Non-ASCII filenames must use Unicode NFC normalization.');
             }
-        }
-        if (function_exists('mb_convert_case') && defined('MB_CASE_FOLD')) {
             return mb_convert_case($name, MB_CASE_FOLD, 'UTF-8');
-        }
-        if (function_exists('mb_strtolower')) {
-            return mb_strtolower($name, 'UTF-8');
         }
         return strtolower($name);
     }
