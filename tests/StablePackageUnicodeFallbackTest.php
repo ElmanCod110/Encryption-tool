@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use SecurePackage\\Project\\StablePackageDescriptor as Format;
+use SecurePackage\Project\StablePackageDescriptor as Format;
 
 // This test also runs in the ordinary test glob. When Unicode support is installed,
 // the dedicated php -n CI invocation is responsible for exercising the fallback path.
