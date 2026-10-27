@@ -10,6 +10,7 @@ use SecurePackage\Api\PackageController;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
 use SecurePackage\Security\AccountStore;
+use SecurePackage\Security\AuthenticationRequiredException;
 use SecurePackage\Security\PackageAccessTokenStore;
 use SecurePackage\Security\RateLimiter;
 use SecurePackage\Security\WebSecurity;
@@ -18,8 +19,8 @@ use SecurePackage\Storage\AuditLogger;
 use SecurePackage\Storage\JobStore;
 use SecurePackage\Storage\ResumableUploadStore;
 
-$config = require dirname(__DIR__) . '/config/config.php';
 try {
+    $config = require dirname(__DIR__) . '/config/config.php';
     WebSecurity::startSession();
     WebSecurity::applyHeaders();
 } catch (HttpException $exception) {
@@ -37,6 +38,7 @@ try {
     JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
 }
 
+try {
 $jobs = new JobStore($config['storage']['temp'] . DIRECTORY_SEPARATOR . 'jobs');
 $policy = new ArchivePolicy(
     $config['limits']['max_archive_entries'],
@@ -77,6 +79,8 @@ try {
     }
 } catch (HttpException $exception) {
     JsonResponse::send(['ok' => false, 'error' => $exception->publicMessage], $exception->statusCode);
+} catch (AuthenticationRequiredException) {
+    JsonResponse::send(['ok' => false, 'error' => 'Authentication required.'], 401);
 } catch (Throwable $exception) {
     // Log only the exception class: messages and traces can contain paths or sensitive input.
     error_log('[Secure Package] Unhandled API exception: ' . get_class($exception));
