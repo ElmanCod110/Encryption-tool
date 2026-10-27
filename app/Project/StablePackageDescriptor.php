@@ -434,7 +434,7 @@ final class StablePackageDescriptor
         if ($name === '' || $name === '.' || $name === '..' || strlen($name) > self::MAX_FILENAME_BYTES
             || preg_match('//u', $name) !== 1 || str_contains($name, "\0")
             || str_contains($name, '/') || str_contains($name, '\\')
-            || preg_match('/[\x00-\x1F\x7F:<>"|?*]/u', $name) === 1
+            || preg_match('/[\p{Cc}\p{Cf}:<>"|?*]/u', $name) === 1
             || str_ends_with($name, ' ') || str_ends_with($name, '.')
             || preg_match('/^(CON|PRN|AUX|NUL|CLOCK\$|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])(?:[ .].*)?$/iu', $name) === 1) {
             throw new RuntimeException('Unsafe or unsupported filesystem name.');
