@@ -252,7 +252,8 @@ final class ResumableUploadStore
 
     public function cleanup(): void
     {
-        if (is_link($this->root) || !is_dir($this->root)) return;
+        if (is_link($this->root)) throw new RuntimeException('Upload storage root must not be a symlink.');
+        if (!is_dir($this->root)) return;
 
         // Serialize cleanup with upload initialization, then lock each upload before
         // deciding whether it can be removed. Expired state is marked before unlinking
@@ -263,7 +264,13 @@ final class ResumableUploadStore
                 $id = $entry->getFilename();
                 if (!preg_match('/^[a-f0-9]{48}$/', $id)) continue;
                 if ($entry->isLink()) {
-                    @unlink($entry->getPathname());
+                    $path = $entry->getPathname();
+                    if (!@unlink($path) && is_link($path)) {
+                        throw new RuntimeException('Unable to remove upload storage symlink during cleanup.');
+                    }
+                    if (file_exists($path) || is_link($path)) {
+                        throw new RuntimeException('Upload storage symlink remains after cleanup.');
+                    }
                     continue;
                 }
                 if (!$entry->isDir()) continue;
