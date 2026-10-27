@@ -586,6 +586,21 @@ try {
         if (!@unlink($directoryLink) && !@rmdir($directoryLink)) throw new RuntimeException('Unable to remove directory symlink.');
     }
 
+    // A very wide source directory must be rejected while entries are enumerated,
+    // before the writer buffers an unbounded scandir() result or creates an output.
+    $oversizedTree = $root . DIRECTORY_SEPARATOR . 'oversized-tree';
+    mkdir($oversizedTree, 0700);
+    for ($entryIndex = 0; $entryIndex <= Format::MAX_NODES; $entryIndex++) {
+        $entryPath = $oversizedTree . DIRECTORY_SEPARATOR . sprintf('entry-%05d.bin', $entryIndex);
+        if (file_put_contents($entryPath, '') !== 0) {
+            throw new RuntimeException('Unable to create source entry-count fixture.');
+        }
+    }
+    $oversizedTreePackage = $root . DIRECTORY_SEPARATOR . 'oversized-tree.spkg';
+    stableExpectFailure(fn() => (new StablePackageWriter())->build($oversizedTree, $oversizedTreePackage,
+        $password, $pattern, str_repeat('9', 48), false), 'Writer accepted a source tree above MAX_NODES.');
+    stableAssert(!file_exists($oversizedTreePackage), 'Over-limit source tree produced a package.');
+
     echo "Stable binary package round-trip and adversarial tests passed.\n";
 } finally {
     $password = '';
