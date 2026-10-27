@@ -616,7 +616,7 @@ final class StablePackageReader
             $base = DIRECTORY_SEPARATOR;
         }
         // Preserve a Windows drive root; "C:" is drive-relative, not "C:\\".
-        if (DIRECTORY_SEPARATOR === '\\\\' && preg_match('/^[A-Za-z]:$/D', $base) === 1) {
+        if (DIRECTORY_SEPARATOR === '\\' && preg_match('/^[A-Za-z]:$/D', $base) === 1) {
             $base .= DIRECTORY_SEPARATOR;
         }
         $separator = str_ends_with($base, DIRECTORY_SEPARATOR) ? '' : DIRECTORY_SEPARATOR;
