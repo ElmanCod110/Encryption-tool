@@ -185,7 +185,7 @@ try {
     stableAssert(is_string($raw) && strlen($raw) > Format::HEADER_BYTES, 'Package output is empty.');
     if (DIRECTORY_SEPARATOR !== '\\') {
         $packagePermissions = fileperms($package);
-        stableAssert(is_int($packagePermissions) && (($packagePermissions & 0777) === 0600),
+        stableAssert(is_int($packagePermissions) && (($packagePermissions & 07777) === 0600),
             'Published package did not retain private file permissions.');
     }
     stableAssert(substr($raw, 0, 8) === Format::MAGIC, 'Fixed opaque, version-independent marker is incorrect.');
@@ -292,7 +292,7 @@ try {
             $restore . DIRECTORY_SEPARATOR . 'empty.bin' => 0600,
         ] as $privatePath => $expectedMode) {
             $actualMode = fileperms($privatePath);
-            stableAssert(is_int($actualMode) && (($actualMode & 0777) === $expectedMode),
+            stableAssert(is_int($actualMode) && (($actualMode & 07777) === $expectedMode),
                 'Restored output permissions are not private: ' . basename($privatePath));
         }
     }
