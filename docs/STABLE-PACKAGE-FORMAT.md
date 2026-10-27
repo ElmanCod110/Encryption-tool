@@ -31,6 +31,14 @@ A fixed opaque magic byte sequence may identify the file type if it remains cons
 9. Zeroize key material where the runtime supports it and never expose credentials or plaintext in diagnostics.
 10. Preserve V14 server and browser V13 compatibility independently. Do not silently reinterpret or rewrite existing packages.
 
+## Metadata visibility and offline attack model
+
+The stable format intentionally omits application release versions, format-generation labels, and schema-version fields, but it does not hide all metadata. The fixed header exposes the random package identifier, salt, bounded KDF parameters, algorithm identifiers, and whether a recovery slot is present. Each file-start record exposes a random file identifier and exact plaintext file size; record counts and total package length also reveal information about the package. The encrypted manifest protects filenames and the directory graph.
+
+A copied package permits offline password-and-pattern guessing against the wrapped root key. Argon2id raises the cost per attempt but cannot prevent weak-credential guessing after an attacker obtains the package. Use a long, unique password and a separate non-reused pattern. Rate limiting in the application cannot stop offline attempts.
+
+The format authenticates encrypted content to the key material, not the identity of the person who sent the package. Use a trusted transfer channel and verify any sender/publisher signature or checksum through an independently trusted channel when origin authenticity matters.
+
 ## Implementation boundary
 
 The candidate implementation consists of these separate classes:
