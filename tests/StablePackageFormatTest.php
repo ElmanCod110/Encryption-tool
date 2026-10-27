@@ -183,6 +183,11 @@ try {
 
     $raw = file_get_contents($package);
     stableAssert(is_string($raw) && strlen($raw) > Format::HEADER_BYTES, 'Package output is empty.');
+    if (DIRECTORY_SEPARATOR !== '\\\\') {
+        $packagePermissions = fileperms($package);
+        stableAssert(is_int($packagePermissions) && (($packagePermissions & 0777) === 0600),
+            'Published package did not retain private file permissions.');
+    }
     stableAssert(substr($raw, 0, 8) === Format::MAGIC, 'Fixed opaque, version-independent marker is incorrect.');
     stableAssert(strlen(substr($raw, 0, Format::HEADER_BYTES)) === 253, 'Fixed header length changed.');
     stableAssert(substr($raw, 8, 1) === chr(Format::FLAG_RECOVERY_SLOT), 'Recovery flag is incorrect.');
@@ -279,6 +284,18 @@ try {
     }
     stableAssert(is_dir($restore . DIRECTORY_SEPARATOR . 'empty-dir'),
         'Empty directory was not preserved by the manifest and restore.');
+    if (DIRECTORY_SEPARATOR !== '\\\\') {
+        foreach ([
+            $restore => 0700,
+            $restore . DIRECTORY_SEPARATOR . 'empty-dir' => 0700,
+            $restore . DIRECTORY_SEPARATOR . 'hello.txt' => 0600,
+            $restore . DIRECTORY_SEPARATOR . 'empty.bin' => 0600,
+        ] as $privatePath => $expectedMode) {
+            $actualMode = fileperms($privatePath);
+            stableAssert(is_int($actualMode) && (($actualMode & 0777) === $expectedMode),
+                'Restored output permissions are not private: ' . basename($privatePath));
+        }
+    }
 
     $recoveryDestination = $root . DIRECTORY_SEPARATOR . 'recovery-restore';
     $recovered = $reader->restore($package, $recoveryDestination, '', '', $build['recovery_key']);
