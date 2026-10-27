@@ -17,9 +17,23 @@ final class V14Stream
     {
         if (strlen($key) !== V14Descriptor::KEY_BYTES || $plainSize < 0 || $chunkBytes < 64 * 1024 || $chunkBytes > 8 * 1024 * 1024) throw new RuntimeException('Invalid stream configuration.');
         if (file_exists($destination) || is_link($destination)) throw new PackageStorageException('Encrypted destination already exists.');
-        if (!is_file($source)) throw new PackageStorageException('Source file does not exist.');
-        $in = fopen($source, 'rb');
+        clearstatcache(true, $source);
+        $sourcePathStat = @lstat($source);
+        if (is_link($source) || !is_file($source) || !is_array($sourcePathStat)
+            || (((int) ($sourcePathStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+            throw new PackageStorageException('Source file does not exist or is not a regular file.');
+        }
+        $in = @fopen($source, 'rb');
         if ($in === false) throw new PackageStorageException('Unable to open source file.');
+        $sourceHandleStat = fstat($in);
+        if (!is_array($sourceHandleStat)
+            || (((int) ($sourceHandleStat['mode'] ?? 0) & 0170000) !== 0100000)
+            || (int) ($sourceHandleStat['dev'] ?? -2) !== (int) ($sourcePathStat['dev'] ?? -1)
+            || (int) ($sourceHandleStat['ino'] ?? 0) !== (int) ($sourcePathStat['ino'] ?? -1)
+            || (int) ($sourceHandleStat['size'] ?? -1) !== $plainSize) {
+            fclose($in);
+            throw new PackageStorageException('Source file identity or size changed before encryption.');
+        }
         $tmp = $destination . '.partial.' . bin2hex(random_bytes(12));
         self::ensureParent($destination);
         $out = @fopen($tmp, 'x+b');
@@ -33,6 +47,14 @@ final class V14Stream
             throw new PackageStorageException('Unable to verify encrypted temporary file.');
         }
         $tmpIdentity = ['dev' => (int) ($tmpHandleStat['dev'] ?? -1), 'ino' => (int) $tmpHandleStat['ino']];
+        if (!@chmod($tmp, 0600)) {
+            fclose($out);
+            fclose($in);
+            if (!@unlink($tmp) && (file_exists($tmp) || is_link($tmp))) {
+                throw new PackageStorageException('Unable to clean encrypted temporary file after permission failure.');
+            }
+            throw new PackageStorageException('Unable to protect encrypted temporary file.');
+        }
         $published = false;
         $state = null;
         try {
@@ -59,9 +81,12 @@ final class V14Stream
                     $index++;
                 }
             }
+            $sourceTail = fread($in, 1);
+            if ($sourceTail === false) throw new PackageStorageException('Unable to verify encrypted source length.');
+            if ($sourceTail !== '') throw new PackageStorageException('Source file changed during encryption.');
+            if (!fflush($out)) throw new PackageStorageException('Unable to flush encrypted temporary file.');
             if (is_string($state)) sodium_memzero($state);
             $state = null;
-            if (!fflush($out)) throw new PackageStorageException('Unable to flush encrypted temporary file.');
             if (function_exists('fsync') && !fsync($out)) throw new PackageStorageException('Unable to synchronize encrypted temporary file.');
             fclose($out); $out = null;
             fclose($in); $in = null;
@@ -86,7 +111,6 @@ final class V14Stream
             if (!@unlink($tmp) && (file_exists($tmp) || is_link($tmp))) throw new PackageStorageException('Unable to remove encrypted temporary file.');
             if (file_exists($tmp) || is_link($tmp)) throw new PackageStorageException('Encrypted temporary file remains after publication.');
             $published = false;
-            @chmod($destination, 0600);
         } catch (\Throwable $e) {
             if (is_resource($in)) fclose($in);
             if (is_resource($out)) fclose($out);
@@ -100,8 +124,22 @@ final class V14Stream
     {
         if (strlen($key) !== V14Descriptor::KEY_BYTES || $expectedPlainSize < 0) throw new RuntimeException('Invalid stream configuration.');
         if (file_exists($destination) || is_link($destination)) throw new PackageStorageException('Restored destination already exists.');
-        $in = fopen($source, 'rb');
+        clearstatcache(true, $source);
+        $sourcePathStat = @lstat($source);
+        if (is_link($source) || !is_file($source) || !is_array($sourcePathStat)
+            || (((int) ($sourcePathStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+            throw new PackageStorageException('Encrypted source file is unavailable.');
+        }
+        $in = @fopen($source, 'rb');
         if ($in === false) throw new PackageStorageException('Unable to open encrypted file.');
+        $sourceHandleStat = fstat($in);
+        if (!is_array($sourceHandleStat)
+            || (((int) ($sourceHandleStat['mode'] ?? 0) & 0170000) !== 0100000)
+            || (int) ($sourceHandleStat['dev'] ?? -2) !== (int) ($sourcePathStat['dev'] ?? -1)
+            || (int) ($sourceHandleStat['ino'] ?? 0) !== (int) ($sourcePathStat['ino'] ?? -1)) {
+            fclose($in);
+            throw new PackageStorageException('Encrypted source file identity changed before restore.');
+        }
         $tmp = $destination . '.partial.' . bin2hex(random_bytes(12));
         self::ensureParent($destination);
         $out = @fopen($tmp, 'x+b');
@@ -115,6 +153,14 @@ final class V14Stream
             throw new PackageStorageException('Unable to verify restored temporary file.');
         }
         $tmpIdentity = ['dev' => (int) ($tmpHandleStat['dev'] ?? -1), 'ino' => (int) $tmpHandleStat['ino']];
+        if (!@chmod($tmp, 0600)) {
+            fclose($out);
+            fclose($in);
+            if (!@unlink($tmp) && (file_exists($tmp) || is_link($tmp))) {
+                throw new PackageStorageException('Unable to clean restored temporary file after permission failure.');
+            }
+            throw new PackageStorageException('Unable to protect restored temporary file.');
+        }
         $published = false;
         $state = null;
         try {
@@ -162,12 +208,17 @@ final class V14Stream
                 elseif ($tag !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE) throw new V14StreamRejectedException('Unexpected stream tag.');
                 $written += strlen($plain);
                 if ($written > $expectedPlainSize) throw new V14StreamRejectedException('Encrypted stream length is invalid.');
-                if ($plain !== '') self::writeAll($out, $plain);
-                sodium_memzero($plain);
+                try {
+                    if ($plain !== '') self::writeAll($out, $plain);
+                } finally {
+                    if ($plain !== '') sodium_memzero($plain);
+                }
                 $index++;
                 if ($final) {
                     $tail = fread($in, 1);
-                    if ($tail !== '' && $tail !== false) throw new V14StreamRejectedException('Encrypted stream contains trailing data.');
+                    if ($tail === false) throw new PackageStorageException('Unable to verify encrypted stream end.');
+                    if ($tail !== '') throw new V14StreamRejectedException('Encrypted stream contains trailing data.');
+                    if (!feof($in)) throw new PackageStorageException('Unable to verify encrypted stream end.');
                     break;
                 }
             }
