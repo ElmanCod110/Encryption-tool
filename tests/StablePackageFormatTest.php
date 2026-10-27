@@ -260,7 +260,7 @@ try {
     ] as [$fieldName, $fieldOffset, $fieldLength]) {
         $invalidHeader = substr($raw, 0, Format::HEADER_BYTES);
         $invalidHeader = substr($invalidHeader, 0, $fieldOffset)
-            . str_repeat("\\0", $fieldLength)
+            . str_repeat("\0", $fieldLength)
             . substr($invalidHeader, $fieldOffset + $fieldLength);
         stableExpectFailure(fn() => Format::parseHeader($invalidHeader),
             'All-zero ' . $fieldName . ' was accepted by the header parser.');
