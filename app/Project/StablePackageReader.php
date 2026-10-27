@@ -374,12 +374,7 @@ final class StablePackageReader
             throw new RuntimeException('Unable to verify restore destination directory identity.');
         }
         $ownedDirectories = [$destination => $createdRootIdentity];
-        // mkdir(..., 0700) already applies the restrictive mode at creation. Recheck
-        // identity and symlink status before chmod because chmod follows symlinks.
-        if (is_link($destination) || !$this->matchesIdentity($destination, $createdRootIdentity)) {
-            throw new RuntimeException('Restore destination changed before permission hardening.');
-        }
-        @chmod($destination, 0700);
+        $this->enforcePrivateMode($destination, 0700, $createdRootIdentity);
 
         $directories = array_values(array_filter($entries, static fn(array $entry): bool => $entry['type'] === 1));
         usort($directories, static fn(array $a, array $b): int => ($a['depth'] <=> $b['depth']) ?: strcmp($a['path'], $b['path']));
@@ -400,11 +395,7 @@ final class StablePackageReader
                 throw new RuntimeException('Unable to verify restored directory identity.');
             }
             $ownedDirectories[$target] = $identity;
-            // As above, do not chmod a path that may have become a symlink.
-            if (is_link($target) || !$this->matchesIdentity($target, $identity)) {
-                throw new RuntimeException('Restored directory changed before permission hardening.');
-            }
-            @chmod($target, 0700);
+            $this->enforcePrivateMode($target, 0700, $identity);
         }
 
         $files = array_values(array_filter($entries, static fn(array $entry): bool => $entry['type'] === 2));
@@ -456,16 +447,12 @@ final class StablePackageReader
                 fclose($out);
                 throw new RuntimeException('Restored file path no longer matches the exclusively created file.');
             }
-            if (is_link($target) || !$this->matchesIdentity($target, $openedIdentity)) {
+            try {
+                $this->enforcePrivateMode($target, 0600, $openedIdentity);
+            } catch (Throwable $permissionError) {
                 fclose($in);
                 fclose($out);
-                throw new RuntimeException('Restored file changed before permission hardening.');
-            }
-            @chmod($target, 0600);
-            if (is_link($target) || !$this->matchesIdentity($target, $openedIdentity)) {
-                fclose($in);
-                fclose($out);
-                throw new RuntimeException('Restored file changed during permission hardening.');
+                throw $permissionError;
             }
             try {
                 $copied = stream_copy_to_stream($in, $out);
@@ -520,10 +507,18 @@ final class StablePackageReader
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $path = $base . DIRECTORY_SEPARATOR . 'spkg-stage-' . bin2hex(random_bytes(16));
             if (@mkdir($path, 0700)) {
-                @chmod($path, 0700);
-                if (is_link($path) || !is_dir($path)) {
+                $identity = $this->captureIdentity($path);
+                if (!is_array($identity) || $identity['type'] !== 0040000 || is_link($path)) {
                     @rmdir($path);
                     continue;
+                }
+                try {
+                    $this->enforcePrivateMode($path, 0700, $identity);
+                } catch (Throwable $e) {
+                    if ($this->matchesIdentity($path, $identity) && !is_link($path)) {
+                        @rmdir($path);
+                    }
+                    throw $e;
                 }
                 return $path;
             }
@@ -590,6 +585,25 @@ final class StablePackageReader
         }
         if ($failures !== []) {
             throw new RuntimeException('Output rollback could not safely remove every path created by this restore.');
+        }
+    }
+
+    private function enforcePrivateMode(string $path, int $mode, ?array $expectedIdentity): void
+    {
+        if (is_link($path) || !$this->matchesIdentity($path, $expectedIdentity) || !@chmod($path, $mode)) {
+            throw new RuntimeException('Unable to set private restore permissions safely.');
+        }
+        clearstatcache(true, $path);
+        if (is_link($path) || !$this->matchesIdentity($path, $expectedIdentity)) {
+            throw new RuntimeException('Restore path changed during permission hardening.');
+        }
+        // PHP does not expose a portable Windows ACL API. On POSIX systems, confirm the
+        // requested mode actually took effect and that group/other access was not retained.
+        if (DIRECTORY_SEPARATOR !== '\\\\') {
+            $permissions = @fileperms($path);
+            if (!is_int($permissions) || (($permissions & 0777) !== ($mode & 0777))) {
+                throw new RuntimeException('Private restore permissions did not take effect.');
+            }
         }
     }
 
