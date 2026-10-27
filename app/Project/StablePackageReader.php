@@ -509,7 +509,9 @@ final class StablePackageReader
             if (@mkdir($path, 0700)) {
                 $identity = $this->captureIdentity($path);
                 if (!is_array($identity) || $identity['type'] !== 0040000 || is_link($path)) {
-                    @rmdir($path);
+                    // Without a stable identity, do not remove a path that may have been
+                    // replaced after mkdir. The random name is not worth risking deletion
+                    // of a directory that this process cannot prove it owns.
                     continue;
                 }
                 try {
