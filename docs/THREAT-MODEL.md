@@ -40,6 +40,14 @@ V14 considers an attacker who can:
 - A universal guarantee against every side channel or implementation flaw.
 - Treating the V13 browser vault and V14 server engine as cryptographically identical.
 
+## Metadata leakage and offline guessing
+
+V14 encrypts filenames and the manifest, but the format is not metadata-free. Its readable header/completion records expose the format/version/schema identifiers, package ID, creation timestamp, KDF/cryptographic profile, recovery-slot presence, and integrity-binding values. ZIP structure and ciphertext blob lengths can reveal file counts, approximate per-file sizes, and total package size. These properties are not plaintext-content disclosures, but they can still be sensitive.
+
+A storage-only attacker who obtains a package can test password-and-pattern guesses offline against the wrapped root key. Argon2id increases the cost of each attempt; it does not make weak credentials safe or provide server-side rate limiting once the package is copied. Passwords and patterns should be long, unique, and not reused. A lost password/pattern or recovery key is not recoverable by the application.
+
+Authenticated encryption does not identify the sender. Anyone with the required credentials may be able to produce a valid package, and a valid ciphertext alone is not proof of publisher identity. Use a trusted transport channel and verify checksums/signatures out of band when sender identity or substitution resistance matters. Release verification must use an independently trusted public key, not only a key bundled inside the release artifact.
+
 ## Main controls
 
 - Argon2id13 credential derivation

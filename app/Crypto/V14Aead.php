@@ -21,11 +21,11 @@ final class V14Aead
     {
         self::assertKey($key);
         $min = SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES + SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_ABYTES;
-        if (strlen($packed) < $min) throw new RuntimeException('Unable to authenticate package data.');
+        if (strlen($packed) < $min) throw new V14AuthenticationException('Unable to authenticate package data.');
         $nonce = substr($packed, 0, SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
         $cipher = substr($packed, SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
         $plain = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt($cipher, $aad, $nonce, $key);
-        if ($plain === false) throw new RuntimeException('Unable to authenticate package data.');
+        if ($plain === false) throw new V14AuthenticationException('Unable to authenticate package data.');
         return $plain;
     }
 
@@ -41,10 +41,10 @@ final class V14Aead
 
     public static function unwrapKey(array $slot, string $wrappingKey, string $aad): string
     {
-        if (!isset($slot['nonce'], $slot['wrapped_key'])) throw new RuntimeException('Invalid key slot.');
+        if (!isset($slot['nonce'], $slot['wrapped_key'])) throw new V14AuthenticationException('Invalid key slot.');
         $nonce = base64_decode((string) $slot['nonce'], true);
         $cipher = base64_decode((string) $slot['wrapped_key'], true);
-        if ($nonce === false || strlen($nonce) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES || $cipher === false || strlen($cipher) !== V14Descriptor::KEY_BYTES + SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_ABYTES) throw new RuntimeException('Invalid key slot.');
+        if ($nonce === false || strlen($nonce) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES || $cipher === false || strlen($cipher) !== V14Descriptor::KEY_BYTES + SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_ABYTES) throw new V14AuthenticationException('Invalid key slot.');
         return self::open($nonce . $cipher, $wrappingKey, $aad);
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Project\PackageCatalog;
+use SecurePackage\Project\PackageNotAvailableException;
 
 $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'spk-package-catalog-' . bin2hex(random_bytes(8));
 if (!mkdir($directory, 0700, true)) {
@@ -101,6 +102,28 @@ try {
     }
     if (!$ownerMatched) {
         throw new RuntimeException('Concurrent catalog record owner hash is inconsistent.');
+    }
+
+    $deleteId = str_repeat('c', 48);
+    $catalog->create($deleteId, $owner, 'Delete fixture');
+    $wrongDeleteRejected = false;
+    try {
+        $catalog->delete($deleteId, 'account:owner-b');
+    } catch (PackageNotAvailableException) {
+        $wrongDeleteRejected = true;
+    }
+    if (!$wrongDeleteRejected || !hash_equals(hash('sha256', $owner), $catalog->get($deleteId)['owner_hash'])) {
+        throw new RuntimeException('Unauthorized package deletion modified the catalog record.');
+    }
+    $catalog->delete($deleteId, $owner);
+    $deleteMissing = false;
+    try {
+        $catalog->get($deleteId);
+    } catch (PackageNotAvailableException) {
+        $deleteMissing = true;
+    }
+    if (!$deleteMissing || file_exists($directory . DIRECTORY_SEPARATOR . $deleteId . '.json')) {
+        throw new RuntimeException('Package catalog deletion left its record behind.');
     }
 
     echo "Package catalog mutation regression tests passed.\n";

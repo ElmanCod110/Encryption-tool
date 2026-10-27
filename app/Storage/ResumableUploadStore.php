@@ -125,35 +125,135 @@ final class ResumableUploadStore
 
     public function remove(string $id): void
     {
-        if (!preg_match('/^[a-f0-9]{48}$/', $id)) return;
+        if (!preg_match('/^[a-f0-9]{48}$/', $id)) {
+            throw new RuntimeException('Invalid upload identifier for cleanup.');
+        }
+
         $dir = $this->directory($id);
-        if (is_link($dir)) {
-            @unlink($dir);
+        clearstatcache(true, $dir);
+        $rootStat = @lstat($dir);
+        if (!is_array($rootStat)) {
+            if (file_exists($dir) || is_link($dir)) {
+                throw new RuntimeException('Unable to inspect upload cleanup target.');
+            }
             return;
         }
-        if (!is_dir($dir)) return;
-        foreach (glob($dir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
-            if (is_link($file) || is_file($file)) {
-                @unlink($file);
-            } elseif (is_dir($file)) {
-                $iterator = new \RecursiveIteratorIterator(
-                    new \RecursiveDirectoryIterator($file, \FilesystemIterator::SKIP_DOTS),
-                    \RecursiveIteratorIterator::CHILD_FIRST
-                );
-                foreach ($iterator as $item) {
-                    $item->isLink() || !$item->isDir()
-                        ? @unlink($item->getPathname())
-                        : @rmdir($item->getPathname());
-                }
-                @rmdir($file);
+
+        if (is_link($dir)) {
+            if (!@unlink($dir) && is_link($dir)) {
+                throw new RuntimeException('Unable to remove upload directory symlink.');
             }
+            if (file_exists($dir) || is_link($dir)) {
+                throw new RuntimeException('Upload directory symlink remains after cleanup.');
+            }
+            return;
         }
-        @rmdir($dir);
+        if ((((int) ($rootStat['mode'] ?? 0) & 0170000) !== 0040000)) {
+            throw new RuntimeException('Upload cleanup target is not a directory.');
+        }
+
+        $identity = [
+            'dev' => (int) ($rootStat['dev'] ?? -1),
+            'ino' => (int) ($rootStat['ino'] ?? 0),
+        ];
+        $lockPath = $dir . DIRECTORY_SEPARATOR . 'upload.lock';
+        if (is_link($lockPath)) {
+            throw new RuntimeException('Upload cleanup lock is invalid.');
+        }
+        $lock = @fopen($lockPath, 'c+b');
+        if ($lock === false) {
+            throw new RuntimeException('Unable to lock upload for cleanup.');
+        }
+        $lockStat = fstat($lock);
+        $lockPathStat = @lstat($lockPath);
+        if (!is_array($lockStat) || !is_array($lockPathStat) || is_link($lockPath)
+            || (((int) ($lockStat['mode'] ?? 0) & 0170000) !== 0100000)
+            || (int) ($lockStat['dev'] ?? -2) !== (int) ($lockPathStat['dev'] ?? -1)
+            || (int) ($lockStat['ino'] ?? 0) !== (int) ($lockPathStat['ino'] ?? -1)) {
+            fclose($lock);
+            throw new RuntimeException('Upload cleanup lock identity could not be verified.');
+        }
+        if (!flock($lock, LOCK_EX)) {
+            fclose($lock);
+            throw new RuntimeException('Unable to acquire upload cleanup lock.');
+        }
+
+        try {
+            $this->assertDirectoryIdentity($dir, $identity);
+            $statePath = $dir . DIRECTORY_SEPARATOR . 'state.json';
+            if (is_link($statePath)) {
+                // Do not follow a forged state symlink. It will be unlinked as an entry below.
+            } elseif (is_file($statePath)) {
+                $raw = @file_get_contents($statePath);
+                if ($raw === false) {
+                    throw new RuntimeException('Unable to read upload state before cleanup.');
+                }
+                try {
+                    $state = json_decode($raw, true, 16, JSON_THROW_ON_ERROR);
+                } catch (\JsonException) {
+                    $state = null;
+                }
+                if (is_array($state)) {
+                    $state['status'] = 'expired';
+                    AtomicFile::write($statePath, json_encode($state, JSON_THROW_ON_ERROR));
+                }
+            }
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+
+        // The expired state remains visible until this lock is released, so a concurrent
+        // operation that wins the lock before deletion fails closed instead of using the upload.
+        $this->assertDirectoryIdentity($dir, $identity);
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($iterator as $item) {
+                $this->assertDirectoryIdentity($dir, $identity);
+                $itemPath = $item->getPathname();
+                if ($item->isLink() || !$item->isDir()) {
+                    if (!@unlink($itemPath) && (file_exists($itemPath) || is_link($itemPath))) {
+                        throw new RuntimeException('Unable to remove upload file during cleanup.');
+                    }
+                } elseif (!@rmdir($itemPath) && is_dir($itemPath)) {
+                    throw new RuntimeException('Unable to remove upload directory during cleanup.');
+                }
+            }
+        } catch (\Throwable $exception) {
+            throw new RuntimeException('Unable to complete upload cleanup safely.', 0, $exception);
+        }
+
+        $this->assertDirectoryIdentity($dir, $identity);
+        if (!@rmdir($dir) && is_dir($dir)) {
+            throw new RuntimeException('Unable to remove upload storage directory.');
+        }
+        clearstatcache(true, $dir);
+        if (file_exists($dir) || is_link($dir)) {
+            throw new RuntimeException('Upload storage directory remains after cleanup.');
+        }
+    }
+
+    private function assertDirectoryIdentity(string $directory, array $expected): void
+    {
+        clearstatcache(true, $directory);
+        $actual = @lstat($directory);
+        if (!is_array($actual)
+            || is_link($directory)
+            || (((int) ($actual['mode'] ?? 0) & 0170000) !== 0040000)
+            || (int) ($actual['dev'] ?? -2) !== (int) ($expected['dev'] ?? -1)
+            || ((int) ($expected['ino'] ?? 0) !== 0
+                && (int) ($actual['ino'] ?? 0) !== (int) $expected['ino'])) {
+            throw new RuntimeException('Upload storage directory identity changed during cleanup.');
+        }
     }
 
     public function cleanup(): void
     {
-        if (is_link($this->root) || !is_dir($this->root)) return;
+        if (is_link($this->root)) throw new RuntimeException('Upload storage root must not be a symlink.');
+        if (!is_dir($this->root)) return;
 
         // Serialize cleanup with upload initialization, then lock each upload before
         // deciding whether it can be removed. Expired state is marked before unlinking
@@ -164,7 +264,13 @@ final class ResumableUploadStore
                 $id = $entry->getFilename();
                 if (!preg_match('/^[a-f0-9]{48}$/', $id)) continue;
                 if ($entry->isLink()) {
-                    @unlink($entry->getPathname());
+                    $path = $entry->getPathname();
+                    if (!@unlink($path) && is_link($path)) {
+                        throw new RuntimeException('Unable to remove upload storage symlink during cleanup.');
+                    }
+                    if (file_exists($path) || is_link($path)) {
+                        throw new RuntimeException('Upload storage symlink remains after cleanup.');
+                    }
                     continue;
                 }
                 if (!$entry->isDir()) continue;

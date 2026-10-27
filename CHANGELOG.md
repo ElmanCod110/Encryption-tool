@@ -1,6 +1,25 @@
 # Changelog
 
-## Unreleased — MVP readiness and repository maintenance
+## Unreleased — v1.0.0 readiness, API reliability, and storage hardening
+
+- Put API configuration loading and service initialization inside the generic error boundary; typed authentication failures now return HTTP 401, and missing resources are separated from storage/programming failures.
+- Added typed archive-step conflicts, rejected archive/package input, and storage faults so malformed input can return a documented 4xx while I/O failures remain generic 500 responses.
+- Hardened restore rollback, controller path cleanup, portable archive publication, and resumable-upload deletion with ownership checks, no-overwrite publication, post-cleanup verification, and surfaced cleanup errors.
+- Verified cleanup of incomplete V14 package builds and added a regression ensuring a failed build leaves no encrypted-package artifacts behind.
+- Made catalog listings fail closed on malformed JSON, invalid records, and symlinked records instead of silently presenting an incomplete inventory.
+- Ensured missing and unauthorized package lookups use the same privacy-preserving catalog response, and exposed the legacy server package format explicitly in runtime diagnostics.
+- Added regression coverage for runtime version metadata consistency and the diagnostics package-format contract.
+- Added HTTP regressions for configuration failure privacy, method Allow headers, authentication, missing job/package privacy, catalog failure, and restore storage failure.
+- Added regressions for corrupt ZIPs, archive traversal, existing-output preservation, catalog listing integrity, controller cleanup, and resumable-upload symlink safety.
+- Separated V14 authentication/stream rejection from storage errors while preserving atomic link-based no-replace publication; temporary file identities and restrictive modes are checked before publication.
+- Added the Composer-generated lockfile to the release-readiness work branch and made the manual lock refresh workflow fail before creating a PR when dependency audit fails.
+- Ported the Windows source-audit self-path normalization and strengthened release-signing input/write verification.
+- Reconciled the API error contract and reproducible QA matrix; manual Windows/XAMPP, real-browser, independently trusted signed-artifact, and independent security-review gates remain NOT RUN.
+- Kept the stable binary package format isolated in PR #38; it is not the default production writer and is not yet approved for v1.0.0.
+- Added a Windows CI smoke job for locked Composer install/audit, PHP syntax, self-check, source audit, V14 restore/archive safety, browser V13 compatibility, and external-trust-root signer verification.
+- Added a release-readiness lockfile gate and full regression/security suite to the Security and Release Integrity workflow.
+- Fixed a false-positive restore-safety test so an existing destination is accepted as rejected only when the expected typed storage exception is thrown, and verified its content remains unchanged.
+- Documented V14/stable-format metadata leakage, offline password-and-pattern guessing, sender-authenticity limits, and the explicit legacy-reader/migration policy.
 
 - Add an executable release-signing regression that verifies Ed25519 signatures against an independently pinned external trust root.
 - Fail closed when the audit hash-chain head is missing or corrupt, verify chain integrity before appending, and redact sensitive audit context keys by normalized fragments.

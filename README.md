@@ -82,6 +82,16 @@ After a real root `composer.lock` has been generated with Composer and committed
 
 Before a release, work through the [reproducible release QA matrix](docs/RELEASE-QA.md). It separates CI evidence from manual Windows/XAMPP and real-browser checks; manual scenarios must remain NOT RUN until tested.
 
+## Security limitations and exposed metadata
+
+Encryption does not hide every property of a V14 package. The readable package header/completion records expose the format and generation identifiers, random package ID, creation time, cryptographic/KDF profile, whether a recovery slot exists, and integrity-binding values. ZIP entry structure and encrypted blob lengths can reveal the approximate number and sizes of files and the total package size. The encrypted manifest protects filenames and directory relationships; it does not make the entire package indistinguishable from random data of a fixed size.
+
+A copied package can be attacked offline: an attacker can test password-and-pattern guesses against the wrapped key slot without contacting the application. Argon2id raises the cost of each guess but cannot prevent offline guessing. Use a long, unique password and a separate, non-reused pattern. Web rate limits do not protect a package after an attacker obtains a copy. A lost password/pattern or lost recovery key cannot be recovered by the project.
+
+Package encryption also does not prove who sent a package. Use HTTPS, SFTP, or another trusted transfer channel; when sender identity or artifact substitution matters, verify a checksum or signature through an independently trusted channel. Do not rely on a public key embedded only inside the release artifact as the sole trust root.
+
+The version-independent single-file binary format is still a separately reviewed candidate. Until it is approved and integrated, V14 remains the active server writer and browser V13 remains a separate compatibility format. Do not assume that a legacy package has been converted merely because the application version changes.
+
 ## Security philosophy
 
 The application treats cryptography, parsing, filesystem handling, authentication, resource limits, and supply-chain integrity as one security boundary. A stronger cipher alone does not make the system secure; every step between untrusted input and plaintext restore must fail closed.

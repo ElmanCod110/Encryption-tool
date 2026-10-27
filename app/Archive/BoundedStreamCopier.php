@@ -33,18 +33,18 @@ final class BoundedStreamCopier
             $readLength = max(1, min(self::CHUNK_BYTES, $remainingFile + 1, $remainingTotal + 1));
             $chunk = fread($source, $readLength);
             if ($chunk === false) {
-                throw new RuntimeException('Unable to read archive content.');
+                throw new ArchiveProcessingException('Unable to read archive content.');
             }
             if ($chunk === '') {
                 if (feof($source)) {
                     break;
                 }
-                throw new RuntimeException('Archive stream stopped unexpectedly.');
+                throw new ArchiveProcessingException('Archive stream stopped unexpectedly.');
             }
 
             $length = strlen($chunk);
             if ($copied + $length > $maxFileBytes || $copied + $length > $maxTotalBytes) {
-                throw new RuntimeException('Archive extraction limit exceeded.');
+                throw new ArchiveProcessingException('Archive extraction limit exceeded.');
             }
 
             $offset = 0;

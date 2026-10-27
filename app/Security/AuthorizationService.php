@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace SecurePackage\Security;
 
-use RuntimeException;
 use SecurePackage\Project\PackageCatalog;
 
 /**
@@ -15,7 +14,7 @@ final class AuthorizationService
     {
         $accountId = AccessContext::accountId();
         if ($accountId === null) {
-            throw new RuntimeException('Authentication required.');
+            throw new AuthenticationRequiredException();
         }
         return $accountId;
     }
