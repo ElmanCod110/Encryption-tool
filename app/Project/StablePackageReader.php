@@ -29,6 +29,8 @@ final class StablePackageReader
         }
 
         $stage = null;
+        $stageIdentity = null;
+        $stageOwnedFiles = [];
         $active = null;
         $rootKey = null;
         $manifestKey = null;
@@ -61,7 +63,9 @@ final class StablePackageReader
             $rootKey = StablePackageCrypto::unwrapRootKey($header, $password, $pattern, $recoveryKey);
             $manifestKey = StablePackageCrypto::deriveSubkey($rootKey, 'MANIFEST', $header['package_id']);
             $fileRootKey = StablePackageCrypto::deriveSubkey($rootKey, 'FILE-ROOT', $header['package_id']);
-            $stage = $this->createPrivateStage();
+            $stageInfo = $this->createPrivateStage();
+            $stage = $stageInfo['path'];
+            $stageIdentity = $stageInfo['identity'];
 
             $observedFiles = [];
             $observedOrder = [];
@@ -136,6 +140,7 @@ final class StablePackageReader
                         if (!$this->matchesIdentity($stagePath, $stageIdentity)) {
                             throw new RuntimeException('Staged file path does not match the exclusive-create handle.');
                         }
+                        $stageOwnedFiles[$fileIdHex] = ['path' => $stagePath, 'identity' => $stageIdentity];
                         $this->enforcePrivateMode($stagePath, 0600, $stageIdentity);
                     } catch (Throwable $stageError) {
                         fclose($out);
@@ -321,8 +326,10 @@ final class StablePackageReader
             // every manifest file was found above, so no unreferenced stream can remain.
             $this->extractValidatedFiles($decodedManifest['entries'], $observedFiles, $stage, $destination,
                 $createdOutputRoot, $createdOutputRootIdentity, $createdDirectories, $createdFiles);
-            $this->removePrivateStage($stage);
+            $this->removePrivateStage($stage, $stageIdentity, $stageOwnedFiles);
             $stage = null;
+            $stageIdentity = null;
+            $stageOwnedFiles = [];
 
             return [
                 'package_id' => $header['package_id_hex'],
@@ -358,8 +365,8 @@ final class StablePackageReader
             if (is_string($manifestPlain)) sodium_memzero($manifestPlain);
             $password = '';
             $pattern = '';
-            if (is_string($stage) && is_dir($stage)) {
-                $this->removePrivateStage($stage);
+            if (is_string($stage) && (file_exists($stage) || is_link($stage))) {
+                $this->removePrivateStage($stage, $stageIdentity, $stageOwnedFiles);
             }
         }
     }
@@ -601,7 +608,8 @@ final class StablePackageReader
         return rtrim($parent, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $name;
     }
 
-    private function createPrivateStage(): string
+    /** @return array{path:string, identity:array{dev:int,ino:int,type:int}} */
+    private function createPrivateStage(): array
     {
         $base = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR);
         for ($attempt = 0; $attempt < 5; $attempt++) {
@@ -617,42 +625,75 @@ final class StablePackageReader
                 try {
                     $this->enforcePrivateMode($path, 0700, $identity);
                 } catch (Throwable $e) {
-                    if ($this->matchesIdentity($path, $identity) && !is_link($path)) {
-                        @rmdir($path);
+                    if ($this->matchesIdentity($path, $identity) && !is_link($path) && !@rmdir($path)) {
+                        throw new RuntimeException('Unable to remove private staging directory after setup failure.', 0, $e);
                     }
                     throw $e;
                 }
-                return $path;
+                return ['path' => $path, 'identity' => $identity];
             }
         }
         throw new RuntimeException('Unable to create private staging directory.');
     }
 
-    private function removePrivateStage(string $root): void
+    /**
+     * Remove only registered files whose path still names the inode created here.
+     * Unknown entries are never recursively deleted; if one appears, cleanup fails closed.
+     */
+    private function removePrivateStage(string $root, ?array $rootIdentity, array $ownedFiles): void
     {
-        if (is_link($root)) {
-            if (!@unlink($root)) throw new RuntimeException('Unable to remove private staging link.');
+        if (!file_exists($root) && !is_link($root)) {
             return;
         }
-        if (!is_dir($root)) {
-            return;
+        if (is_link($root) || !is_dir($root) || !$this->matchesIdentity($root, $rootIdentity)) {
+            throw new RuntimeException('Private staging directory identity changed; cleanup was refused.');
         }
-        $entries = @scandir($root);
-        if ($entries === false) {
-            throw new RuntimeException('Unable to inspect private staging directory for cleanup.');
-        }
-        foreach (array_diff($entries, ['.', '..']) as $name) {
-            $path = $root . DIRECTORY_SEPARATOR . $name;
-            if (is_link($path) || is_file($path)) {
-                if (!@unlink($path)) throw new RuntimeException('Unable to remove private staged file.');
-            } elseif (is_dir($path)) {
-                $this->removePrivateStage($path);
-            } elseif (file_exists($path)) {
-                if (!@unlink($path)) throw new RuntimeException('Unable to remove private staged entry.');
+
+        $failures = [];
+        foreach ($ownedFiles as $idHex => $owned) {
+            $path = $owned['path'] ?? null;
+            $identity = $owned['identity'] ?? null;
+            if (!is_string($idHex) || !preg_match('/^[a-f0-9]{32}$/D', $idHex)
+                || !is_string($path) || dirname($path) !== $root || basename($path) !== $idHex . '.plain'
+                || !is_array($identity)) {
+                $failures[] = 'invalid-owned-entry';
+                continue;
+            }
+            if (!file_exists($path) && !is_link($path)) {
+                continue;
+            }
+            if (is_link($path) || !is_file($path) || !$this->matchesIdentity($path, $identity)) {
+                $failures[] = $path;
+                continue;
+            }
+            if (!@unlink($path)) {
+                $failures[] = $path;
             }
         }
-        if (!@rmdir($root)) {
-            throw new RuntimeException('Unable to remove private staging directory.');
+
+        $directory = @opendir($root);
+        if ($directory === false) {
+            throw new RuntimeException('Unable to inspect private staging directory for cleanup.');
+        }
+        $unknownEntryFound = false;
+        try {
+            while (($name = readdir($directory)) !== false) {
+                if ($name !== '.' && $name !== '..') {
+                    $unknownEntryFound = true;
+                }
+            }
+        } finally {
+            closedir($directory);
+        }
+        if ($unknownEntryFound) {
+            $failures[] = 'unowned-staging-entry';
+        }
+        if ($failures !== []) {
+            throw new RuntimeException('Private staging cleanup refused to delete unowned or changed paths.');
+        }
+        if (is_link($root) || !$this->matchesIdentity($root, $rootIdentity) || !is_dir($root)
+            || !@rmdir($root)) {
+            throw new RuntimeException('Unable to remove verified private staging directory.');
         }
     }
 
