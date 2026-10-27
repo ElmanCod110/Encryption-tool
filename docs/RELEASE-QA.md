@@ -28,6 +28,7 @@ For a clean checkout with PHP 8.2+ and required extensions:
 | Windows smoke | CI workflow `windows-smoke` job | Composer lock validation/audit, PHP syntax, runtime self-check, source audit, V14 round-trip/restore/archive safety, browser V13 round-trip, and external-trust-root signer test pass on a Windows runner | Run linked CI for the exact head |
 | Browser V13 round-trip | `node tests/BrowserV13RoundTripTest.mjs` | Compatibility regression passes | Run linked CI for the exact head |
 | Stable binary format | `php tests/StablePackageFormatTest.php` | Fixture, adversarial and round-trip assertions pass | Require the PHP 8.2/8.3 and Windows stable-format jobs on the exact PR #38 head; local XAMPP/shared-hosting behavior remains NOT RUN and this format is not the production/default writer |
+| Stable-format KDF budget | Benchmark the fixed default (3 operations, 256 MiB) and maximum accepted KDF cost under supported PHP, Windows, XAMPP/shared hosting, and concurrent failed unlocks | No unexpected process termination or host memory exhaustion; latency fits the deployment budget | NOT RUN on a real target host; do not change the binary KDF profile without a reviewed compatibility/security decision |
 | Catalog-list integrity | `php tests/PackageCatalogListingTest.php` | Corrupt or symlinked catalog records are rejected, not silently skipped | Run linked CI for the exact head |
 | Upload cleanup | `php tests/ResumableUploadCleanupTest.php` | Owned files are removed, nested symlinks are not followed, failures are surfaced | Linux coverage added; Windows/shared-hosting confirmation NOT RUN |
 | Signed release artifact | Build and verify with an independently distributed trusted public key | Signature and hashes verify independently of the build tree | NOT RUN; no v1.0.0 release artifact has been signed and published |
@@ -47,6 +48,7 @@ Record the Windows and XAMPP versions, PHP version, enabled extensions, commit, 
 | Missing extension | A required extension causes a clear, generic failure without secrets leaking | NOT RUN |
 | Disk/permission failure | Failed operations report no false success and clean owned temporary data | NOT RUN |
 | Stable-format round trip | Candidate writer and reader operate correctly on Windows filesystems | NOT RUN for local Windows/XAMPP |
+| Stable-format KDF resource budget | KDF unlock cost and peak memory remain within the actual host limits, including concurrent invalid attempts | NOT RUN; GitHub Windows CI is not a substitute for the target shared-hosting budget |
 
 ## Server package build and restore
 
