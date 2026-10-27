@@ -206,6 +206,10 @@ final class StablePackageReader
                             throw new RuntimeException('Unsupported secretstream tag.');
                         }
 
+                        // Keep a digest of the exact authenticated plaintext bytes. The
+                        // private staging path is reopened later for publication, so we must
+                        // detect in-place changes to staging data as well as path replacement.
+                        hash_update($active['hash'], $plain);
                         if ($plainLength > 0) {
                             StablePackageDescriptor::writeAll($active['out'], $plain);
                         }
@@ -216,6 +220,14 @@ final class StablePackageReader
                     }
 
                     if ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL) {
+                        $outputStat = is_resource($active['out']) ? fstat($active['out']) : false;
+                        if (!is_array($outputStat)
+                            || (int) ($outputStat['dev'] ?? -2) !== (int) ($active['stage_identity']['dev'] ?? -1)
+                            || (int) ($outputStat['ino'] ?? 0) !== (int) ($active['stage_identity']['ino'] ?? -1)
+                            || (int) ($outputStat['size'] ?? -1) !== $active['size']
+                            || !$this->matchesIdentity($active['stage_path'], $active['stage_identity'])) {
+                            throw new RuntimeException('Staged plaintext identity changed during decryption.');
+                        }
                         if (!fflush($active['out'])) {
                             throw new RuntimeException('Unable to flush staged file.');
                         }
@@ -226,10 +238,19 @@ final class StablePackageReader
                             $active['out'] = null;
                             throw new RuntimeException('Unable to close staged file.');
                         }
+                        $active['out'] = null;
+                        if (!$this->matchesIdentity($active['stage_path'], $active['stage_identity'])
+                            || is_link($active['stage_path']) || !is_file($active['stage_path'])) {
+                            throw new RuntimeException('Staged plaintext path changed after close.');
+                        }
+                        $plainDigest = hash_final($active['hash'], true);
+                        $active['hash'] = null;
                         $observedFiles[$active['id_hex']] = [
                             'size' => $active['size'],
                             'chunks' => $active['chunks'],
                             'path' => $active['stage_path'],
+                            'identity' => $active['stage_identity'],
+                            'sha256' => $plainDigest,
                         ];
                         $observedFileCount++;
                         $actualTotalBytes += $active['written'];
