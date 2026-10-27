@@ -31,7 +31,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: sodium, zip, pdo_mysql
+          extensions: sodium, zip, pdo_mysql, mbstring, intl
           coverage: none
 
       - name: PHP syntax
@@ -53,6 +53,8 @@ jobs:
           for test in tests/*.php; do
             php "$test"
           done
+      - name: Unicode fail-closed fallback without optional extensions
+        run: php -n tests/StablePackageUnicodeFallbackTest.php
 
   browser-round-trip:
     name: Browser V13 compatibility regression
