@@ -599,7 +599,7 @@ final class StablePackageReader
         }
         // PHP does not expose a portable Windows ACL API. On POSIX systems, confirm the
         // requested mode actually took effect and that group/other access was not retained.
-        if (DIRECTORY_SEPARATOR !== '\\\\') {
+        if (DIRECTORY_SEPARATOR !== '\\') {
             $permissions = @fileperms($path);
             if (!is_int($permissions) || (($permissions & 0777) !== ($mode & 0777))) {
                 throw new RuntimeException('Private restore permissions did not take effect.');
