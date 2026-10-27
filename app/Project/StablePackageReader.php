@@ -611,6 +611,7 @@ final class StablePackageReader
 
     private function captureIdentity(string $path): ?array
     {
+        clearstatcache(true, $path);
         $stat = @lstat($path);
         if (!is_array($stat)) return null;
         return ['dev' => (int) ($stat['dev'] ?? -1), 'ino' => (int) ($stat['ino'] ?? 0), 'type' => ((int) ($stat['mode'] ?? 0)) & 0170000];
