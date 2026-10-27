@@ -105,7 +105,38 @@ try {
     }
 
     $expect(404, $request('api.php?action=unknown-action'), 'Unknown action');
-    $expect(405, $request('api.php?action=login', 'GET'), 'GET login method');
+
+    // Configuration loading must fail inside the JSON error boundary without leaking details.
+    $configFile = $fixture . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.php';
+    $configOriginal = file_get_contents($configFile);
+    if (!is_string($configOriginal)) {
+        throw new RuntimeException('Unable to read isolated config fixture.');
+    }
+    try {
+        $configSentinel = 'CONFIG_PRIVATE_SENTINEL_' . bin2hex(random_bytes(8));
+        $brokenConfig = "<?php\n declare(strict_types=1);\n throw new RuntimeException('" . $configSentinel . "');\n";
+        if (file_put_contents($configFile, $brokenConfig) === false) {
+            throw new RuntimeException('Unable to prepare configuration failure fixture.');
+        }
+        $configFailure = $request('api.php?action=unknown-action');
+        $expect(500, $configFailure, 'Configuration initialization failure');
+        if (!str_contains($configFailure['body'], 'Internal server error.')
+            || str_contains($configFailure['body'], $configSentinel)
+            || str_contains($configFailure['body'], 'RuntimeException')
+            || str_contains($configFailure['body'], $fixture)) {
+            throw new RuntimeException('Configuration failure exposed implementation details.');
+        }
+    } finally {
+        if (file_put_contents($configFile, $configOriginal) === false) {
+            throw new RuntimeException('Unable to restore isolated config fixture.');
+        }
+    }
+
+    $methodRejected = $request('api.php?action=login', 'GET');
+    $expect(405, $methodRejected, 'GET login method');
+    if (!in_array('Allow: POST', $methodRejected['headers'], true)) {
+        throw new RuntimeException('Method rejection did not advertise POST.');
+    }
     $expect(415, $request('api.php?action=login', 'POST', ['Content-Type: text/plain'], '{}'), 'Login media type');
 
     $indexResponse = $request('');
@@ -126,6 +157,8 @@ try {
     if ($cookie === '') throw new RuntimeException('Index did not set the expected session cookie.');
 
     $common = ['Content-Type: application/json', 'Cookie: ' . $cookie];
+    $unauthenticatedPackages = $request('api.php?action=packages', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf]), '{}');
+    $expect(401, $unauthenticatedPackages, 'Unauthenticated package listing');
     $expect(403, $request('api.php?action=login', 'POST', $common, '{}'), 'Missing CSRF token');
     $expect(403, $request('api.php?action=login', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf, 'Origin: https://attacker.example']), '{}'), 'Cross-origin request');
     $expect(400, $request('api.php?action=login', 'POST', array_merge($common, ['X-CSRF-Token: ' . $csrf]), '{invalid-json'), 'Malformed JSON');
