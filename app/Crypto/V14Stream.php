@@ -22,8 +22,19 @@ final class V14Stream
         if ($in === false) throw new PackageStorageException('Unable to open source file.');
         $tmp = $destination . '.partial.' . bin2hex(random_bytes(12));
         self::ensureParent($destination);
-        $out = fopen($tmp, 'wb');
+        $out = @fopen($tmp, 'x+b');
         if ($out === false) { fclose($in); throw new PackageStorageException('Unable to create encrypted file.'); }
+        $tmpHandleStat = fstat($out);
+        if (!is_array($tmpHandleStat) || (((int) ($tmpHandleStat['mode'] ?? 0) & 0170000) !== 0100000)
+            || (int) ($tmpHandleStat['ino'] ?? 0) === 0) {
+            fclose($out);
+            fclose($in);
+            if (!@unlink($tmp) && (file_exists($tmp) || is_link($tmp))) throw new PackageStorageException('Unable to clean unverified encrypted temporary file.');
+            throw new PackageStorageException('Unable to verify encrypted temporary file.');
+        }
+        $tmpIdentity = ['dev' => (int) ($tmpHandleStat['dev'] ?? -1), 'ino' => (int) $tmpHandleStat['ino']];
+        $published = false;
+        $state = null;
         try {
             [$state, $header] = sodium_crypto_secretstream_xchacha20poly1305_init_push($key);
             self::writeAll($out, self::MAGIC . $header);
@@ -54,21 +65,33 @@ final class V14Stream
             if (function_exists('fsync') && !fsync($out)) throw new PackageStorageException('Unable to synchronize encrypted temporary file.');
             fclose($out); $out = null;
             fclose($in); $in = null;
+            clearstatcache(true, $tmp);
+            $tmpStat = @lstat($tmp);
+            if (!is_array($tmpStat) || is_link($tmp)
+                || (int) ($tmpStat['dev'] ?? -2) !== $tmpIdentity['dev']
+                || (int) ($tmpStat['ino'] ?? 0) !== $tmpIdentity['ino']
+                || (((int) ($tmpStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+                throw new PackageStorageException('Encrypted temporary file identity changed before publication.');
+            }
             // link() atomically creates the final path and fails rather than replacing an existing file.
             if (!@link($tmp, $destination)) throw new PackageStorageException('Unable to finalize encrypted file without overwriting an existing destination.');
-            if (!@unlink($tmp)) throw new PackageStorageException('Unable to remove encrypted temporary file.');
+            $published = true;
+            clearstatcache(true, $destination);
+            $destinationStat = @lstat($destination);
+            if (!is_array($destinationStat) || is_link($destination)
+                || (int) ($destinationStat['dev'] ?? -2) !== $tmpIdentity['dev']
+                || (int) ($destinationStat['ino'] ?? 0) !== $tmpIdentity['ino']) {
+                throw new PackageStorageException('Published encrypted file identity could not be verified.');
+            }
+            if (!@unlink($tmp) && (file_exists($tmp) || is_link($tmp))) throw new PackageStorageException('Unable to remove encrypted temporary file.');
+            if (file_exists($tmp) || is_link($tmp)) throw new PackageStorageException('Encrypted temporary file remains after publication.');
+            $published = false;
             @chmod($destination, 0600);
         } catch (\Throwable $e) {
             if (is_resource($in)) fclose($in);
             if (is_resource($out)) fclose($out);
             if (isset($state) && is_string($state)) sodium_memzero($state);
-            if (!@unlink($tmp) && (file_exists($tmp) || is_link($tmp))) {
-                throw new PackageStorageException('Unable to clean failed stream temporary file.', 0, $e);
-            }
-            if (file_exists($tmp) || is_link($tmp)) {
-                throw new PackageStorageException('Failed stream temporary file remains.', 0, $e);
-            }
-            // Never delete the destination here: it may belong to the caller.
+            self::cleanupFailedStream($tmp, $destination, $published, $tmpIdentity, $e);
             throw $e;
         }
     }
@@ -81,8 +104,19 @@ final class V14Stream
         if ($in === false) throw new PackageStorageException('Unable to open encrypted file.');
         $tmp = $destination . '.partial.' . bin2hex(random_bytes(12));
         self::ensureParent($destination);
-        $out = fopen($tmp, 'wb');
+        $out = @fopen($tmp, 'x+b');
         if ($out === false) { fclose($in); throw new PackageStorageException('Unable to create restored file.'); }
+        $tmpHandleStat = fstat($out);
+        if (!is_array($tmpHandleStat) || (((int) ($tmpHandleStat['mode'] ?? 0) & 0170000) !== 0100000)
+            || (int) ($tmpHandleStat['ino'] ?? 0) === 0) {
+            fclose($out);
+            fclose($in);
+            if (!@unlink($tmp) && (file_exists($tmp) || is_link($tmp))) throw new PackageStorageException('Unable to clean unverified restored temporary file.');
+            throw new PackageStorageException('Unable to verify restored temporary file.');
+        }
+        $tmpIdentity = ['dev' => (int) ($tmpHandleStat['dev'] ?? -1), 'ino' => (int) $tmpHandleStat['ino']];
+        $published = false;
+        $state = null;
         try {
             try {
                 $header = self::readExact($in, strlen(self::MAGIC) + SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES);
@@ -144,15 +178,33 @@ final class V14Stream
             if (function_exists('fsync') && !fsync($out)) throw new PackageStorageException('Unable to synchronize restored temporary file.');
             fclose($out); $out = null;
             fclose($in); $in = null;
+            clearstatcache(true, $tmp);
+            $tmpStat = @lstat($tmp);
+            if (!is_array($tmpStat) || is_link($tmp)
+                || (int) ($tmpStat['dev'] ?? -2) !== $tmpIdentity['dev']
+                || (int) ($tmpStat['ino'] ?? 0) !== $tmpIdentity['ino']
+                || (((int) ($tmpStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+                throw new PackageStorageException('Restored temporary file identity changed before publication.');
+            }
             // link() atomically creates the final path and fails rather than replacing an existing file.
             if (!@link($tmp, $destination)) throw new PackageStorageException('Unable to finalize restored file without overwriting an existing destination.');
-            if (!@unlink($tmp)) throw new PackageStorageException('Unable to remove restored temporary file.');
+            $published = true;
+            clearstatcache(true, $destination);
+            $destinationStat = @lstat($destination);
+            if (!is_array($destinationStat) || is_link($destination)
+                || (int) ($destinationStat['dev'] ?? -2) !== $tmpIdentity['dev']
+                || (int) ($destinationStat['ino'] ?? 0) !== $tmpIdentity['ino']) {
+                throw new PackageStorageException('Published restored file identity could not be verified.');
+            }
+            if (!@unlink($tmp) && (file_exists($tmp) || is_link($tmp))) throw new PackageStorageException('Unable to remove restored temporary file.');
+            if (file_exists($tmp) || is_link($tmp)) throw new PackageStorageException('Restored temporary file remains after publication.');
+            $published = false;
             @chmod($destination, 0600);
         } catch (\Throwable $e) {
             if (is_resource($in)) fclose($in);
             if (is_resource($out)) fclose($out);
-            @unlink($tmp);
-            // Never delete the destination here: it may belong to the caller.
+            if (isset($state) && is_string($state)) sodium_memzero($state);
+            self::cleanupFailedStream($tmp, $destination, $published, $tmpIdentity, $e);
             throw $e;
         }
     }
@@ -177,6 +229,53 @@ final class V14Stream
             $n = fwrite($handle, substr($data, $offset));
             if ($n === false || $n === 0) throw new PackageStorageException('Unable to write encrypted data.');
             $offset += $n;
+        }
+    }
+
+    private static function cleanupFailedStream(string $temporaryPath, string $destinationPath, bool $published, array $temporaryIdentity, \Throwable $previous): void
+    {
+        $cleanupFailed = false;
+
+        if ($published) {
+            clearstatcache(true, $destinationPath);
+            $destinationStat = @lstat($destinationPath);
+            if (is_array($destinationStat) && !is_link($destinationPath)
+                && (int) ($destinationStat['dev'] ?? -2) === $temporaryIdentity['dev']
+                && (int) ($destinationStat['ino'] ?? 0) === $temporaryIdentity['ino']
+                && (((int) ($destinationStat['mode'] ?? 0) & 0170000) === 0100000)) {
+                if (!@unlink($destinationPath) && (file_exists($destinationPath) || is_link($destinationPath))) {
+                    $cleanupFailed = true;
+                }
+            } elseif (file_exists($destinationPath) || is_link($destinationPath)) {
+                // Never delete a path whose identity changed after our atomic publication.
+                $cleanupFailed = true;
+            }
+        }
+
+        clearstatcache(true, $temporaryPath);
+        if (file_exists($temporaryPath) || is_link($temporaryPath)) {
+            $temporaryStat = @lstat($temporaryPath);
+            if (is_array($temporaryStat) && !is_link($temporaryPath)
+                && (int) ($temporaryStat['dev'] ?? -2) === $temporaryIdentity['dev']
+                && (int) ($temporaryStat['ino'] ?? 0) === $temporaryIdentity['ino']
+                && (((int) ($temporaryStat['mode'] ?? 0) & 0170000) === 0100000)) {
+                if (!@unlink($temporaryPath) && (file_exists($temporaryPath) || is_link($temporaryPath))) {
+                    $cleanupFailed = true;
+                }
+            } else {
+                // Do not unlink a symlink or unexpected file that replaced our temporary file.
+                $cleanupFailed = true;
+            }
+        }
+
+        clearstatcache(true, $temporaryPath);
+        clearstatcache(true, $destinationPath);
+        if (file_exists($temporaryPath) || is_link($temporaryPath)
+            || ($published && (file_exists($destinationPath) || is_link($destinationPath)))) {
+            $cleanupFailed = true;
+        }
+        if ($cleanupFailed) {
+            throw new PackageStorageException('Unable to clean failed stream output safely.', 0, $previous);
         }
     }
 
