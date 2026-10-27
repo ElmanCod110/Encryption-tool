@@ -752,7 +752,7 @@ final class StablePackageReader
         // requested mode actually took effect and that group/other access was not retained.
         if (DIRECTORY_SEPARATOR !== '\\') {
             $permissions = @fileperms($path);
-            if (!is_int($permissions) || (($permissions & 0777) !== ($mode & 0777))) {
+            if (!is_int($permissions) || (($permissions & 07777) !== ($mode & 07777))) {
                 throw new RuntimeException('Private restore permissions did not take effect.');
             }
         }
