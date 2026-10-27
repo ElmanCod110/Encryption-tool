@@ -115,9 +115,34 @@ final class StablePackageReader
                     $out = @fopen($stagePath, 'xb');
                     if ($out === false) {
                         sodium_memzero($fileKey);
+                        if (is_string($streamState)) sodium_memzero($streamState);
                         throw new RuntimeException('Unable to stage decrypted file.');
                     }
-                    @chmod($stagePath, 0600);
+                    $stageHandleStat = fstat($out);
+                    if (!is_array($stageHandleStat)
+                        || (((int) ($stageHandleStat['mode'] ?? 0) & 0170000) !== 0100000)
+                        || (int) ($stageHandleStat['ino'] ?? 0) === 0) {
+                        fclose($out);
+                        sodium_memzero($fileKey);
+                        if (is_string($streamState)) sodium_memzero($streamState);
+                        throw new RuntimeException('Staged file handle identity could not be verified.');
+                    }
+                    $stageIdentity = [
+                        'dev' => (int) ($stageHandleStat['dev'] ?? -1),
+                        'ino' => (int) $stageHandleStat['ino'],
+                        'type' => ((int) ($stageHandleStat['mode'] ?? 0)) & 0170000,
+                    ];
+                    try {
+                        if (!$this->matchesIdentity($stagePath, $stageIdentity)) {
+                            throw new RuntimeException('Staged file path does not match the exclusive-create handle.');
+                        }
+                        $this->enforcePrivateMode($stagePath, 0600, $stageIdentity);
+                    } catch (Throwable $stageError) {
+                        fclose($out);
+                        sodium_memzero($fileKey);
+                        if (is_string($streamState)) sodium_memzero($streamState);
+                        throw $stageError;
+                    }
                     $observedIds[$fileIdHex] = true;
                     $observedOrder[] = $fileIdHex;
                     $active = [
@@ -131,6 +156,8 @@ final class StablePackageReader
                         'state' => $streamState,
                         'out' => $out,
                         'stage_path' => $stagePath,
+                        'stage_identity' => $stageIdentity,
+                        'hash' => hash_init('sha256'),
                     ];
                     continue;
                 }
