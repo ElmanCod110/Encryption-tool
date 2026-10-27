@@ -30,8 +30,8 @@ The planned stable binary format is a separate, version-independent format. Its 
 
 The compatibility policy is **read old formats explicitly; do not silently convert or reinterpret them**:
 
-- Keep the V14 server reader for existing `.spkg14` packages during the supported migration window.
-- Keep the browser V13 reader as a separate boundary for existing `.spk13` packages.
+- Keep the V14 server reader available in v1.0.0 for existing `.spkg14` packages; remove or deprecate it only through a separately announced, compatibility-reviewed release.
+- Keep the browser V13 reader as a separate boundary for existing `.spk13` packages; do not make its support depend on the server package-format choice.
 - Add the stable-format reader as a separate parser selected only by the stable format's exact fixed marker. Never try another parser as an automatic fallback after a parse/authentication failure.
 - Keep new stable-format writing behind its own reviewed integration gate. Changing `VERSION` must not rewrite any package or change how old package bytes are interpreted.
 
