@@ -6,6 +6,8 @@
 - Added typed archive-step conflicts, rejected archive/package input, and storage faults so malformed input can return a documented 4xx while I/O failures remain generic 500 responses.
 - Hardened restore rollback, controller path cleanup, portable archive publication, and resumable-upload deletion with ownership checks, no-overwrite publication, post-cleanup verification, and surfaced cleanup errors.
 - Made catalog listings fail closed on malformed JSON, invalid records, and symlinked records instead of silently presenting an incomplete inventory.
+- Ensured missing and unauthorized package lookups use the same privacy-preserving catalog response, and exposed the legacy server package format explicitly in runtime diagnostics.
+- Added regression coverage for runtime version metadata consistency and the diagnostics package-format contract.
 - Added HTTP regressions for configuration failure privacy, method Allow headers, authentication, missing job/package privacy, catalog failure, and restore storage failure.
 - Added regressions for corrupt ZIPs, archive traversal, existing-output preservation, catalog listing integrity, controller cleanup, and resumable-upload symlink safety.
 - Separated V14 authentication/stream rejection from storage errors while preserving atomic link-based no-replace publication; temporary file identities and restrictive modes are checked before publication.
