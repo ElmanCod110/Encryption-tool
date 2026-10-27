@@ -54,17 +54,6 @@ final class PackageArchive
         $tmpIdentity = null;
         $published = false;
         try {
-            clearstatcache(true, $tmpOutput);
-            $tempStat = @lstat($tmpOutput);
-            if (!is_array($tempStat) || is_link($tmpOutput)
-                || (((int) ($tempStat['mode'] ?? 0) & 0170000) !== 0100000)) {
-                throw new PackageStorageException('Temporary package archive identity could not be verified.');
-            }
-            $tmpIdentity = [
-                'dev' => (int) ($tempStat['dev'] ?? -1),
-                'ino' => (int) ($tempStat['ino'] ?? 0),
-            ];
-
             $count = 0;
             $used = [];
             $rootStat = @lstat($root);
@@ -115,6 +104,21 @@ final class PackageArchive
                 throw new PackageStorageException('Unable to finalize package archive.');
             }
 
+            // libzip may materialize or atomically replace the path only during close().
+            // Capture the resulting regular-file identity after finalization, then bind
+            // publication and rollback to that exact inode.
+            clearstatcache(true, $tmpOutput);
+            $tempStat = @lstat($tmpOutput);
+            if (!is_array($tempStat) || is_link($tmpOutput)
+                || (((int) ($tempStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+                throw new PackageStorageException('Temporary package archive identity could not be verified.');
+            }
+            $tmpIdentity = [
+                'dev' => (int) ($tempStat['dev'] ?? -1),
+                'ino' => (int) ($tempStat['ino'] ?? 0),
+            ];
+
+// Re-read the resulting identity immediately before publication.
             clearstatcache(true, $tmpOutput);
             $tempStat = @lstat($tmpOutput);
             if (!is_array($tempStat) || is_link($tmpOutput)
@@ -148,6 +152,17 @@ final class PackageArchive
             $published = false;
         } catch (\Throwable $exception) {
             try { $zip->close(); } catch (\Throwable) {}
+            if ($tmpIdentity === null) {
+                clearstatcache(true, $tmpOutput);
+                $partialStat = @lstat($tmpOutput);
+                if (is_array($partialStat) && !is_link($tmpOutput)
+                    && (((int) ($partialStat['mode'] ?? 0) & 0170000) === 0100000)) {
+                    $tmpIdentity = [
+                        'dev' => (int) ($partialStat['dev'] ?? -1),
+                        'ino' => (int) ($partialStat['ino'] ?? 0),
+                    ];
+                }
+            }
             $this->cleanupFailedCreate($tmpOutput, $outputFile, $published, $tmpIdentity, $exception);
             throw $exception;
         }
