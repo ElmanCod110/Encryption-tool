@@ -110,7 +110,7 @@ final class StablePackageCrypto
         $rootKey = null;
         $macKey = null;
         try {
-            if ($recoveryKey !== null && $recoveryKey !== '') {
+            if ($recoveryKey !== null) {
                 if (!$header['has_recovery']) {
                     throw new RuntimeException('Unable to open package.');
                 }
