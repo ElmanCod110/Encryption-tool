@@ -4,7 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/bootstrap.php';
 
 use SecurePackage\Storage\JobStore;
-use SecurePackage\Security\JobNotAvailableException;
+use SecurePackage\Storage\JobNotAvailableException;
 
 $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'spk-job-store-integrity-' . bin2hex(random_bytes(8));
 $root = $base . DIRECTORY_SEPARATOR . 'jobs';
