@@ -175,6 +175,16 @@ try {
 
     $reader = new StablePackageReader();
 
+    // Package inputs must reject symlink paths and must not create output on rejection.
+    $packageLink = $root . DIRECTORY_SEPARATOR . 'package-link.spkg';
+    if (@symlink($package, $packageLink)) {
+        $packageLinkDestination = $root . DIRECTORY_SEPARATOR . 'package-link-restore';
+        stableExpectFailure(fn() => $reader->restore($packageLink, $packageLinkDestination, $password, $pattern),
+            'Package symlink input was accepted.');
+        stableAssert(!file_exists($packageLinkDestination), 'Rejected package symlink created restore output.');
+        if (!@unlink($packageLink)) throw new RuntimeException('Unable to remove package symlink test fixture.');
+    }
+
     // Immutable on-disk bytes from an earlier writer build must remain readable;
     // a same-process writer/reader round trip cannot by itself prove compatibility.
     $fixtureEncoded = trim((string) file_get_contents(__DIR__ . '/fixtures/stable-format-v1.spkg.b64'));
