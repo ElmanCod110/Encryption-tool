@@ -612,8 +612,16 @@ final class StablePackageReader
     private function createPrivateStage(): array
     {
         $base = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR);
+        if ($base === '') {
+            $base = DIRECTORY_SEPARATOR;
+        }
+        // Preserve a Windows drive root; "C:" is drive-relative, not "C:\\".
+        if (DIRECTORY_SEPARATOR === '\\\\' && preg_match('/^[A-Za-z]:$/D', $base) === 1) {
+            $base .= DIRECTORY_SEPARATOR;
+        }
+        $separator = str_ends_with($base, DIRECTORY_SEPARATOR) ? '' : DIRECTORY_SEPARATOR;
         for ($attempt = 0; $attempt < 5; $attempt++) {
-            $path = $base . DIRECTORY_SEPARATOR . 'spkg-stage-' . bin2hex(random_bytes(16));
+            $path = $base . $separator . 'spkg-stage-' . bin2hex(random_bytes(16));
             if (@mkdir($path, 0700)) {
                 $identity = $this->captureIdentity($path);
                 if (!is_array($identity) || $identity['type'] !== 0040000 || is_link($path)) {
