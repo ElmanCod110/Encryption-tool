@@ -68,3 +68,30 @@ jobs:
         run: php tests/StablePackageFormatTest.php
       - name: Unicode fail-closed fallback without optional extensions
         run: php -n tests/StablePackageUnicodeFallbackTest.php
+
+  windows-stable-format:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: sodium,zip,pdo_mysql
+          coverage: none
+      - name: Stable binary format adversarial and round-trip suite
+        shell: pwsh
+        run: |
+          php tests/StablePackageFormatTest.php
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Legacy V14 restore safety regression
+        shell: pwsh
+        run: |
+          php tests/V14PackageRoundTripTest.php
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          php tests/V14RestoreSafetyTest.php
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Browser V13 compatibility regression
+        shell: pwsh
+        run: node tests/BrowserV13RoundTripTest.mjs
