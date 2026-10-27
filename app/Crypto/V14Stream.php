@@ -250,7 +250,6 @@ final class V14Stream
             if (!@unlink($tmp) && (file_exists($tmp) || is_link($tmp))) throw new PackageStorageException('Unable to remove restored temporary file.');
             if (file_exists($tmp) || is_link($tmp)) throw new PackageStorageException('Restored temporary file remains after publication.');
             $published = false;
-            @chmod($destination, 0600);
         } catch (\Throwable $e) {
             if (is_resource($in)) fclose($in);
             if (is_resource($out)) fclose($out);
