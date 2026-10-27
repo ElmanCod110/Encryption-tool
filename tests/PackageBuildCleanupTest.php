@@ -18,7 +18,12 @@ if ($cleanupHelperStart === false || $removePathStart === false) {
 }
 $cleanupHelper = substr($controller, $cleanupHelperStart, $removePathStart - $cleanupHelperStart);
 
-$failureStart = strpos($build, '} catch (\\Throwable) {');
+$failureStart = strpos($build, '} catch (\\Throwable $exception) {');
+$cleanupFailedBuildStart = strpos($controller, 'private function cleanupFailedBuild(');
+$cleanupFailedBuildEnd = strpos($controller, 'private function removeJobDirectory(', $cleanupFailedBuildStart === false ? 0 : $cleanupFailedBuildStart);
+$cleanupFailedBuild = $cleanupFailedBuildStart !== false && $cleanupFailedBuildEnd !== false
+    ? substr($controller, $cleanupFailedBuildStart, $cleanupFailedBuildEnd - $cleanupFailedBuildStart)
+    : '';
 $failurePath = $failureStart === false ? '' : substr($build, $failureStart);
 $checks = [
     'Input validation precedes the encryption build' =>
@@ -30,11 +35,13 @@ $checks = [
         && strpos($build, '$this->removeJobDirectory($jobId);') < strpos($build, "'ok' => true"),
     'Failed builds preserve the plaintext source job for recovery' =>
         $failureStart !== false
-        && !str_contains($failurePath, '$this->removeJobDirectory($jobId);'),
+        && !str_contains($failurePath, '$this->removeJobDirectory($jobId);')
+        && !str_contains($cleanupFailedBuild, '$this->removeJobDirectory($jobId);'),
     'Incomplete encrypted artifacts are cleaned only before catalog creation' =>
-        str_contains($failurePath, 'if (!$packageCreated)')
-        && str_contains($failurePath, '$this->removePath($portableArchive)')
-        && str_contains($failurePath, '$this->removePath($packageDirectory)'),
+        str_contains($failurePath, '$this->cleanupFailedBuild($portableArchive, $packageDirectory, $packageCreated)')
+        && str_contains($cleanupFailedBuild, 'if ($packageCreated)')
+        && str_contains($cleanupFailedBuild, '$this->removePath($path)')
+        && str_contains($cleanupFailedBuild, 'if (file_exists($path) || is_link($path)'),
     'Cleanup verifies the job path no longer exists' =>
         str_contains($cleanupHelper, 'if (file_exists($path) || is_link($path)'),
 ];
