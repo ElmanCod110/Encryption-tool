@@ -416,18 +416,33 @@ final class StablePackageReader
                 // Never unlink $target here: fopen('xb') did not establish ownership if it failed.
                 throw new RuntimeException('Unable to create restored file without overwriting.');
             }
-            $targetIdentity = $this->captureIdentity($target);
             $openedStat = fstat($out);
-            if (!is_array($targetIdentity) || !is_array($openedStat)
-                || ($targetIdentity['dev'] ?? null) !== (int) ($openedStat['dev'] ?? -1)
-                || ($targetIdentity['ino'] ?? null) !== (int) ($openedStat['ino'] ?? 0)
-                || ($targetIdentity['type'] ?? null) !== 0100000
-                || (((int) ($openedStat['mode'] ?? 0) & 0170000) !== 0100000)) {
+            if (!is_array($openedStat)
+                || (((int) ($openedStat['mode'] ?? 0) & 0170000) !== 0100000)
+                || (int) ($openedStat['ino'] ?? 0) === 0) {
                 fclose($in);
                 fclose($out);
-                throw new RuntimeException('Restored file identity could not be verified.');
+                throw new RuntimeException('Restored file handle identity could not be verified.');
             }
-            $createdFiles[] = ['path' => $target, 'identity' => $targetIdentity];
+            // Record ownership from the already-open exclusive-create handle before
+            // checking the directory entry. If the path is swapped, rollback may unlink
+            // only when that name still points to this exact inode.
+            $openedIdentity = [
+                'dev' => (int) ($openedStat['dev'] ?? -1),
+                'ino' => (int) $openedStat['ino'],
+                'type' => ((int) ($openedStat['mode'] ?? 0)) & 0170000,
+            ];
+            $createdFiles[] = ['path' => $target, 'identity' => $openedIdentity];
+            $targetIdentity = $this->captureIdentity($target);
+            if (!is_array($targetIdentity)
+                || ($targetIdentity['dev'] ?? null) !== $openedIdentity['dev']
+                || ($targetIdentity['ino'] ?? null) !== $openedIdentity['ino']
+                || ($targetIdentity['type'] ?? null) !== $openedIdentity['type']
+                || !$this->matchesIdentity($target, $openedIdentity)) {
+                fclose($in);
+                fclose($out);
+                throw new RuntimeException('Restored file path no longer matches the exclusively created file.');
+            }
             @chmod($target, 0600);
             try {
                 $copied = stream_copy_to_stream($in, $out);
