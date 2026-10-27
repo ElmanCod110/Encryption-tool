@@ -252,6 +252,20 @@ try {
         stableAssert(!file_exists($badDestination), 'Invalid header left output behind: ' . $label);
     }
 
+    foreach ([
+        ['package ID', 21, Format::PACKAGE_ID_BYTES],
+        ['salt', 45, Format::SALT_BYTES],
+        ['primary nonce', 77, Format::NONCE_BYTES],
+        ['enabled recovery nonce', 149, Format::NONCE_BYTES],
+    ] as [$fieldName, $fieldOffset, $fieldLength]) {
+        $invalidHeader = substr($raw, 0, Format::HEADER_BYTES);
+        $invalidHeader = substr($invalidHeader, 0, $fieldOffset)
+            . str_repeat("\\0", $fieldLength)
+            . substr($invalidHeader, $fieldOffset + $fieldLength);
+        stableExpectFailure(fn() => Format::parseHeader($invalidHeader),
+            'All-zero ' . $fieldName . ' was accepted by the header parser.');
+    }
+
     $zeroIdPackage = $root . DIRECTORY_SEPARATOR . 'zero-id.spkg';
     stableExpectFailure(fn() => (new StablePackageWriter())->build($source, $zeroIdPackage,
         $password, $pattern, str_repeat('0', 48), false), 'All-zero package identifier was accepted by the writer.');
@@ -277,6 +291,10 @@ try {
     stableExpectFailure(fn() => $reader->restore($package, $root . DIRECTORY_SEPARATOR . 'malformed-recovery',
         '', '', 'not a recovery key'), 'Malformed recovery key was accepted.');
     stableAssert(!file_exists($root . DIRECTORY_SEPARATOR . 'malformed-recovery'), 'Malformed recovery key left output behind.');
+    foreach (['', '=', 'A', str_repeat('A', 42), str_repeat('A', 44), str_repeat('A', 43) . '=', '+' . substr($build['recovery_key'], 1), str_repeat('A', 43)] as $badRecoveryKey) {
+        stableExpectFailure(fn() => StablePackageCrypto::decodeRecoveryKey($badRecoveryKey),
+            'Noncanonical or invalid recovery-key encoding was accepted.');
+    }
 
     $existingDestination = $root . DIRECTORY_SEPARATOR . 'already-exists';
     mkdir($existingDestination, 0700);
