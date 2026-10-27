@@ -216,18 +216,29 @@ final class PackageArchive
 
     private function assertArchivePath(string $name, bool $untrustedInput = false): void
     {
-        if ($name === '' || strlen($name) > 4096 || str_starts_with($name, '/') || preg_match('/^[A-Za-z]:\//', $name) === 1 || str_contains($name, "\0") || preg_match('#(?:^|/)\.\.(?:/|$)#', $name) || preg_match('/[\x00-\x1F\x7F:]/u', $name) === 1) {
-            if ($untrustedInput) throw new PackageRestoreRejectedException('Package archive contains an unsafe path.');
-            throw new RuntimeException('Package archive contains an unsafe path.');
-        }
-        foreach (explode('/', $name) as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..' || str_ends_with($segment, ' ') || str_ends_with($segment, '.') || preg_match('/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i', $segment) === 1) {
-                if ($untrustedInput) throw new PackageRestoreRejectedException('Package archive contains an unsafe path.');
-            throw new RuntimeException('Package archive contains an unsafe path.');
+        $invalid = $name === ''
+            || strlen($name) > 4096
+            || str_starts_with($name, '/')
+            || preg_match('/^[A-Za-z]:\//', $name) === 1
+            || str_contains($name, "\0")
+            || preg_match('#(?:^|/)\.\.(?:/|$)#', $name) === 1
+            || preg_match('/[\x00-\x1F\x7F:]/u', $name) === 1;
+        if (!$invalid) {
+            foreach (explode('/', $name) as $segment) {
+                if ($segment === '' || $segment === '.' || $segment === '..'
+                    || str_ends_with($segment, ' ') || str_ends_with($segment, '.')
+                    || preg_match('/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i', $segment) === 1) {
+                    $invalid = true;
+                    break;
+                }
             }
         }
+        if (!$invalid) return;
+        if ($untrustedInput) {
+            throw new PackageRestoreRejectedException('Package archive contains an unsafe path.');
+        }
+        throw new RuntimeException('Package archive contains an unsafe path.');
     }
-
     private function writeAll($handle, string $data): void
     {
         $offset = 0;
