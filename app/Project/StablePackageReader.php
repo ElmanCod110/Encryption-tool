@@ -40,10 +40,21 @@ final class StablePackageReader
         $createdFiles = [];
 
         try {
+            // Bind the canonical path to the opened regular file. If the path was
+            // replaced with a symlink or a different inode between realpath() and
+            // fopen(), fail before parsing any bytes from that unexpected target.
+            clearstatcache(true, $source);
+            $pathStat = @lstat($source);
             $fileStat = fstat($input);
-            if (!is_array($fileStat) || !isset($fileStat['size']) || (int) $fileStat['size'] < StablePackageDescriptor::HEADER_BYTES
+            if (!is_array($pathStat) || !is_array($fileStat) || is_link($source)
+                || (((int) ($pathStat['mode'] ?? 0) & 0170000) !== 0100000)
+                || (((int) ($fileStat['mode'] ?? 0) & 0170000) !== 0100000)
+                || (int) ($pathStat['dev'] ?? -2) !== (int) ($fileStat['dev'] ?? -1)
+                || (int) ($pathStat['ino'] ?? 0) !== (int) ($fileStat['ino'] ?? -1)
+                || !isset($fileStat['size'])
+                || (int) $fileStat['size'] < StablePackageDescriptor::HEADER_BYTES
                 || (int) $fileStat['size'] > StablePackageDescriptor::MAX_PACKAGE_BYTES) {
-                throw new RuntimeException('Package size is outside the supported bounds.');
+                throw new RuntimeException('Package file identity or size is outside the supported bounds.');
             }
             $rawHeader = StablePackageDescriptor::readExact($input, StablePackageDescriptor::HEADER_BYTES);
             $header = StablePackageDescriptor::parseHeader($rawHeader);
