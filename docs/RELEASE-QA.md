@@ -25,8 +25,9 @@ For a clean checkout with PHP 8.2+ and required extensions:
 | Source audit | `php bin/source-audit.php` | Source audit exits successfully | Run linked CI for the exact head |
 | Full security suite | `php bin/security-test.php --full` | Full security/regression suite exits successfully | Run linked CI for the exact head |
 | PHP regression suite | `for test in tests/*.php; do php "$test" || exit 1; done` | Every PHP test exits successfully | Run linked CI for the exact head |
+| Windows smoke | CI workflow `windows-smoke` job | Composer lock validation/audit, PHP syntax, runtime self-check, source audit, V14 round-trip/restore/archive safety, browser V13 round-trip, and external-trust-root signer test pass on a Windows runner | Run linked CI for the exact head |
 | Browser V13 round-trip | `node tests/BrowserV13RoundTripTest.mjs` | Compatibility regression passes | Run linked CI for the exact head |
-| Stable binary format | `php tests/StablePackageFormatTest.php` | Fixture, adversarial and round-trip assertions pass | Run the separate PR #38 workflows for its exact head; this format is not the production/default writer |
+| Stable binary format | `php tests/StablePackageFormatTest.php` | Fixture, adversarial and round-trip assertions pass | Require the PHP 8.2/8.3 and Windows stable-format jobs on the exact PR #38 head; local XAMPP/shared-hosting behavior remains NOT RUN and this format is not the production/default writer |
 | Catalog-list integrity | `php tests/PackageCatalogListingTest.php` | Corrupt or symlinked catalog records are rejected, not silently skipped | Run linked CI for the exact head |
 | Upload cleanup | `php tests/ResumableUploadCleanupTest.php` | Owned files are removed, nested symlinks are not followed, failures are surfaced | Linux coverage added; Windows/shared-hosting confirmation NOT RUN |
 | Signed release artifact | Build and verify with an independently distributed trusted public key | Signature and hashes verify independently of the build tree | NOT RUN; no v1.0.0 release artifact has been signed and published |
