@@ -456,7 +456,17 @@ final class StablePackageReader
                 fclose($out);
                 throw new RuntimeException('Restored file path no longer matches the exclusively created file.');
             }
+            if (is_link($target) || !$this->matchesIdentity($target, $openedIdentity)) {
+                fclose($in);
+                fclose($out);
+                throw new RuntimeException('Restored file changed before permission hardening.');
+            }
             @chmod($target, 0600);
+            if (is_link($target) || !$this->matchesIdentity($target, $openedIdentity)) {
+                fclose($in);
+                fclose($out);
+                throw new RuntimeException('Restored file changed during permission hardening.');
+            }
             try {
                 $copied = stream_copy_to_stream($in, $out);
                 if (!is_int($copied) || $copied !== $entry['size']) {
