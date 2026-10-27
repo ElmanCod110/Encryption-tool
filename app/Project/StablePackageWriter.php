@@ -96,6 +96,8 @@ final class StablePackageWriter
         $recoveryKeyRaw = null;
         $temporaryFile = $destination . '.partial.' . bin2hex(random_bytes(16));
         $out = null;
+        $temporaryCreated = false;
+        $temporaryIdentity = null;
         $published = false;
 
         try {
@@ -161,6 +163,22 @@ final class StablePackageWriter
                 $out = null;
                 throw new RuntimeException('Unable to create temporary package file.');
             }
+            $temporaryCreated = true;
+            $temporaryStat = fstat($out);
+            $temporaryPathStat = @lstat($temporaryFile);
+            if (!is_array($temporaryStat) || !is_array($temporaryPathStat) || is_link($temporaryFile)
+                || (((int) ($temporaryStat['mode'] ?? 0) & 0170000) !== 0100000)
+                || (((int) ($temporaryPathStat['mode'] ?? 0) & 0170000) !== 0100000)
+                || (int) ($temporaryStat['ino'] ?? 0) === 0
+                || (int) ($temporaryStat['dev'] ?? -2) !== (int) ($temporaryPathStat['dev'] ?? -1)
+                || (int) ($temporaryStat['ino'] ?? -1) !== (int) ($temporaryPathStat['ino'] ?? 0)) {
+                throw new RuntimeException('Temporary package file identity could not be verified.');
+            }
+            $temporaryIdentity = [
+                'dev' => (int) ($temporaryStat['dev'] ?? -1),
+                'ino' => (int) $temporaryStat['ino'],
+                'type' => ((int) ($temporaryStat['mode'] ?? 0)) & 0170000,
+            ];
             @chmod($temporaryFile, 0600);
             StablePackageDescriptor::writeAll($out, $header);
 
@@ -197,7 +215,7 @@ final class StablePackageWriter
                 throw new RuntimeException('Unable to close the package file.');
             }
             $out = null;
-            $this->publishWithoutReplace($temporaryFile, $destination);
+            $this->publishWithoutReplace($temporaryFile, $destination, $temporaryIdentity);
             $published = true;
 
             return [
@@ -212,8 +230,24 @@ final class StablePackageWriter
             if (is_resource($out)) {
                 fclose($out);
             }
-            if (!$published && (is_file($temporaryFile) || is_link($temporaryFile))) {
-                @unlink($temporaryFile);
+            $cleanupFailed = false;
+            if (!$published && $temporaryCreated && (file_exists($temporaryFile) || is_link($temporaryFile))) {
+                if (is_array($temporaryIdentity)
+                    && $this->matchesPathIdentity($temporaryFile, $temporaryIdentity)) {
+                    if (!@unlink($temporaryFile)) {
+                        $cleanupFailed = true;
+                    }
+                } else {
+                    // Never unlink a name that no longer points to the inode we created.
+                    $cleanupFailed = true;
+                }
+            }
+            if ($cleanupFailed) {
+                throw new RuntimeException(
+                    'Package creation failed and temporary output could not be safely removed.',
+                    0,
+                    $e
+                );
             }
             throw $e;
         } finally {
@@ -638,25 +672,42 @@ final class StablePackageWriter
         return StablePackageDescriptor::readExact($handle, $length);
     }
 
-    private function publishWithoutReplace(string $temporary, string $destination): void
+    private function publishWithoutReplace(string $temporary, string $destination, ?array $expectedIdentity): void
     {
+        if (!is_array($expectedIdentity) || !$this->matchesPathIdentity($temporary, $expectedIdentity)) {
+            throw new RuntimeException('Temporary package identity changed before publication.');
+        }
         if (file_exists($destination) || is_link($destination)) {
             throw new RuntimeException('Package destination already exists.');
         }
-        // Hard-link publication is atomic and fails if the destination exists. The temporary
-        // file is in the same directory/filesystem by construction.
+        // Hard-link publication is atomic and fails if the destination exists. Verify
+        // that the published name is still the inode produced by this writer.
         if (!@link($temporary, $destination)) {
             throw new RuntimeException('Unable to publish package without overwriting an existing destination.');
         }
-        if (!@unlink($temporary)) {
-            // Only remove the just-published name if it still points at our temporary inode.
-            $a = @stat($temporary);
-            $b = @stat($destination);
-            if (is_array($a) && is_array($b) && ($a['dev'] ?? null) === ($b['dev'] ?? null)
-                && ($a['ino'] ?? null) === ($b['ino'] ?? null)) {
+        if (!$this->matchesPathIdentity($destination, $expectedIdentity)) {
+            throw new RuntimeException('Published package identity could not be verified safely.');
+        }
+        if (!$this->matchesPathIdentity($temporary, $expectedIdentity) || !@unlink($temporary)) {
+            // Remove only the destination name if it still points to the inode we created.
+            if ($this->matchesPathIdentity($destination, $expectedIdentity)) {
                 @unlink($destination);
             }
             throw new RuntimeException('Package publication cleanup failed.');
         }
+    }
+
+    private function matchesPathIdentity(string $path, ?array $expected): bool
+    {
+        if (!is_array($expected) || (int) ($expected['ino'] ?? 0) === 0) {
+            return false;
+        }
+        clearstatcache(true, $path);
+        $actual = @lstat($path);
+        return is_array($actual) && !is_link($path)
+            && (((int) ($actual['mode'] ?? 0) & 0170000) === 0100000)
+            && (int) ($actual['dev'] ?? -2) === (int) ($expected['dev'] ?? -1)
+            && (int) ($actual['ino'] ?? 0) === (int) $expected['ino']
+            && (((int) ($expected['type'] ?? 0)) === 0100000);
     }
 }
