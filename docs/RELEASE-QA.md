@@ -1,6 +1,6 @@
 # Reproducible Release QA Matrix
 
-This checklist separates automated checks from manual deployment and browser checks. A checkbox is not evidence of a pass: record the run URL, environment, date, and outcome when the test is actually performed.
+This checklist separates automated checks from manual deployment and browser checks. A checkbox is not evidence of a pass: record the run URL, environment, date, commit and outcome when the test actually runs.
 
 ## Result vocabulary
 
@@ -9,82 +9,82 @@ This checklist separates automated checks from manual deployment and browser che
 - **NOT RUN** — no result has been collected. Keep this status until evidence exists.
 - **BLOCKED** — the procedure could not run because a prerequisite was unavailable; record the blocker.
 
-Do not put real user data, passwords, patterns, recovery keys, plaintext, or production secrets in evidence.
+Never place real user data, passwords, patterns, recovery keys, plaintext, or production secrets in evidence.
 
 ## Automated checks
 
-For a local checkout with PHP 8.2+ and the required extensions:
+For a clean checkout with PHP 8.2+ and required extensions:
 
-| Check | Procedure | Expected result | Result / evidence |
+| Check | Procedure | Expected result | Candidate status |
 | --- | --- | --- | --- |
-| Composer manifest | `composer validate --strict --no-check-publish` | Manifest validates strictly | NOT RUN — record CI run |
-| Dependency audit | `composer audit --no-interaction` | No unreviewed advisories | BLOCKED until a real `composer.lock` is committed |
-| PHP syntax | `find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l` | Every PHP file parses | NOT RUN — record CI run |
-| JavaScript syntax | `find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check` | Every JavaScript file parses | NOT RUN — record CI run |
-| Runtime self-check | `php bin/self-check.php` | Required runtime capabilities pass | NOT RUN — record CI run |
-| Source audit | `php bin/source-audit.php` | Source audit exits successfully | NOT RUN — record CI run |
-| Full security suite | `php bin/security-test.php --full` | Security suite exits successfully | NOT RUN — record CI run |
-| PHP regression tests | `for test in tests/*.php; do php "$test" || exit 1; done` | Every PHP test exits successfully | NOT RUN — record CI run |
-| Browser V13 round-trip | `node tests/BrowserV13RoundTripTest.mjs` | Compatibility test passes | NOT RUN — record CI run |
+| Composer manifest and lock | \`composer validate --strict --no-check-publish\` | Manifest and committed lockfile agree | NOT RUN for a final release candidate; CI must validate the exact head |
+| Dependency audit | \`composer audit --no-interaction\` | No unreviewed advisories | NOT RUN for the final candidate; a Composer-generated \`composer.lock\` is now present on the reconciliation branch |
+| PHP syntax | \`find app bin public tests -type f -name '*.php' -print0 \| xargs -0 -n1 php -l\` | Every PHP file parses | Run linked CI for the exact head |
+| JavaScript syntax | \`find public/client -type f -name '*.js' -print0 \| xargs -0 -n1 node --check\` | Every JavaScript file parses | Run linked CI for the exact head |
+| Runtime self-check | \`php bin/self-check.php\` | Required runtime capabilities pass | Run linked CI for the exact head |
+| Source audit | \`php bin/source-audit.php\` | Source audit exits successfully | Run linked CI for the exact head |
+| Full security suite | \`php bin/security-test.php --full\` | Full security/regression suite exits successfully | Run linked CI for the exact head |
+| PHP regression suite | \`for test in tests/*.php; do php "$test" || exit 1; done\` | Every PHP test exits successfully | Run linked CI for the exact head |
+| Browser V13 round-trip | \`node tests/BrowserV13RoundTripTest.mjs\` | Compatibility regression passes | Run linked CI for the exact head |
+| Stable binary format | \`php tests/StablePackageFormatTest.php\` | Fixture, adversarial and round-trip assertions pass | Run the separate PR #38 workflows for its exact head; this format is not the production/default writer |
+| Signed release artifact | Build and verify with an independently distributed trusted public key | Signature and hashes verify independently of the build tree | NOT RUN; no v1.0.0 release artifact has been signed and published |
 
-The CI workflow may run some of these checks automatically. Link the actual Actions run rather than copying a previous result or marking this table PASS by assumption. The current endpoint response mapping and known error-contract gaps are tracked in [API Error Contract Audit](API-ERROR-CONTRACT.md); use that audit to add concrete integration scenarios rather than treating source-text checks as end-to-end proof.
+A Composer-generated lockfile was reused from the readiness work because the current \`composer.json\` has the same blob SHA as that candidate's manifest. The lockfile is committed on the reconciliation branch; strict validation and dependency audit still must pass in CI on the exact candidate. Do not mark the current candidate PASS based on an older Actions run.
 
 ## Windows / XAMPP deployment
 
-Record the Windows version, XAMPP version, PHP version, enabled extensions, and tested commit.
+Record the Windows and XAMPP versions, PHP version, enabled extensions, commit, and test evidence.
 
-| Scenario | Procedure / expected result | Result / evidence |
+| Scenario | Expected result | Result |
 | --- | --- | --- |
-| Fresh setup | Follow the deployment guide from a clean checkout; setup completes without manual source edits | NOT RUN |
-| Runtime requirements | Confirm PHP 8.2+, Sodium, and Zip are available; self-check reports required capabilities | NOT RUN |
-| Storage permissions | Create, read, and remove a disposable test artifact using the configured storage location; no broader permissions are needed | NOT RUN |
-| Restart behavior | Restart Apache and repeat the health/self-check procedure; configuration remains usable | NOT RUN |
-| Missing extension | Disable a required extension in a disposable test environment; startup/check fails clearly without leaking secrets | NOT RUN |
-| Disk or permission failure | Use a disposable unwritable/full test destination where safely reproducible; operation fails cleanly and reports no false success | NOT RUN |
+| Fresh setup from a clean checkout | Setup completes without source edits | NOT RUN |
+| Runtime requirements | PHP 8.2+, Sodium and Zip are present; self-check is clear | NOT RUN |
+| Storage permissions | Disposable create/read/remove succeeds without broad permissions | NOT RUN |
+| Restart behavior | Apache restart does not invalidate configuration or normal operation | NOT RUN |
+| Missing extension | A required extension causes a clear, generic failure without secrets leaking | NOT RUN |
+| Disk/permission failure | Failed operations report no false success and clean owned temporary data | NOT RUN |
+| Stable-format round trip | Candidate writer and reader operate correctly on Windows filesystems | NOT RUN for local Windows/XAMPP |
 
 ## Server package build and restore
 
-Use disposable fixtures only. Never use production data or real credentials.
+Use disposable fixtures only. Never use production data or credentials.
 
-| Scenario | Expected result | Result / evidence |
+| Scenario | Expected result | Result |
 | --- | --- | --- |
-| Password + pattern | A package created with the intended credential flow restores the exact fixture | NOT RUN |
-| Independent recovery key | The documented recovery flow restores the fixture independently of the normal credential path | NOT RUN |
-| Wrong password / pattern | Restore fails safely; no plaintext is emitted | NOT RUN |
-| Wrong recovery key | Recovery fails safely; no plaintext is emitted | NOT RUN |
-| Empty file and nested directories | Restored structure and file contents match the fixture | NOT RUN |
-| Unicode filenames | Unicode names and contents survive the round trip on the tested filesystem | NOT RUN |
-| File size boundaries | Valid files within configured limits work; over-limit files are rejected before unsafe resource use | NOT RUN |
-| Existing destination collision | Restore refuses to overwrite existing files or directories | NOT RUN |
-| Malformed or truncated package | Restore rejects the input and cleans temporary artifacts | NOT RUN |
-| Tampered header, blob, or manifest | Integrity verification rejects modified data before restored output is accepted | NOT RUN |
-| Interrupted write / extraction | Operation reports failure and removes incomplete temporary output where safe | NOT RUN |
+| Password and pattern | Exact fixture round trip | NOT RUN manually |
+| Recovery-key flow | Recovery independently restores the fixture | NOT RUN manually |
+| Wrong password/pattern or recovery key | Restore fails safely; no plaintext or secret is returned | Automated tests exist; re-run on final candidate |
+| Empty files and nested directories | Structure and content match source | Automated coverage exists; manual cross-platform confirmation NOT RUN |
+| Unicode filenames | Documented normalization/fallback rules hold on the tested filesystem | Linux regression coverage exists; Windows confirmation NOT RUN |
+| Size and count boundaries | Over-limit input is rejected before unsafe resource use | Automated coverage exists; re-run on final candidate |
+| Existing destination | Existing files/directories remain untouched | Automated no-overwrite tests exist; re-run on final candidate |
+| Malformed/truncated/tampered package | Rejected; no incomplete plaintext output remains | Automated regression coverage exists; re-run on final candidate |
+| Interrupted extraction/cleanup failure | Remaining owned temporary data is detected and cleanup failure is surfaced | Automated tests exist; cross-platform confirmation NOT RUN |
 
-## Browser compatibility package
+## Browser compatibility
 
-Run in real browsers; JavaScript syntax checks alone are not browser compatibility evidence.
+Run in real browsers; JavaScript syntax tests alone are not browser compatibility evidence. Record the browser name/version, OS, commit and console errors.
 
-Record browser name/version, operating system, commit, and console errors.
-
-| Scenario | Expected result | Result / evidence |
+| Scenario | Expected result | Result |
 | --- | --- | --- |
-| Browser V13 build and restore | Browser package round-trips a disposable fixture | NOT RUN |
-| Format boundary | Browser V13 package is not accepted as a server V14 package, and vice versa unless explicitly documented | NOT RUN |
-| Wrong credentials and tampering | Operation fails without exposing plaintext or secret values | NOT RUN |
-| Keyboard-only navigation | Controls can be reached and used with a keyboard; focus remains visible | NOT RUN |
-| Responsive layout | Main and browser compatibility views remain usable at narrow and wide viewport sizes | NOT RUN |
+| Browser V13 build and restore | Browser package round-trips a disposable fixture | Automated regression exists; real-browser test NOT RUN |
+| V13/V14 format boundary | Formats are not silently reinterpreted | NOT RUN manually |
+| Wrong credentials and tampering | No plaintext or secrets leak | Automated regression exists; real-browser test NOT RUN |
+| Keyboard navigation | All controls work and visible focus is retained | NOT RUN |
+| Responsive layout | Views remain usable at narrow and wide viewports | NOT RUN |
 | Reduced motion | Reduced-motion preference is respected | NOT RUN |
-| Error states | Failure messages are understandable and do not expose stack traces, filesystem paths, or secrets | NOT RUN |
+| Error states | Messages are understandable without stack traces, paths or secrets | NOT RUN |
 
-## Release evidence
+## Release evidence required
 
-Before marking a release ready, attach or link:
+Before release approval, attach:
 
-- CI workflow run(s) for the exact candidate commit.
-- Dependency validation and audit output from the committed lockfile.
+- CI runs for the exact release-candidate commit.
+- Strict Composer validation and dependency audit from the committed lockfile.
 - Windows/XAMPP manual results.
-- Browser manual results for supported browsers.
-- Reproducible steps and sanitized logs for any FAIL or BLOCKED result.
-- A release note listing any untested platforms, known limitations, and outstanding blockers.
+- Real-browser compatibility and accessibility results.
+- Signed release artifact and independent trusted public key/checksum verification.
+- Sanitized reproduction/evidence for every FAIL or BLOCKED result.
+- Release notes that describe untested platforms, limitations and outstanding blockers.
 
-**Current status:** this document is a test plan, not a claim that the listed manual scenarios have passed. The missing root `composer.lock` remains a release blocker until a genuine lockfile is generated with Composer, reviewed, and committed.
+**Current decision:** this branch is still an integration/reconciliation draft, not a release candidate. PR #21 remains open and must not be merged without explicit approval. Windows/XAMPP and real-browser validation, independent security review and signed release-artifact verification remain release blockers. Do not change the default writer or create/publish a v1.0.0 tag or release until the explicit release gates are satisfied.
