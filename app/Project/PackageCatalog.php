@@ -134,14 +134,56 @@ final class PackageCatalog
     {
         $hash = hash('sha256', $ownerId);
         $items = [];
-        foreach (glob($this->directory . DIRECTORY_SEPARATOR . '*.json') ?: [] as $file) {
-            if (is_link($file) || !is_file($file)) continue;
-            $data = json_decode((string) @file_get_contents($file), true);
-            if (!is_array($data) || !hash_equals((string) ($data['owner_hash'] ?? ''), $hash)) {
-                continue;
+
+        try {
+            $iterator = new \FilesystemIterator($this->directory, \FilesystemIterator::SKIP_DOTS);
+            foreach ($iterator as $entry) {
+                $fileName = $entry->getFilename();
+                if (!str_ends_with($fileName, '.json')) continue;
+
+                $packageId = substr($fileName, 0, -5);
+                try {
+                    PackageId::assert($packageId);
+                } catch (RuntimeException $exception) {
+                    throw new RuntimeException('Package catalog contains an invalid record path.', 0, $exception);
+                }
+
+                $file = $entry->getPathname();
+                if ($entry->isLink() || !$entry->isFile() || is_link($file)) {
+                    throw new RuntimeException('Package catalog contains a non-regular record.');
+                }
+                $raw = @file_get_contents($file);
+                if ($raw === false) {
+                    throw new RuntimeException('Unable to read package catalog record.');
+                }
+                try {
+                    $data = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+                } catch (\JsonException $exception) {
+                    throw new RuntimeException('Package catalog record is corrupt.', 0, $exception);
+                }
+
+                if (!is_array($data)
+                    || ($data['package_id'] ?? null) !== $packageId
+                    || !is_string($data['owner_hash'] ?? null)
+                    || !preg_match('/^[a-f0-9]{64}$/', $data['owner_hash'])
+                    || !is_string($data['name_hash'] ?? null)
+                    || !preg_match('/^[a-f0-9]{64}$/', $data['name_hash'])
+                    || !is_int($data['created_at'] ?? null)
+                    || !(is_int($data['expires_at'] ?? null) || ($data['expires_at'] ?? null) === null)
+                    || !(is_int($data['revoked_at'] ?? null) || ($data['revoked_at'] ?? null) === null)) {
+                    throw new RuntimeException('Package catalog record is invalid.');
+                }
+
+                if (hash_equals($data['owner_hash'], $hash)) {
+                    $items[] = $data;
+                }
             }
-            $items[] = $data;
+        } catch (\RuntimeException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            throw new RuntimeException('Unable to enumerate package catalog.', 0, $exception);
         }
+
         usort($items, static fn(array $a, array $b): int => ((int) ($b['created_at'] ?? 0)) <=> ((int) ($a['created_at'] ?? 0)));
         return $items;
     }
