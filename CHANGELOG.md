@@ -13,6 +13,10 @@
 - Ported the Windows source-audit self-path normalization and strengthened release-signing input/write verification.
 - Reconciled the API error contract and reproducible QA matrix; manual Windows/XAMPP, real-browser, independently trusted signed-artifact, and independent security-review gates remain NOT RUN.
 - Kept the stable binary package format isolated in PR #38; it is not the default production writer and is not yet approved for v1.0.0.
+- Added a Windows CI smoke job for locked Composer install/audit, PHP syntax, self-check, source audit, V14 restore/archive safety, browser V13 compatibility, and external-trust-root signer verification.
+- Added a release-readiness lockfile gate and full regression/security suite to the Security and Release Integrity workflow.
+- Fixed a false-positive restore-safety test so an existing destination is accepted as rejected only when the expected typed storage exception is thrown, and verified its content remains unchanged.
+- Documented V14/stable-format metadata leakage, offline password-and-pattern guessing, sender-authenticity limits, and the explicit legacy-reader/migration policy.
 
 - Add an executable release-signing regression that verifies Ed25519 signatures against an independently pinned external trust root.
 - Fail closed when the audit hash-chain head is missing or corrupt, verify chain integrity before appending, and redact sensitive audit context keys by normalized fragments.
