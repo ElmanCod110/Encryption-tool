@@ -661,7 +661,7 @@ final class StablePackageWriter
         }
         // On Windows, trimming the root separator from "C:\\" yields "C:",
         // which has drive-relative rather than drive-root semantics.
-        if (DIRECTORY_SEPARATOR === '\' && preg_match('/^[A-Za-z]:$/D', $trimmed) === 1) {
+        if (DIRECTORY_SEPARATOR === '\\' && preg_match('/^[A-Za-z]:$/D', $trimmed) === 1) {
             return $trimmed . DIRECTORY_SEPARATOR;
         }
         return $trimmed;
