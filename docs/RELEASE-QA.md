@@ -17,19 +17,21 @@ For a clean checkout with PHP 8.2+ and required extensions:
 
 | Check | Procedure | Expected result | Candidate status |
 | --- | --- | --- | --- |
-| Composer manifest and lock | \`composer validate --strict --no-check-publish\` | Manifest and committed lockfile agree | NOT RUN for a final release candidate; CI must validate the exact head |
-| Dependency audit | \`composer audit --no-interaction\` | No unreviewed advisories | NOT RUN for the final candidate; a Composer-generated \`composer.lock\` is now present on the reconciliation branch |
-| PHP syntax | \`find app bin public tests -type f -name '*.php' -print0 \| xargs -0 -n1 php -l\` | Every PHP file parses | Run linked CI for the exact head |
-| JavaScript syntax | \`find public/client -type f -name '*.js' -print0 \| xargs -0 -n1 node --check\` | Every JavaScript file parses | Run linked CI for the exact head |
-| Runtime self-check | \`php bin/self-check.php\` | Required runtime capabilities pass | Run linked CI for the exact head |
-| Source audit | \`php bin/source-audit.php\` | Source audit exits successfully | Run linked CI for the exact head |
-| Full security suite | \`php bin/security-test.php --full\` | Full security/regression suite exits successfully | Run linked CI for the exact head |
-| PHP regression suite | \`for test in tests/*.php; do php "$test" || exit 1; done\` | Every PHP test exits successfully | Run linked CI for the exact head |
-| Browser V13 round-trip | \`node tests/BrowserV13RoundTripTest.mjs\` | Compatibility regression passes | Run linked CI for the exact head |
-| Stable binary format | \`php tests/StablePackageFormatTest.php\` | Fixture, adversarial and round-trip assertions pass | Run the separate PR #38 workflows for its exact head; this format is not the production/default writer |
+| Composer manifest and lock | `composer validate --strict --no-check-publish` | Manifest and committed lockfile agree | NOT RUN for a final release candidate; CI must validate the exact head |
+| Dependency audit | `composer audit --no-interaction` | No unreviewed advisories | NOT RUN for the final candidate; a Composer-generated `composer.lock` is now present on the reconciliation branch |
+| PHP syntax | `find app bin public tests -type f -name '*.php' -print0 \| xargs -0 -n1 php -l` | Every PHP file parses | Run linked CI for the exact head |
+| JavaScript syntax | `find public/client -type f -name '*.js' -print0 \| xargs -0 -n1 node --check` | Every JavaScript file parses | Run linked CI for the exact head |
+| Runtime self-check | `php bin/self-check.php` | Required runtime capabilities pass | Run linked CI for the exact head |
+| Source audit | `php bin/source-audit.php` | Source audit exits successfully | Run linked CI for the exact head |
+| Full security suite | `php bin/security-test.php --full` | Full security/regression suite exits successfully | Run linked CI for the exact head |
+| PHP regression suite | `for test in tests/*.php; do php "$test" || exit 1; done` | Every PHP test exits successfully | Run linked CI for the exact head |
+| Browser V13 round-trip | `node tests/BrowserV13RoundTripTest.mjs` | Compatibility regression passes | Run linked CI for the exact head |
+| Stable binary format | `php tests/StablePackageFormatTest.php` | Fixture, adversarial and round-trip assertions pass | Run the separate PR #38 workflows for its exact head; this format is not the production/default writer |
+| Catalog-list integrity | `php tests/PackageCatalogListingTest.php` | Corrupt or symlinked catalog records are rejected, not silently skipped | Run linked CI for the exact head |
+| Upload cleanup | `php tests/ResumableUploadCleanupTest.php` | Owned files are removed, nested symlinks are not followed, failures are surfaced | Linux coverage added; Windows/shared-hosting confirmation NOT RUN |
 | Signed release artifact | Build and verify with an independently distributed trusted public key | Signature and hashes verify independently of the build tree | NOT RUN; no v1.0.0 release artifact has been signed and published |
 
-A Composer-generated lockfile was reused from the readiness work because the current \`composer.json\` has the same blob SHA as that candidate's manifest. The lockfile is committed on the reconciliation branch; strict validation and dependency audit still must pass in CI on the exact candidate. Do not mark the current candidate PASS based on an older Actions run.
+A Composer-generated lockfile was reused from the readiness work because the current `composer.json` has the same blob SHA as that candidate's manifest. The lockfile is committed on the reconciliation branch; strict validation and dependency audit still must pass in CI on the exact candidate. Do not mark the current candidate PASS based on an older Actions run.
 
 ## Windows / XAMPP deployment
 
