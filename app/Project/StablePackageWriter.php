@@ -165,20 +165,26 @@ final class StablePackageWriter
             }
             $temporaryCreated = true;
             $temporaryStat = fstat($out);
-            $temporaryPathStat = @lstat($temporaryFile);
-            if (!is_array($temporaryStat) || !is_array($temporaryPathStat) || is_link($temporaryFile)
+            if (!is_array($temporaryStat)
                 || (((int) ($temporaryStat['mode'] ?? 0) & 0170000) !== 0100000)
-                || (((int) ($temporaryPathStat['mode'] ?? 0) & 0170000) !== 0100000)
-                || (int) ($temporaryStat['ino'] ?? 0) === 0
-                || (int) ($temporaryStat['dev'] ?? -2) !== (int) ($temporaryPathStat['dev'] ?? -1)
-                || (int) ($temporaryStat['ino'] ?? -1) !== (int) ($temporaryPathStat['ino'] ?? 0)) {
-                throw new RuntimeException('Temporary package file identity could not be verified.');
+                || (int) ($temporaryStat['ino'] ?? 0) === 0) {
+                throw new RuntimeException('Temporary package handle identity could not be verified.');
             }
+            // Record the identity from the opened exclusive-create handle before trusting
+            // the directory entry. On any later failure, cleanup can remove only a name
+            // that still refers to this exact inode.
             $temporaryIdentity = [
                 'dev' => (int) ($temporaryStat['dev'] ?? -1),
                 'ino' => (int) $temporaryStat['ino'],
                 'type' => ((int) ($temporaryStat['mode'] ?? 0)) & 0170000,
             ];
+            $temporaryPathStat = @lstat($temporaryFile);
+            if (!is_array($temporaryPathStat) || is_link($temporaryFile)
+                || (((int) ($temporaryPathStat['mode'] ?? 0) & 0170000) !== 0100000)
+                || (int) ($temporaryStat['dev'] ?? -2) !== (int) ($temporaryPathStat['dev'] ?? -1)
+                || (int) ($temporaryStat['ino'] ?? -1) !== (int) ($temporaryPathStat['ino'] ?? 0)) {
+                throw new RuntimeException('Temporary package file identity could not be verified.');
+            }
             $this->enforcePrivateFileMode($temporaryFile, 0600, $temporaryIdentity);
             StablePackageDescriptor::writeAll($out, $header);
 
