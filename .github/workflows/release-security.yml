@@ -20,7 +20,7 @@ jobs:
         uses: shivammathur/setup-php@2.37.2
         with:
           php-version: '8.3'
-          extensions: sodium,zip,pdo_mysql
+          extensions: sodium,zip,pdo_mysql,mbstring,intl
           coverage: none
 
       - name: Validate Composer manifest
@@ -51,6 +51,12 @@ jobs:
 
       - name: Security suite
         run: php bin/security-test.php --full
+
+      - name: Stable binary package regression
+        run: php tests/StablePackageFormatTest.php
+
+      - name: Unicode fail-closed fallback without optional extensions
+        run: php -n tests/StablePackageUnicodeFallbackTest.php
 
       - name: Source audit
         run: php bin/source-audit.php
