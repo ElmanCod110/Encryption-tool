@@ -183,7 +183,7 @@ try {
 
     $raw = file_get_contents($package);
     stableAssert(is_string($raw) && strlen($raw) > Format::HEADER_BYTES, 'Package output is empty.');
-    if (DIRECTORY_SEPARATOR !== '\\\\') {
+    if (DIRECTORY_SEPARATOR !== '\\') {
         $packagePermissions = fileperms($package);
         stableAssert(is_int($packagePermissions) && (($packagePermissions & 0777) === 0600),
             'Published package did not retain private file permissions.');
@@ -284,7 +284,7 @@ try {
     }
     stableAssert(is_dir($restore . DIRECTORY_SEPARATOR . 'empty-dir'),
         'Empty directory was not preserved by the manifest and restore.');
-    if (DIRECTORY_SEPARATOR !== '\\\\') {
+    if (DIRECTORY_SEPARATOR !== '\\') {
         foreach ([
             $restore => 0700,
             $restore . DIRECTORY_SEPARATOR . 'empty-dir' => 0700,
