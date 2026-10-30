@@ -158,6 +158,18 @@ foreach ($chunkCountCases as $size => $expectedChunks) {
         'Integer chunk-count calculation failed at size ' . $size . '.');
 }
 
+// u64 decoding must stay integer-exact at the signed runtime boundary.
+foreach ([0, 1, Format::MAX_FILE_BYTES, Format::MAX_TOTAL_PLAIN_BYTES, PHP_INT_MAX] as $uint64Value) {
+    stableAssert(Format::unpackUint64(Format::packUint64($uint64Value)) === $uint64Value,
+        'Unsigned 64-bit integer round-trip failed for ' . $uint64Value . '.');
+}
+stableExpectFailure(fn() => Format::unpackUint64(str_repeat("\\xFF", 8)),
+    'Unsigned u64 above PHP_INT_MAX was accepted.');
+stableExpectFailure(fn() => Format::unpackUint64("\\x80" . str_repeat("\\0", 7)),
+    'Unsigned u64 with the sign bit set was accepted.');
+stableExpectFailure(fn() => Format::unpackUint64("\\0" . str_repeat("\\0", 6)),
+    'Truncated u64 was accepted.');
+
 $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'stable-package-format-' . bin2hex(random_bytes(8));
 $source = $root . DIRECTORY_SEPARATOR . 'source';
 $package = $root . DIRECTORY_SEPARATOR . 'archive.spkg';
