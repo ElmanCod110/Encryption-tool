@@ -24,6 +24,21 @@ final class V14Descriptor
     public const MAX_FILENAME_BYTES = 4096;
     public const MAX_DEPTH = 256;
 
+    /**
+     * Validate the immutable credential bytes accepted by the V14 KDF.
+     *
+     * Do not apply current UI password-strength rules when reading an existing
+     * package: a policy change must never make a previously valid package
+     * impossible to restore.
+     */
+    public static function assertCredentialBytes(string $value): void
+    {
+        if ($value === '' || strlen($value) > 4096 || str_contains($value, "\0")
+            || preg_match('//u', $value) !== 1) {
+            throw new RuntimeException('Unable to open V14 package.');
+        }
+    }
+
     public static function kdfProfile(): array
     {
         return [
