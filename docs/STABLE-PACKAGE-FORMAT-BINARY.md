@@ -1,6 +1,6 @@
 # Stable Single-File Package Format — Binary Specification
 
-**Status:** normative implementation candidate for review; not yet the release default. This document defines the bytes written by 'StablePackageWriter' and accepted by 'StablePackageReader'. Existing V14 server and browser V13 readers are separate legacy compatibility boundaries; they must not be repurposed for this format.
+**Status:** normative byte-level contract for the active SPKG integration branch; release approval is still pending. This document defines the bytes written by `StablePackageWriter` and accepted by `StablePackageReader`. Existing V14 server and browser V13 readers are retired compatibility formats and must not be repurposed for SPKG.
 
 This document uses MUST, MUST NOT, SHOULD, and MAY as normative requirements. Every multibyte integer is unsigned big-endian unless explicitly stated otherwise. Lengths are measured in bytes.
 
@@ -216,6 +216,6 @@ The implementation MUST have automated tests for:
 - existing destinations remaining byte-for-byte untouched; failure cleanup leaving no partial output or private staging directory;
 - canonical record order and one-to-one correspondence between observed streams and manifest entries;
 - CI on supported PHP versions and Windows testing of encryption, restore, and atomic no-overwrite behavior;
-- unchanged server V14 and browser V13 compatibility tests.
+- active SPKG writer/reader round-trip, recovery, tamper, parser-boundary, and no-overwrite tests.
 
-A green round trip alone is not enough. This is an implementation candidate, not release authorization, independent audit, or a promise of zero defects. The format must remain isolated behind an explicit interface until full CI and platform checks pass. Do not tag v1.0.0 until review of the byte-level spec, complete writer/reader diff, parser boundary and failure-injection tests, Windows/shared-hosting behavior, and release artifact.
+A green round trip alone is not enough. Passing CI is not release authorization, an independent audit, or a promise of zero defects. The format is integrated into the active application on this branch, but the v1.0.0 release remains blocked on target-platform checks, real XAMPP/shared-hosting benchmarks, review of parser boundary and failure-injection tests, and independent cryptographic review. Do not tag v1.0.0 until those gates and release-artifact verification are complete.

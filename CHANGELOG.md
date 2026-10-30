@@ -2,6 +2,13 @@
 
 ## Unreleased — MVP readiness and repository maintenance
 
+- Integrated the stable binary SPKG writer and reader into the active API, storage inventory, download path, and CLI helpers; hosted and local XAMPP deployments now share one `.spkg` format.
+- Retired active V13 browser UI/API and V14 server package routes from the planned 1.0.0 application; legacy catalog entries are marked unsupported, with no automatic migration or parser fallback.
+- Added end-to-end HTTP coverage for ZIP upload, archive extraction, SPKG creation, binary download, authenticated restore, and legacy download rejection.
+- Bound restored package headers to the catalog package ID to prevent substituting a different valid SPKG under another catalog identifier.
+- Documented the server-side trust boundary for hosted deployments, the local XAMPP boundary, and the mandatory export/re-encryption procedure for legacy packages.
+- Updated CLI examples, release checks, and the Windows file icon association to use `.spkg`.
+
 - Add an executable release-signing regression that verifies Ed25519 signatures against an independently pinned external trust root.
 - Fail closed when the audit hash-chain head is missing or corrupt, verify chain integrity before appending, and redact sensitive audit context keys by normalized fragments.
 - Stage all existing encrypted package representations before revoking access or deleting catalog metadata; roll back staged files on pre-commit failures and test injected deletion/cleanup failures.

@@ -4,7 +4,7 @@ Status: the SPKG writer/reader are integrated into the active API and storage pa
 
 ## Goal
 
-The v1.0.0 release must establish one durable on-disk format. Changing application release versions must never change the package byte grammar or make compatible old packages unreadable.
+The v1.0.0 release establishes one durable on-disk format: SPKG. Application release-version changes within the SPKG compatibility line must not change its byte grammar. V13/V14 are intentionally incompatible legacy formats and are not supported by the 1.0.0 application.
 
 ## Non-negotiable serialized-format rules
 
@@ -43,11 +43,11 @@ The format authenticates encrypted content to the key material, not the identity
 
 The current writer profile uses Argon2id with 3 operations and 256 MiB; the parser accepts only the documented bounded range, up to 4 operations and 256 MiB. These parameters are checked before derivation, but the wrapped key cannot be authenticated until a credential-derived key has been tried. Consequently, a malformed or wrong-credential request can still consume the maximum permitted KDF cost.
 
-Before production integration, benchmark wall-clock latency and peak process/container memory on the supported PHP versions and target Windows/XAMPP/shared-hosting environments. Test multiple concurrent failed unlocks against realistic memory limits. A profile that can exhaust the host is not acceptable merely because its parameters are cryptographically strong. Do not silently lower the KDF profile: any change must be reviewed against the binary contract, fixture, compatibility requirements and security goals.
+Before the 1.0.0 release, benchmark wall-clock latency and peak process/container memory on the supported PHP versions and target Windows/XAMPP/shared-hosting environments. Test multiple concurrent failed unlocks against realistic memory limits. A profile that can exhaust the host is not acceptable merely because its parameters are cryptographically strong. Do not silently lower the KDF profile: any change must be reviewed against the binary contract, fixture, compatibility requirements and security goals.
 
 ## Implementation boundary
 
-The candidate implementation consists of these separate classes:
+The implementation is split across these format-specific classes:
 - app/Project/StablePackageDescriptor.php
 - app/Project/StablePackageCrypto.php
 - app/Project/StablePackageWriter.php
