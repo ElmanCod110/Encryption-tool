@@ -307,8 +307,10 @@ final class PackageController
         $outputDir = null;
         try {
             if ($recoveryKey === null || $recoveryKey === '') {
-                Validator::validatePassword($password);
-                Validator::validatePattern($pattern);
+                // Existing V14 packages keep their original KDF byte contract.
+                // Current account-creation strength policy applies only to new packages.
+                \\SecurePackage\\Project\\V14Descriptor::assertCredentialBytes($password);
+                \\SecurePackage\\Project\\V14Descriptor::assertCredentialBytes($pattern);
             }
             // Centralize revocation and expiry checks so decrypt uses the same boundary as downloads.
             $this->catalog->assertAvailable($packageId);
