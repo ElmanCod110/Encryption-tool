@@ -146,11 +146,20 @@ final class StablePackageDescriptor
         if (!is_array($parts)) {
             throw new RuntimeException('Invalid unsigned 64-bit integer.');
         }
-        $value = ((int) $parts['high'] * 4_294_967_296) + (int) $parts['low'];
-        if ($value < 0 || $value > PHP_INT_MAX) {
+        $high = (int) $parts['high'];
+        $low = (int) $parts['low'];
+        $base = 4_294_967_296;
+        $maximumHigh = intdiv(PHP_INT_MAX, $base);
+        $maximumLow = PHP_INT_MAX % $base;
+
+        // Check the unsigned halves before multiplication. On a signed 64-bit
+        // runtime, an out-of-range high half can promote the product to float;
+        // a later comparison would then lose precision near PHP_INT_MAX.
+        if ($high > $maximumHigh || ($high === $maximumHigh && $low > $maximumLow)) {
             throw new RuntimeException('Unsigned 64-bit integer exceeds this runtime.');
         }
-        return $value;
+
+        return ($high * $base) + $low;
     }
 
     public static function writeAll($handle, string $bytes): void
