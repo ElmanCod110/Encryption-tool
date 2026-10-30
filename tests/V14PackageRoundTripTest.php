@@ -6,7 +6,6 @@ use SecurePackage\Crypto\V14KeyDerivation;
 use SecurePackage\Project\V14PackageBuilder;
 use SecurePackage\Project\V14PackageReader;
 use SecurePackage\Security\CanonicalJson;
-use SecurePackage\Project\V14PackageReader;
 
 $root = sys_get_temp_dir() . '/spk-v14-round-' . bin2hex(random_bytes(6));
 $source = $root . '/source'; $package = $root . '/package'; $restored = $root . '/restored';
