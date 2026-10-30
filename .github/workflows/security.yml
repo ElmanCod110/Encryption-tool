@@ -86,4 +86,6 @@ jobs:
         run: php bin/source-audit.php
 
       - name: Active SPKG routing boundary
-        run: php tests/ActiveSpkgRoutingTest.php
+        run: |
+          php tests/ActiveSpkgRoutingTest.php
+          node tests/LegacyBrowserRetirementTest.mjs

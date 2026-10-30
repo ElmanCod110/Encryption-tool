@@ -73,7 +73,8 @@ Keep `storage/`, configuration, environment secrets, and release signing keys ou
 php bin/self-check.php
 php bin/source-audit.php
 php bin/security-test.php --full
-find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+find public/assets -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+node tests/LegacyBrowserRetirementTest.mjs
 composer validate --strict --no-check-publish
 composer audit --no-interaction
 ```

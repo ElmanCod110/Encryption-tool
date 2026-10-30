@@ -20,7 +20,7 @@ For a local checkout with PHP 8.2+ and the required extensions:
 | Composer manifest | `composer validate --strict --no-check-publish` | Manifest validates strictly | NOT RUN — record CI run |
 | Dependency audit | `composer audit --no-interaction` | No unreviewed advisories | BLOCKED until a real `composer.lock` is committed |
 | PHP syntax | `find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l` | Every PHP file parses | NOT RUN — record CI run |
-| JavaScript syntax | `find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check` | Every JavaScript file parses | NOT RUN — record CI run |
+| JavaScript syntax | `find public/assets -type f -name '*.js' -print0 | xargs -0 -n1 node --check` and `node tests/LegacyBrowserRetirementTest.mjs` | Every JavaScript file parses | NOT RUN — record CI run |
 | Runtime self-check | `php bin/self-check.php` | Required runtime capabilities pass | NOT RUN — record CI run |
 | Source audit | `php bin/source-audit.php` | Source audit exits successfully | NOT RUN — record CI run |
 | Full security suite | `php bin/security-test.php --full` | Security suite exits successfully | NOT RUN — record CI run |
