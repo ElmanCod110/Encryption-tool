@@ -12,7 +12,6 @@ use SecurePackage\Crypto\V14KeyDerivation;
 use SecurePackage\Crypto\V14Merkle;
 use SecurePackage\Crypto\V14Stream;
 use SecurePackage\Security\CanonicalJson;
-use SecurePackage\Security\Validator;
 
 final class V14PackageReader
 {
