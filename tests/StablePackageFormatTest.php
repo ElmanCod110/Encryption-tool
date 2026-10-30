@@ -167,7 +167,7 @@ stableExpectFailure(fn() => Format::unpackUint64(str_repeat("\xFF", 8)),
     'Unsigned u64 above PHP_INT_MAX was accepted.');
 stableExpectFailure(fn() => Format::unpackUint64("\x80" . str_repeat("\0", 7)),
     'Unsigned u64 with the sign bit set was accepted.');
-stableExpectFailure(fn() => Format::unpackUint64("\\0" . str_repeat("\\0", 6)),
+stableExpectFailure(fn() => Format::unpackUint64("\0" . str_repeat("\0", 6)),
     'Truncated u64 was accepted.');
 
 $root = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'stable-package-format-' . bin2hex(random_bytes(8));
