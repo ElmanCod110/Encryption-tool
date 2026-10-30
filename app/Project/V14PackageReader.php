@@ -37,8 +37,10 @@ final class V14PackageReader
                 $recoveryKeyRaw = self::decodeRecoveryKey($recoveryKey);
                 $packageRootKey = V14Aead::unwrapKey($header['key_slots']['recovery'], $recoveryKeyRaw, 'SecurePackage|V14|slot|recovery|' . $header['package_id'] . '|' . $binding);
             } else {
-                Validator::validatePassword($password);
-                Validator::validatePattern($pattern);
+                // Keep legacy readers tied to the frozen V14 KDF byte contract,
+                // not to today's stricter account/password creation policy.
+                V14Descriptor::assertCredentialBytes($password);
+                V14Descriptor::assertCredentialBytes($pattern);
                 $credentialKey = V14KeyDerivation::credentialWrapKey($password, $pattern, $salt);
                 $packageRootKey = V14Aead::unwrapKey($header['key_slots']['primary'], $credentialKey, 'SecurePackage|V14|slot|primary|' . $header['package_id'] . '|' . $binding);
             }
@@ -256,9 +258,14 @@ final class V14PackageReader
 
     private static function decodeRecoveryKey(string $encoded): string
     {
-        if (!preg_match('/^[A-Za-z0-9_-]{43}$/', $encoded)) throw new RuntimeException('Invalid recovery key.');
+        if (!preg_match('/^[A-Za-z0-9_-]{43}\z/D', $encoded)) throw new RuntimeException('Invalid recovery key.');
         $raw = base64_decode(strtr($encoded, '-_', '+/') . '=', true);
-        if ($raw === false || strlen($raw) !== V14Descriptor::KEY_BYTES) throw new RuntimeException('Invalid recovery key.');
+        if ($raw === false || strlen($raw) !== V14Descriptor::KEY_BYTES
+            || hash_equals(str_repeat("\0", strlen($raw)), $raw)
+            || !hash_equals(rtrim(strtr(base64_encode($raw), '+/', '-_'), '='), $encoded)) {
+            if (is_string($raw)) sodium_memzero($raw);
+            throw new RuntimeException('Invalid recovery key.');
+        }
         return $raw;
     }
 
