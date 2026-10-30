@@ -59,7 +59,7 @@ The server workspace requires PHP `ext-zip`; `/health.php` reports the deploymen
 
 ### Runtime preflight
 
-The main SPKG workspace requires PHP `ext-zip` because incoming ZIP archives and portable `.spkg14` releases are processed server-side. The application health endpoint and web UI report this as a required runtime component.
+The SPKG workspace requires PHP `ext-zip` to accept source ZIP uploads and create restored ZIP downloads. Encrypted packages themselves are single-file `.spkg` binaries; they are not wrapped in ZIP transport.
 
 
 ## Hosted versus local deployment
