@@ -26,7 +26,6 @@ For a local checkout with PHP 8.2+ and the required extensions:
 | Full security suite | `php bin/security-test.php --full` | Security suite exits successfully | NOT RUN — record CI run |
 | PHP regression tests | `for test in tests/*.php; do
   name="$(basename "$test")"
-  case "$name" in V13*|V14*) continue ;; esac
   php "$test" || exit 1
 done` | Every PHP test exits successfully | NOT RUN — record CI run |
 | Active SPKG routing boundary | `php tests/ActiveSpkgRoutingTest.php` | API, download, and UI do not expose legacy readers | NOT RUN — record CI run |
@@ -72,8 +71,8 @@ Record browser name/version, operating system, commit, and console errors.
 
 | Scenario | Expected result | Result / evidence |
 | --- | --- | --- |
-| Browser legacy browser format build and restore | Browser package round-trips a disposable fixture | NOT RUN |
-| Format boundary | Browser V13 package is not accepted as a server SPKG package, and vice versa unless explicitly documented | NOT RUN |
+| Standalone local CLI round-trip | `php tests/LocalCliSpkgTest.php` | Creates/restores `.spkg` without a web server and uses hidden credential prompts | NOT RUN — record CI run |
+| Legacy-format refusal | `php tests/ApiHttpIntegrationTest.php` and `node tests/LegacyBrowserRetirementTest.mjs` | Legacy catalog entry cannot be downloaded; V13 endpoints return 410; old public parser assets are absent | NOT RUN — record CI run |
 | Wrong credentials and tampering | Operation fails without exposing plaintext or secret values | NOT RUN |
 | Keyboard-only navigation | Controls can be reached and used with a keyboard; focus remains visible | NOT RUN |
 | Responsive layout | Main and browser compatibility views remain usable at narrow and wide viewport sizes | NOT RUN |
