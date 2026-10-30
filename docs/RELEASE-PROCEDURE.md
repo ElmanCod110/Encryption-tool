@@ -1,4 +1,4 @@
-# V14 Release Procedure
+# SPKG Release Procedure
 
 ## 1. Prepare
 
@@ -13,7 +13,7 @@ composer audit --no-interaction
 php bin/self-check.php
 php bin/source-audit.php
 php bin/security-test.php --full
-find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+php tests/ActiveSpkgRoutingTest.php
 ```
 
 ## 3. Sign
@@ -22,7 +22,7 @@ find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 php bin/sign-release.php /secure/location/release-private-key.hex .
 ```
 
-The signing script hashes the active V14 source tree (`app/`, `bin/`, `config/`, `public/`, `bootstrap.php`, `composer.json`, `composer.lock` (when present), and `VERSION`) while excluding runtime-generated release material and storage content.
+The signing script hashes the active SPKG source tree (`app/`, `bin/`, `config/`, `public/`, `bootstrap.php`, `composer.json`, `composer.lock` (when present), and `VERSION`) while excluding runtime-generated release material and storage content.
 
 ## 4. Verify with an external trust root
 
@@ -39,7 +39,7 @@ Create the release archive from the clean tree and publish its SHA-256 checksum 
 
 ## 6. Publish
 
-Expose only `public/`. Keep storage, environment secrets, signing keys, and legacy archive material out of the web root.
+Expose only `public/`. Keep storage, environment secrets, signing keys, and retired legacy package material out of the web root.
 
 ## 7. Post-release
 

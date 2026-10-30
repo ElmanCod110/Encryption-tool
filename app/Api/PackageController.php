@@ -7,12 +7,11 @@ use InvalidArgumentException;
 use RuntimeException;
 use SecurePackage\Archive\ArchivePolicy;
 use SecurePackage\Archive\ArchiveWorkflow;
-use SecurePackage\Project\PackageArchive;
 use SecurePackage\Project\PackageDeletionTransaction;
 use SecurePackage\Project\PackageCatalog;
-use SecurePackage\Project\V14PackageReader;
-use SecurePackage\Project\V14Descriptor;
-use SecurePackage\Project\V14PackageService;
+use SecurePackage\Project\PackageId;
+use SecurePackage\Project\StablePackageReader;
+use SecurePackage\Project\StablePackageWriter;
 use SecurePackage\Security\AccessContext;
 use SecurePackage\Security\ApplicationSecrets;
 use SecurePackage\Security\AccountStore;
@@ -26,7 +25,6 @@ use SecurePackage\Security\RestoreTokenStore;
 use SecurePackage\Security\Validator;
 use SecurePackage\Security\WebSecurity;
 use SecurePackage\Storage\AuditLogger;
-use SecurePackage\Storage\FileStore;
 use SecurePackage\Storage\JobStore;
 use SecurePackage\Storage\ResumableUploadStore;
 use SecurePackage\Storage\QuotaExceededException;
@@ -235,56 +233,54 @@ final class PackageController
         $pattern = (string) ($input['pattern'] ?? '');
         $createRecovery = (bool) ($input['create_recovery'] ?? true);
         $packageCreated = false;
-        $packageDirectory = null;
-        $portableArchive = null;
+        $packagePath = null;
+        $packageId = null;
         try {
             $this->jobs->assertOwner($jobId, AccessContext::ownerId());
             $state = $this->jobs->readState($jobId);
-            if (($state['status'] ?? '') !== 'ready_to_build') JsonResponse::send(['ok' => false, 'error' => 'Archive extraction is not complete.'], 409);
-            Validator::validateProjectName($name); Validator::validatePassword($password); Validator::validatePattern($pattern);
-            $service = $this->makePackageService();
-            $result = $service->build($this->archives->sourceDirectory($jobId), $name, $password, $pattern, $createRecovery);
-            $packageDirectory = $result['package_dir'];
-            $portableArchive = $packageDirectory . '.spkg14';
-            try {
-                (new PackageArchive())->create($packageDirectory, $portableArchive);
-            } catch (\Throwable $archiveError) {
-                $this->removePath($portableArchive);
-                $this->removePath($packageDirectory);
-                throw $archiveError;
+            if (($state['status'] ?? '') !== 'ready_to_build') {
+                JsonResponse::send(['ok' => false, 'error' => 'Archive extraction is not complete.'], 409);
             }
-            // The portable archive is the canonical stored package. Keeping both the extracted
-            // package directory and .spkg14 duplicates encrypted bytes and wastes disk space.
-            $this->removePath($result['package_dir']);
-            $this->catalog->create($result['package_id'], AccessContext::ownerId(), $name);
+            Validator::validateProjectName($name);
+            Validator::validatePassword($password);
+            Validator::validatePattern($pattern);
+            $this->makeNameRegistry()->reserve($name);
+            $packageId = PackageId::generate();
+            $packagesRoot = $this->config['storage']['packages'];
+            if (is_link($packagesRoot) || (!is_dir($packagesRoot) && !@mkdir($packagesRoot, 0700, true))) {
+                throw new RuntimeException('Package storage is unavailable.');
+            }
+            @chmod($packagesRoot, 0700);
+            $packagePath = $packagesRoot . DIRECTORY_SEPARATOR . $packageId . '.spkg';
+            $result = (new StablePackageWriter())->build(
+                $this->archives->sourceDirectory($jobId), $packagePath,
+                $password, $pattern, $packageId, $createRecovery
+            );
+            $this->catalog->create($packageId, AccessContext::ownerId(), $name);
             $packageCreated = true;
-            $token = $this->accessTokens->issue($result['package_id'], AccessContext::ownerId(), false);
-            $this->audit->event('package.created', ['package_id' => $result['package_id'], 'account_id' => AccessContext::accountId(), 'nodes' => $result['stats']['nodes'] ?? null, 'format' => 'SECURE-PKG-V14']);
-            // The encrypted package is now stored and catalogued; remove the plaintext extraction job.
+            $token = $this->accessTokens->issue($packageId, AccessContext::ownerId(), false);
+            $this->audit->event('package.created', [
+                'package_id' => $packageId,
+                'account_id' => AccessContext::accountId(),
+                'nodes' => $result['nodes'] ?? null,
+                'format' => 'SPKG',
+            ]);
             $this->removeJobDirectory($jobId);
-            sodium_memzero($password); sodium_memzero($pattern);
+            sodium_memzero($password);
+            sodium_memzero($pattern);
             JsonResponse::send([
-                'ok' => true,
-                'package_id' => $result['package_id'],
+                'ok' => true, 'package_id' => $packageId,
                 'download_token' => $token,
                 'download' => 'download.php?token=' . rawurlencode($token),
-                'stats' => $result['stats'] ?? $result,
-                'recovery_key' => $result['recovery_key'] ?? null,
-                'format' => 'SECURE-PKG-V14',
+                'stats' => $result, 'recovery_key' => $result['recovery_key'] ?? null,
+                'format' => 'SPKG',
             ], 201);
         } catch (\Throwable) {
-            // Never discard the only plaintext source copy when packaging fails. If catalog
-            // creation did not complete, remove incomplete encrypted artifacts; once catalogued,
-            // retain the package so a transient token/audit failure cannot destroy user data.
-            if (!$packageCreated) {
-                if (is_string($portableArchive)) {
-                    try { $this->removePath($portableArchive); } catch (\Throwable) {}
-                }
-                if (is_string($packageDirectory)) {
-                    try { $this->removePath($packageDirectory); } catch (\Throwable) {}
-                }
+            if (!$packageCreated && is_string($packagePath) && !is_link($packagePath) && is_file($packagePath)) {
+                @unlink($packagePath);
             }
-            sodium_memzero($password); sodium_memzero($pattern);
+            sodium_memzero($password);
+            sodium_memzero($pattern);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to build package.'], 422);
         }
     }
@@ -301,48 +297,47 @@ final class PackageController
         $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
         $ipRateKey = 'package:ip:' . hash('sha256', $ip);
         if (!$this->rateLimiter->allow($ipRateKey) || !$this->rateLimiter->allow($rateKey)) {
-            sodium_memzero($password); sodium_memzero($pattern);
+            sodium_memzero($password);
+            sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Too many failed attempts.'], 429);
         }
         $outputDir = null;
         try {
-            if ($recoveryKey === null || $recoveryKey === '') {
-                // Existing V14 packages keep their original KDF byte contract.
-                // Current account-creation strength policy applies only to new packages.
-                V14Descriptor::assertCredentialBytes($password);
-                V14Descriptor::assertCredentialBytes($pattern);
-            }
-            // Centralize revocation and expiry checks so decrypt uses the same boundary as downloads.
+            PackageId::assert($packageId);
             $this->catalog->assertAvailable($packageId);
-            $packageDir = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
-            $temporaryPackageDir = null;
-            $portable = $packageDir . '.spkg14';
-            try {
-                if (!is_dir($packageDir)) {
-                    if (!is_file($portable)) throw new RuntimeException('Package does not exist.');
-                    $temporaryPackageDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'package-' . bin2hex(random_bytes(16));
-                    (new PackageArchive())->extract($portable, $temporaryPackageDir);
-                    $packageDir = $temporaryPackageDir;
-                }
-                $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
-                $result = (new V14PackageReader())->restore($packageDir, $outputDir, $password, $pattern, $recoveryKey);
-            } finally {
-                if ($temporaryPackageDir !== null) $this->removePath($temporaryPackageDir);
+            $packageFile = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId . '.spkg';
+            if (is_link($packageFile) || !is_file($packageFile)) {
+                throw new RuntimeException('Package is not an active SPKG file.');
             }
-            $tokenStore = new RestoreTokenStore($this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens', (int) $this->config['limits']['restore_ttl_seconds']);
+            $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
+            $result = (new StablePackageReader())->restore(
+                $packageFile, $outputDir, $password, $pattern,
+                $recoveryKey === '' ? null : $recoveryKey
+            );
+            $tokenStore = new RestoreTokenStore(
+                $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens',
+                (int) $this->config['limits']['restore_ttl_seconds']
+            );
             $restoreToken = $tokenStore->issue($outputDir);
             $this->rateLimiter->success($rateKey);
             $this->rateLimiter->success($ipRateKey);
-            $this->audit->event('package.restored', ['package_id' => $packageId, 'account_id' => AccessContext::accountId(), 'files' => $result['files'] ?? null]);
-            sodium_memzero($password); sodium_memzero($pattern);
+            $this->audit->event('package.restored', [
+                'package_id' => $packageId, 'account_id' => AccessContext::accountId(),
+                'files' => $result['files'] ?? null, 'format' => 'SPKG',
+            ]);
+            sodium_memzero($password);
+            sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
-            JsonResponse::send(['ok' => true, 'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken), 'stats' => $result]);
+            JsonResponse::send([
+                'ok' => true,
+                'restore_download' => 'download-restored.php?token=' . rawurlencode($restoreToken),
+                'stats' => $result, 'format' => 'SPKG',
+            ]);
         } catch (\Throwable) {
-            // A failed restore can leave partially or fully decrypted files behind.
-            // Remove them before returning an error; only successful responses expose a restore token.
             if (is_string($outputDir)) $this->removePath($outputDir);
-            sodium_memzero($password); sodium_memzero($pattern);
+            sodium_memzero($password);
+            sodium_memzero($pattern);
             if (is_string($recoveryKey)) sodium_memzero($recoveryKey);
             JsonResponse::send(['ok' => false, 'error' => 'Unable to open package.'], 422);
         }
@@ -354,15 +349,17 @@ final class PackageController
         $this->authorization->requireAuthenticated();
         $items = $this->catalog->listForOwner(AccessContext::ownerId());
         JsonResponse::send(['ok' => true, 'packages' => array_map(function (array $item): array {
-            // Only inspect a strictly validated package ID; never let catalog metadata
-            // influence a filesystem path. The portable encrypted archive is canonical.
             $packageId = (string) ($item['package_id'] ?? '');
             $validId = preg_match('/^[a-f0-9]{48}$/', $packageId) === 1;
-            $archive = $validId
-                ? $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId . '.spkg14'
-                : '';
-            $available = $validId && !is_link($archive) && is_file($archive);
-            $size = $available ? @filesize($archive) : false;
+            $activePath = $validId ? $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId . '.spkg' : '';
+            $available = $validId && !is_link($activePath) && is_file($activePath);
+            $legacyPath = $validId ? $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId . '.spkg14' : '';
+            $legacyDirectory = $validId ? $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId : '';
+            $hasLegacy = $validId && (
+                (!is_link($legacyPath) && is_file($legacyPath))
+                || (!is_link($legacyDirectory) && is_dir($legacyDirectory))
+            );
+            $size = $available ? @filesize($activePath) : false;
             return [
                 'package_id' => $packageId,
                 'created_at' => (int) ($item['created_at'] ?? 0),
@@ -370,7 +367,7 @@ final class PackageController
                 'expires_at' => $item['expires_at'] ?? null,
                 'storage_available' => $available,
                 'size_bytes' => $size === false ? null : (int) $size,
-                'format' => 'SECURE-PKG-V14',
+                'format' => $available ? 'SPKG' : ($hasLegacy ? 'UNSUPPORTED_LEGACY' : 'MISSING'),
             ];
         }, $items)]);
     }
@@ -382,8 +379,10 @@ final class PackageController
         $packageId = (string) ($input['package_id'] ?? '');
         try {
             $this->authorization->requireAuthenticated();
-            $record = $this->catalog->assertOwner($packageId, AccessContext::ownerId());
-            if (($record['revoked_at'] ?? null) !== null) throw new RuntimeException('Package revoked.');
+            $this->catalog->assertOwner($packageId, AccessContext::ownerId());
+            $activePath = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId . '.spkg';
+            if (is_link($activePath) || !is_file($activePath)) throw new RuntimeException('Only SPKG packages can be downloaded.');
+            $this->catalog->assertAvailable($packageId);
             $token = $this->accessTokens->issue($packageId, AccessContext::ownerId(), false);
             JsonResponse::send(['ok' => true, 'download' => 'download.php?token=' . rawurlencode($token)]);
         } catch (\Throwable) {
@@ -431,10 +430,11 @@ final class PackageController
             $this->catalog->assertOwner($packageId, AccessContext::ownerId());
 
             $path = $this->config['storage']['packages'] . DIRECTORY_SEPARATOR . $packageId;
-            $portable = $path . '.spkg14';
+            $active = $path . '.spkg';
+            $legacy = $path . '.spkg14';
             $transaction = new PackageDeletionTransaction();
             $staged = $transaction->execute(
-                [$portable, $path],
+                [$active, $legacy, $path],
                 fn() => $this->accessTokens->revokeForPackage($packageId),
                 fn() => $this->catalog->delete($packageId, AccessContext::ownerId())
             );
@@ -456,11 +456,11 @@ final class PackageController
             'ok' => true,
             'version' => $this->config['app']['version'],
             'version_string' => $this->config['app']['version_string'],
-            'format' => $this->config['app']['format'],
-            'browser_format' => 'SECURE-BROWSER-V13',
-            'server_package_format' => 'SECURE-PKG-V14',
+            'format' => 'SPKG',
+            'browser_format' => 'SPKG',
+            'server_package_format' => 'SPKG',
             'author' => $this->config['app']['author'],
-            'crypto' => ['kdf' => 'argon2id13', 'aead' => 'xchacha20poly1305-ietf', 'stream' => 'secretstream-xchacha20poly1305', 'key_wrap' => 'xchacha20poly1305-ietf', 'key_separation' => 'HKDF-SHA-256'],
+            'crypto' => ['kdf' => 'Argon2id13', 'aead' => 'XChaCha20-Poly1305-IETF', 'stream' => 'secretstream-xchacha20poly1305', 'key_wrap' => 'XChaCha20-Poly1305-IETF', 'key_separation' => 'HKDF-SHA-256'],
             'controls' => ['csrf' => true, 'same_origin' => true, 'rate_limiting' => true, 'resumable_uploads' => true, 'tamper_evident_audit' => true, 'package_ownership' => true, 'header_binding' => true, 'external_key_wrap' => true, 'no_overwrite_restore' => true]
         ]);
     }
@@ -485,10 +485,13 @@ final class PackageController
         @rmdir($path);
     }
 
-    private function makePackageService(): V14PackageService
+    private function makeNameRegistry(): FileProjectNameRegistry
     {
         $pepper = ApplicationSecrets::namePepper($this->config['storage']['root']);
-        $registry = new FileProjectNameRegistry($this->config['storage']['root'] . DIRECTORY_SEPARATOR . 'reserved-names.db', $pepper);
-        return new V14PackageService(new \SecurePackage\Project\V14PackageBuilder(), new FileStore($this->config['storage']['packages']), $registry);
+        return new FileProjectNameRegistry(
+            $this->config['storage']['root'] . DIRECTORY_SEPARATOR . 'reserved-names.db',
+            $pepper
+        );
     }
+
 }

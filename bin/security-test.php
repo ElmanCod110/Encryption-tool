@@ -5,10 +5,14 @@ $root = dirname(__DIR__);
 $fast = in_array('--full', $argv, true) === false;
 $fastTests = [
     'CanonicalFuzzTest.php', 'CanonicalJsonTest.php', 'ReplayGuardTest.php', 'ReplayRaceTest.php',
-    'SecurityDiagnosticsTest.php', 'SourceSecurityAuditTest.php', 'V13DescriptorTest.php', 'V13UploadTest.php', 'V14DescriptorTest.php', 'V14HeaderBindingTest.php', 'V14RecoveryTest.php', 'V14TamperHeaderTest.php', 'V14BlobTamperTest.php', 'V14RestoreSafetyTest.php', 'V14PackageRoundTripTest.php', 'V14PackageArchiveTest.php', 'ReleaseVerifierTrustRootTest.php',
+    'SecurityDiagnosticsTest.php', 'SourceSecurityAuditTest.php', 'StablePackageFormatTest.php', 'StablePackageUnicodeFallbackTest.php', 'ActiveSpkgRoutingTest.php', 'ReleaseVerifierTrustRootTest.php',
     'ZipPolicyTest.php'
 ];
 $tests = $fast ? array_map(fn($n) => $root . '/tests/' . $n, $fastTests) : (glob($root . '/tests/*Test.php') ?: []);
+$tests = array_values(array_filter($tests, static function (string $test): bool {
+    $name = basename($test);
+    return !preg_match('/^(?:V13|V14)/', $name);
+}));
 sort($tests, SORT_STRING);
 $failures = [];
 $start = microtime(true);

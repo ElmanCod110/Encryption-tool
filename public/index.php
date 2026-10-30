@@ -22,14 +22,14 @@ $authenticated = \SecurePackage\Security\AccessContext::isAuthenticated();
 </head>
 <body>
 <div class="app-shell">
-<header class="topbar glass" data-learn-title="Your workspace header" data-learn="This is the main navigation area. The version badge identifies the application release, the legacy vault link opens the separate browser-based V13 format, and Sign in opens account access for package management.">
+<header class="topbar glass" data-learn-title="Your workspace header" data-learn="This is the main navigation area. The version badge identifies the application release, the format badge identifies the unified SPKG binary format, and Sign in opens account access for package management.">
   <a class="brand" href="./" aria-label="Secure Package home">
     <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 3 26 7v7c0 7-4.2 11.6-10 15-5.8-3.4-10-8-10-15V7l10-4Z"/><path d="m11.5 16 3 3 6-7"/></svg></span>
     <span><b>Secure Package</b><small>High-assurance encrypted package platform</small></span>
   </a>
   <div class="top-actions">
     <span class="version-pill"><?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?></span>
-    <a class="ghost-button" href="client-vault.html">Legacy Browser Vault V13</a>
+    <a class="ghost-button" href="https://github.com/ElmanCod110/Encryption-tool/blob/master/docs/FORMAT-COMPATIBILITY.md">Format policy</a>
     <a class="ghost-button" href="<?= $authenticated ? 'profile.php' : 'login.php' ?>"><?= $authenticated ? 'Profile' : 'Sign in' ?></a>
   </div>
 </header>
@@ -39,7 +39,7 @@ $authenticated = \SecurePackage\Security\AccessContext::isAuthenticated();
   <div class="hero-copy" data-learn-title="What Secure Package does" data-learn="This introduction summarizes the server-side encryption workflow and the security boundaries it is designed to enforce. The badges name the main cryptographic components; they are a quick overview, not a substitute for the format and threat-model documentation.">
     <span class="eyebrow"><span class="status-dot"></span> Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · cryptographic package engine</span>
     <h1>Encrypt the project. Authenticate the package. Restore safely.</h1>
-    <p>The server format separates credential wrapping from the package root key, authenticates metadata and ciphertext, verifies the complete blob inventory and Merkle root, and refuses unsafe restore paths.</p>
+    <p>SPKG uses Argon2id-derived credential wrapping, authenticated binary records, a protected manifest, and strict no-overwrite restore rules.</p>
     <div class="hero-badges">
       <span>Argon2id13</span><span>XChaCha20-Poly1305</span><span>Secretstream</span><span>HKDF key separation</span><span>Pre-write integrity</span>
     </div>
@@ -61,7 +61,7 @@ $authenticated = \SecurePackage\Security\AccessContext::isAuthenticated();
       <div class="upload-icon"><svg viewBox="0 0 32 32"><path d="M16 22V6"/><path d="m10 12 6-6 6 6"/><path d="M7 18v7h18v-7"/></svg></div>
       <h3>Drop a ZIP archive here</h3>
       <p>or <button class="inline-link" id="browseBtn" type="button">browse from your computer</button></p>
-      <small>Resumable ciphertext upload • protected ZIPs • staged extraction</small>
+      <small>Resumable source upload • server-side encryption • staged extraction</small>
       <div class="upload-progress hidden" id="uploadProgress">
         <div class="progress-line"><span id="uploadProgressBar"></span></div>
         <div class="progress-meta"><span id="uploadProgressText">0%</span><span id="uploadProgressSize">0 / 0</span></div>
@@ -128,18 +128,18 @@ $authenticated = \SecurePackage\Security\AccessContext::isAuthenticated();
 
 <section class="bottom-grid">
   <div class="status-panel glass" data-learn-title="Operation status and messages" data-learn="This panel reports the current application state and detailed operation messages. If something fails, read the message here first. Before sharing diagnostic output, make sure it contains no passwords, recovery keys, access tokens, or other secrets.">
-    <div class="status-title"><span class="live-dot"></span><strong id="statusPill">System ready</strong><span class="status-caption">CSRF • ownership • replay/rate controls • ciphertext-only transport</span></div>
+    <div class="status-title"><span class="live-dot"></span><strong id="statusPill">System ready</strong><span class="status-caption">CSRF • ownership • replay/rate controls • authenticated package storage</span></div>
     <pre id="log">Package engine ready.</pre>
   </div>
   <div class="architecture-panel glass" data-learn-title="Security pipeline overview" data-learn="This diagram summarizes the server package flow: credentials derive wrapping material, the package root key is protected separately, encrypted content is authenticated, and the complete inventory is verified before restore. See the format specification and threat model for exact guarantees and limitations.">
-    <div class="architecture-title"><strong>Server security pipeline</strong><span>SECURE-PKG-V14</span></div>
-    <div class="pipeline"><span>CREDENTIALS</span><i></i><span>Argon2id</span><i></i><span>KEY WRAP</span><i></i><span>AEAD</span><i></i><span>STREAM</span><i></i><span>MERKLE</span></div>
-    <p>The server format protects the package root key separately, authenticates the header binding and manifest, hashes every ciphertext blob, then verifies the complete Merkle root before restore.</p>
+    <div class="architecture-title"><strong>Server security pipeline</strong><span>SPKG</span></div>
+    <div class="pipeline"><span>CREDENTIALS</span><i></i><span>Argon2id</span><i></i><span>KEY WRAP</span><i></i><span>AEAD</span><i></i><span>STREAM</span><i></i><span>MANIFEST</span></div>
+    <p>SPKG binds encrypted records to the package header, authenticates each file stream and the encrypted manifest, and validates the complete inventory before restore.</p>
   </div>
 </section>
 </main>
 
-<footer data-learn-title="Version and runtime notes" data-learn="The footer shows the current application version and runtime reminders. Server package workflows require PHP and the ZIP extension; the legacy browser vault is a separate compatibility format and should not be confused with the server package format."><span>Secure Package · Author: ElmanCod110</span><span>Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · PHP Zip extension required · Browser compatibility remains isolated.</span></footer>
+<footer data-learn-title="Version and runtime notes" data-learn="The footer shows the current application version and runtime reminders. SPKG workflows require a 64-bit PHP runtime with Sodium and ZIP support."><span>Secure Package · Author: ElmanCod110</span><span>Version <?= htmlspecialchars($config['app']['version_string'], ENT_QUOTES, 'UTF-8') ?> · SPKG binary format · PHP Sodium, ZIP, and a 64-bit PHP runtime required.</span></footer>
 </div>
 
 

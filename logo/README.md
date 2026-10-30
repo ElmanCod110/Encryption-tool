@@ -1,6 +1,6 @@
 # Logo assets
 
-The Windows SPK13 file-association integration expects the project's ICO asset at:
+The Windows SPKG file-association integration expects the project's ICO asset at:
 
 \`\`\`text
 logo/files.ico

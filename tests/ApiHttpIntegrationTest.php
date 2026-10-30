@@ -168,7 +168,7 @@ try {
         throw new RuntimeException('Unable to prepare inventory package fixture.');
     }
     $encryptedFixture = "test-only-encrypted-package";
-    if (file_put_contents($packagesDir . DIRECTORY_SEPARATOR . $packageId . '.spkg14', $encryptedFixture) === false) {
+    if (file_put_contents($packagesDir . DIRECTORY_SEPARATOR . $packageId . '.spkg', $encryptedFixture) === false) {
         throw new RuntimeException('Unable to prepare encrypted package fixture.');
     }
     $catalogRecord = [

@@ -1,4 +1,4 @@
-name: V14 Release Security Gate
+name: SPKG Release Security Gate
 
 on:
   push:
@@ -43,8 +43,6 @@ jobs:
       - name: PHP syntax
         run: find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: JavaScript syntax
-        run: find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Self check
         run: php bin/self-check.php
@@ -54,6 +52,9 @@ jobs:
 
       - name: Stable binary package regression
         run: php tests/StablePackageFormatTest.php
+
+      - name: Active SPKG routing boundary
+        run: php tests/ActiveSpkgRoutingTest.php
 
       - name: Unicode fail-closed fallback without optional extensions
         run: php -n tests/StablePackageUnicodeFallbackTest.php

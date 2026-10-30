@@ -158,7 +158,7 @@ $('buildBtn').onclick = async () => {
     const safeLog = { ...data };
     delete safeLog.recovery_key;
     log(safeLog);
-    setStatus('V14 package created');
+    setStatus('SPKG package created');
     $('packageId').value = data.package_id;
     addLink('Download encrypted package', data.download);
     if (data.recovery_key) {
@@ -231,21 +231,21 @@ function renderPackages(items) {
     const row = document.createElement('div'); row.className = 'pkg-row';
     const meta = document.createElement('div'); meta.className = 'pkg-meta';
     const strong = document.createElement('strong'); strong.textContent = item.package_id;
-    const span = document.createElement('span'); span.textContent = item.revoked ? 'Revoked' : item.expires_at ? `Expires ${new Date(item.expires_at * 1000).toLocaleString()}` : `Created ${new Date(item.created_at * 1000).toLocaleString()}`;
+    const span = document.createElement('span'); span.textContent = item.format === 'UNSUPPORTED_LEGACY' ? 'Unsupported legacy package · use release 0.14.1 to export' : item.format === 'MISSING' ? 'Package file missing' : item.revoked ? 'Revoked' : item.expires_at ? `Expires ${new Date(item.expires_at * 1000).toLocaleString()}` : `Created ${new Date(item.created_at * 1000).toLocaleString()}`;
     meta.append(strong, span);
     const actions = document.createElement('div'); actions.className = 'pkg-actions';
 
-    const link = document.createElement('button'); link.textContent = 'Link';
+    const link = document.createElement('button'); link.textContent = item.format === 'SPKG' ? 'Link' : 'Unsupported'; link.disabled = item.format !== 'SPKG' || item.revoked;
     link.onclick = async () => { try { const data = await api('access-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ package_id: item.package_id }) }); window.open(data.download, '_blank', 'noopener'); } catch (error) { log(error.message); } };
 
-    const expiry = document.createElement('button'); expiry.textContent = 'Expiry';
+    const expiry = document.createElement('button'); expiry.textContent = 'Expiry'; expiry.disabled = item.format !== 'SPKG';
     expiry.onclick = async () => {
       const days = prompt('Expiration in days. Use 0 for no expiration.', item.expires_at ? Math.max(1, Math.ceil((item.expires_at - Date.now() / 1000) / 86400)) : 0);
       if (days === null) return;
       try { await api('set-expiry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ package_id: item.package_id, expires_in: Number(days) * 86400 }) }); loadPackages(); } catch (error) { log(error.message); }
     };
 
-    const revoke = document.createElement('button'); revoke.textContent = item.revoked ? 'Revoked' : 'Revoke'; revoke.disabled = item.revoked;
+    const revoke = document.createElement('button'); revoke.textContent = item.revoked ? 'Revoked' : 'Revoke'; revoke.disabled = item.format !== 'SPKG' || item.revoked;
     revoke.onclick = async () => { if (!confirm('Revoke this package? Existing access links will stop working.')) return; try { await api('revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ package_id: item.package_id }) }); loadPackages(); } catch (error) { log(error.message); } };
 
     const remove = document.createElement('button'); remove.textContent = 'Delete';

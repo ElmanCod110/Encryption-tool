@@ -20,7 +20,7 @@ $pub = hex2bin(trim((string) file_get_contents($pubPath)));
 if ($m === false || $sig === false || $pub === false) throw new RuntimeException('Release material is unreadable.');
 if (!sodium_crypto_sign_verify_detached($sig, $m, $pub)) throw new RuntimeException('Release signature failed.');
 $data = json_decode($m, true, 512, JSON_THROW_ON_ERROR);
-if (($data['format'] ?? null) !== 'SECURE-PKG-V14' || ($data['version'] ?? null) !== SECURE_PACKAGE_VERSION || ($data['scope'] ?? null) !== 'active-source') throw new RuntimeException('Release manifest identity failed.');
+if (($data['format'] ?? null) !== 'SPKG' || ($data['version'] ?? null) !== SECURE_PACKAGE_VERSION || ($data['scope'] ?? null) !== 'active-source') throw new RuntimeException('Release manifest identity failed.');
 if (!hash_equals($m, CanonicalJson::encode($data))) throw new RuntimeException('Release manifest is not canonical.');
 foreach (($data['files'] ?? []) as $relative => $expected) {
     $path = $root . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relative);
@@ -28,4 +28,4 @@ foreach (($data['files'] ?? []) as $relative => $expected) {
     $actual = hash_file('sha256', $path);
     if ($actual === false || !hash_equals((string) $expected, $actual)) throw new RuntimeException('Release hash failed: ' . $relative);
 }
-echo "V14 release integrity tests passed.\n";
+echo "SPKG release integrity tests passed.\n";

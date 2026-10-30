@@ -25,7 +25,7 @@ For a local checkout with PHP 8.2+ and the required extensions:
 | Source audit | `php bin/source-audit.php` | Source audit exits successfully | NOT RUN — record CI run |
 | Full security suite | `php bin/security-test.php --full` | Security suite exits successfully | NOT RUN — record CI run |
 | PHP regression tests | `for test in tests/*.php; do php "$test" || exit 1; done` | Every PHP test exits successfully | NOT RUN — record CI run |
-| Browser V13 round-trip | `node tests/BrowserV13RoundTripTest.mjs` | Compatibility test passes | NOT RUN — record CI run |
+| Active SPKG routing boundary | `php tests/ActiveSpkgRoutingTest.php` | API, download, and UI do not expose legacy readers | NOT RUN — record CI run |
 
 The CI workflow may run some of these checks automatically. Link the actual Actions run rather than copying a previous result or marking this table PASS by assumption. The current endpoint response mapping and known error-contract gaps are tracked in [API Error Contract Audit](API-ERROR-CONTRACT.md); use that audit to add concrete integration scenarios rather than treating source-text checks as end-to-end proof.
 
@@ -42,7 +42,7 @@ Record the Windows version, XAMPP version, PHP version, enabled extensions, and 
 | Missing extension | Disable a required extension in a disposable test environment; startup/check fails clearly without leaking secrets | NOT RUN |
 | Disk or permission failure | Use a disposable unwritable/full test destination where safely reproducible; operation fails cleanly and reports no false success | NOT RUN |
 
-## Server package build and restore
+## SPKG package build and restore
 
 Use disposable fixtures only. Never use production data or real credentials.
 
@@ -68,8 +68,8 @@ Record browser name/version, operating system, commit, and console errors.
 
 | Scenario | Expected result | Result / evidence |
 | --- | --- | --- |
-| Browser V13 build and restore | Browser package round-trips a disposable fixture | NOT RUN |
-| Format boundary | Browser V13 package is not accepted as a server V14 package, and vice versa unless explicitly documented | NOT RUN |
+| Browser legacy browser format build and restore | Browser package round-trips a disposable fixture | NOT RUN |
+| Format boundary | Browser V13 package is not accepted as a server SPKG package, and vice versa unless explicitly documented | NOT RUN |
 | Wrong credentials and tampering | Operation fails without exposing plaintext or secret values | NOT RUN |
 | Keyboard-only navigation | Controls can be reached and used with a keyboard; focus remains visible | NOT RUN |
 | Responsive layout | Main and browser compatibility views remain usable at narrow and wide viewport sizes | NOT RUN |

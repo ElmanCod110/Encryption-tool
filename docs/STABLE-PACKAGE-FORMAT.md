@@ -1,6 +1,6 @@
 # Stable Package Format Contract
 
-Status: stable binary format implementation candidate is isolated on the feat/stable-binary-package-format branch. It is not the production/default writer, has not yet passed the complete platform matrix, and is not an independent security audit.
+Status: the SPKG writer/reader are integrated into the active API and storage path on this feature branch. This branch is not a release, target-host platform validation is still required, and this is not an independent security audit.
 
 ## Goal
 
@@ -29,7 +29,7 @@ A fixed opaque magic byte sequence may identify the file type if it remains cons
 7. Never overwrite a pre-existing output. Fail closed if an atomic no-replace filesystem operation is unavailable.
 8. Clean incomplete output only when ownership of the created paths can be established; surface cleanup failures.
 9. Zeroize key material where the runtime supports it and never expose credentials or plaintext in diagnostics.
-10. Preserve V14 server and browser V13 compatibility independently. Do not silently reinterpret or rewrite existing packages.
+10. Do not ship V14 or V13 readers in the 1.0.0 active application. Release 0.14.1 is the final legacy-reader release; legacy packages must be explicitly exported/re-encrypted before upgrading.
 
 ## Metadata visibility and offline attack model
 
@@ -53,7 +53,7 @@ The candidate implementation consists of these separate classes:
 - app/Project/StablePackageWriter.php
 - app/Project/StablePackageReader.php
 
-They are intentionally separate from the V14 builder/reader. This branch adds regression tests and CI coverage, but it must not change the production/default writer or route application endpoints to this format before review and platform validation. Legacy compatibility tests must continue to pass.
+They are the active writer/reader for SPKG on this branch. The active API creates and opens only SPKG files. Historical V14/V13 code may remain in repository history, but active application routes must not load it; legacy format support is retired in the 1.0.0 application.
 
 ## Required acceptance gates
 

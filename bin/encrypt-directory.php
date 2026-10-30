@@ -4,31 +4,30 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-use SecurePackage\Project\V14PackageBuilder;
-use SecurePackage\Project\PackageId;
+use SecurePackage\Project\StablePackageWriter;
 use SecurePackage\Security\Validator;
 
-if ($argc !== 4) {
-    fwrite(STDERR, "Usage: php encrypt-directory.php <source-dir> <output-dir> <password>\n");
+if ($argc !== 5) {
+    fwrite(STDERR, "Usage: php encrypt-directory.php <source-dir> <output-file.spkg> <password> <pattern>\n");
     exit(1);
 }
-
-[, $source, $output, $password] = $argv;
-$pattern = getenv('SPK_PATTERN') ?: '';
-if ($pattern === '') { fwrite(STDERR, "SPK_PATTERN environment variable is required.\n"); exit(1); }
+[, $source, $output, $password, $pattern] = $argv;
 try {
     Validator::validatePassword($password);
     Validator::validatePattern($pattern);
-    if (!is_dir($source)) throw new RuntimeException('Source directory does not exist.');
-    $packageId = PackageId::generate();
-    $packageDir = rtrim($output, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $packageId;
-    @mkdir($packageDir, 0700, true);
-    $result = (new V14PackageBuilder())->build($source, $packageDir, $password, $pattern, $packageId, true);
-    echo "Package created: {$packageDir}\n";
-    echo "Format: {$result['format']}\n";
-    if ($result['recovery_key'] !== null) echo "Recovery key: {$result['recovery_key']}\n";
-} catch (Throwable $e) {
-    fwrite(STDERR, "Unable to create package.\n");
+    if (!is_dir($source) || is_link($source)) throw new RuntimeException('Source directory is unavailable.');
+    if (strtolower(pathinfo($output, PATHINFO_EXTENSION)) !== 'spkg') throw new RuntimeException('Output filename must use the .spkg extension.');
+    $result = (new StablePackageWriter())->build($source, $output, $password, $pattern, null, true);
+    echo "Package created: {$output}\n";
+    echo "Format: SPKG\n";
+    echo "Package ID: {$result['package_id']}\n";
+    echo "Files: {$result['files']}\n";
+    echo "Plaintext bytes: {$result['total_plain_bytes']}\n";
+    if (is_string($result['recovery_key'] ?? null)) {
+        echo "Recovery key (store offline): {$result['recovery_key']}\n";
+    }
+} catch (Throwable) {
+    fwrite(STDERR, "Unable to create SPKG package.\n");
     exit(2);
 } finally {
     sodium_memzero($password);

@@ -32,7 +32,11 @@ jobs:
         shell: bash
         run: |
           set -e
-          for test in tests/*.php; do php "$test"; done
+          for test in tests/*.php; do
+            name="$(basename "$test")"
+            case "$name" in V13*|V14*) continue ;; esac
+            php "$test"
+          done
       - name: Unicode fail-closed fallback without optional extensions
         run: php -n tests/StablePackageUnicodeFallbackTest.php
 
@@ -62,31 +66,9 @@ jobs:
               exit 1
             }
           }
-      - name: Validate SPK13 icon integration safeguards
+      - name: Validate SPKG icon integration safeguards
         run: php tests/WindowsSpk13IconIntegrationTest.php
       - name: Stable binary package format regression
         run: php tests/StablePackageFormatTest.php
       - name: Unicode fail-closed fallback without optional extensions
         run: php -n tests/StablePackageUnicodeFallbackTest.php
-
-  windows-compatibility-smoke:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: sodium,zip,pdo_mysql,mbstring,intl
-          coverage: none
-      - name: Legacy V14 restore safety regression
-        shell: pwsh
-        run: |
-          php tests/V14PackageRoundTripTest.php
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          php tests/V14RestoreSafetyTest.php
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Browser V13 compatibility regression
-        shell: pwsh
-        run: node tests/BrowserV13RoundTripTest.mjs

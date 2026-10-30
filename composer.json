@@ -1,6 +1,6 @@
 {
   "name": "elmancod110/secure-package",
-  "description": "High-assurance encrypted project package engine with authenticated V14 package integrity and a separate browser vault compatibility boundary.",
+  "description": "High-assurance encrypted project package engine using one authenticated stable SPKG binary format for hosted and local deployments.",
   "type": "library",
   "license": "MIT",
   "authors": [
