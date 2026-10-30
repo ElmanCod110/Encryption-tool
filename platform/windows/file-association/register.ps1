@@ -11,6 +11,11 @@ if (-not (Test-Path -LiteralPath $iconPath -PathType Leaf)) {
 }
 
 $iconPath = (Resolve-Path -LiteralPath $iconPath).Path
+
+$iconBytes = [System.IO.File]::ReadAllBytes($iconPath)
+if ($iconBytes.Length -lt 6 -or $iconBytes[0] -ne 0 -or $iconBytes[1] -ne 0 -or $iconBytes[2] -ne 1 -or $iconBytes[3] -ne 0) {
+    throw "SPKG icon is not a valid ICO container. Use a real .ico file; renaming a PNG is not sufficient."
+}
 $installedIconValue = '"' + $iconPath + '",0'
 
 # SystemFileAssociations supplies an extension icon without taking over the

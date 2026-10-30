@@ -25,6 +25,10 @@ $checks = [
         str_contains($unregister, '$currentValue -eq $installedValue')
         && str_contains($unregister, 'SetValue')
         && str_contains($unregister, 'DeleteValue'),
+    'ICO container header is validated before registry changes' =>
+        str_contains($register, '[System.IO.File]::ReadAllBytes($iconPath)')
+        && str_contains($register, 'SPKG icon is not a valid ICO container')
+        && strpos($register, 'SPKG icon is not a valid ICO container') < strpos($register, 'New-Item -Path $stateKeyPath'),
     'Missing ICO asset fails clearly before registry changes' =>
         strpos($register, 'if (-not (Test-Path -LiteralPath $iconPath -PathType Leaf))') !== false
         && strpos($register, "throw \"SPKG icon is missing.") < strpos($register, 'New-Item -Path $iconKeyPath'),
