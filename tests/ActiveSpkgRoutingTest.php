@@ -17,7 +17,8 @@ $checks = [
     'Active package restore uses only the stable SPKG reader' =>
         str_contains($controller, 'new StablePackageReader()')
         && !str_contains($controller, 'V14PackageReader')
-        && !str_contains($controller, 'V14PackageService'),
+        && !str_contains($controller, 'V14PackageService')
+        && str_contains($controller, '$recoveryKey, $packageId'),
     'Active download serves only .spkg without a legacy fallback' =>
         str_contains($download, ". '.spkg'")
         && !str_contains($download, '.spkg14')

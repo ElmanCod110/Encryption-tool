@@ -313,7 +313,7 @@ final class PackageController
             $outputDir = $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-' . bin2hex(random_bytes(16));
             $result = (new StablePackageReader())->restore(
                 $packageFile, $outputDir, $password, $pattern,
-                $recoveryKey === '' ? null : $recoveryKey
+                $recoveryKey === '' ? null : $recoveryKey, $packageId
             );
             $tokenStore = new RestoreTokenStore(
                 $this->config['storage']['temp'] . DIRECTORY_SEPARATOR . 'restore-tokens',

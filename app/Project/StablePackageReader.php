@@ -15,7 +15,8 @@ final class StablePackageReader
         string $destinationDir,
         string $password,
         string $pattern,
-        ?string $recoveryKey = null
+        ?string $recoveryKey = null,
+        ?string $expectedPackageId = null
     ): array {
         StablePackageDescriptor::assertRuntime();
         $source = $this->canonicalPackageFile($packageFile);
@@ -60,6 +61,12 @@ final class StablePackageReader
             }
             $rawHeader = StablePackageDescriptor::readExact($input, StablePackageDescriptor::HEADER_BYTES);
             $header = StablePackageDescriptor::parseHeader($rawHeader);
+            if ($expectedPackageId !== null) {
+                PackageId::assert($expectedPackageId);
+                if (!hash_equals($expectedPackageId, bin2hex($header['package_id']))) {
+                    throw new RuntimeException('Unable to open package.');
+                }
+            }
             $rootKey = StablePackageCrypto::unwrapRootKey($header, $password, $pattern, $recoveryKey);
             $manifestKey = StablePackageCrypto::deriveSubkey($rootKey, 'MANIFEST', $header['package_id']);
             $fileRootKey = StablePackageCrypto::deriveSubkey($rootKey, 'FILE-ROOT', $header['package_id']);

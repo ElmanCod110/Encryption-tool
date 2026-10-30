@@ -290,6 +290,12 @@ try {
     stableAssert(!file_exists($zeroIdPackage), 'All-zero package identifier produced an output file.');
     $restored = $reader->restore($package, $restore, $password, $pattern);
     stableAssert($restored['files'] === 5 && $restored['directories'] === 2, 'Round-trip statistics are incorrect.');
+    $wrongIdDestination = $root . DIRECTORY_SEPARATOR . 'wrong-catalog-id-restore';
+    stableExpectFailure(
+        fn() => $reader->restore($package, $wrongIdDestination, $password, $pattern, null, str_repeat('f', 48)),
+        'Reader accepted a package whose authenticated header ID differs from the catalog ID.'
+    );
+    stableAssert(!file_exists($wrongIdDestination), 'Catalog-ID mismatch created a restore destination.');
     foreach (['hello.txt', 'empty.bin', 'one-byte.bin', 'exact-chunk.bin', 'nested/binary.dat'] as $relative) {
         $expected = hash_file('sha256', $source . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
         $actual = hash_file('sha256', $restore . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative));
