@@ -1,16 +1,32 @@
 <?php
 declare(strict_types=1);
+
 require dirname(__DIR__) . '/bootstrap.php';
-use SecurePackage\Crypto\V14KeyDerivation;
-use SecurePackage\Project\V14Descriptor;
+
+use SecurePackage\Project\StablePackageCrypto;
+use SecurePackage\Project\StablePackageDescriptor;
 use SecurePackage\Security\Validator;
 
-$salt = random_bytes(32);
-$a = V14KeyDerivation::credentialWrapKey('Strong!Password2026', 'gggggggggggA!', $salt);
-$b = V14KeyDerivation::credentialWrapKey('Strong!Password2026', 'gggggggggggB!', $salt);
-if (hash_equals($a, $b)) throw new RuntimeException('V14 credential separation invariant failed.');
+$salt = random_bytes(StablePackageDescriptor::SALT_BYTES);
+$packageId = StablePackageDescriptor::randomNonZeroBytes(StablePackageDescriptor::PACKAGE_ID_BYTES);
+$a = StablePackageCrypto::deriveCredentialKey(
+    'Strong!Password2026', 'gG7!xY2_Ab9#Qp', $salt, $packageId,
+    StablePackageDescriptor::MIN_KDF_OPS, StablePackageDescriptor::MIN_KDF_MEM_BYTES
+);
+$b = StablePackageCrypto::deriveCredentialKey(
+    'Strong!Password2026', 'gG7!xY2_Ab9#QpX', $salt, $packageId,
+    StablePackageDescriptor::MIN_KDF_OPS, StablePackageDescriptor::MIN_KDF_MEM_BYTES
+);
+if (hash_equals($a, $b)) throw new RuntimeException('SPKG credential separation invariant failed.');
 Validator::validatePassword('Strong!Password2026');
 Validator::validatePattern('gG7!xY2_Ab9#Qp');
-if (V14Descriptor::VERSION !== 14) throw new RuntimeException('V14 version invariant failed.');
-sodium_memzero($a); sodium_memzero($b);
-echo "V14 security invariants passed.\n";
+if (strlen(StablePackageDescriptor::MAGIC) !== 8 || StablePackageDescriptor::EXTENSION !== '.spkg') {
+    throw new RuntimeException('SPKG format identity invariant failed.');
+}
+StablePackageDescriptor::assertKdfParameters(
+    StablePackageDescriptor::DEFAULT_KDF_OPS,
+    StablePackageDescriptor::DEFAULT_KDF_MEM_BYTES
+);
+sodium_memzero($a);
+sodium_memzero($b);
+echo "SPKG security invariants passed.\n";

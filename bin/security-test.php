@@ -9,10 +9,6 @@ $fastTests = [
     'ZipPolicyTest.php'
 ];
 $tests = $fast ? array_map(fn($n) => $root . '/tests/' . $n, $fastTests) : (glob($root . '/tests/*Test.php') ?: []);
-$tests = array_values(array_filter($tests, static function (string $test): bool {
-    $name = basename($test);
-    return !preg_match('/^(?:V13|V14)/', $name);
-}));
 sort($tests, SORT_STRING);
 $failures = [];
 $start = microtime(true);
