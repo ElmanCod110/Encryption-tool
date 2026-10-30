@@ -47,16 +47,23 @@ Use restrictive filesystem permissions for package, upload, temporary, catalog, 
 
 ## Recovery key handling
 
-The V14 recovery key is displayed once. Store it offline and separately from the encrypted package. Never place it in issue trackers, source control, server logs, or application telemetry.
+The SPKG recovery key is displayed once. Store it offline and separately from the encrypted package. Never place it in issue trackers, source control, server logs, or application telemetry.
 
 
 ## Local secret bootstrap
 
 `SPK_NAME_PEPPER` is recommended for managed production deployments. If it is not set, the application generates a persistent 256-bit local secret at `storage/secrets/name-pepper.bin` with restrictive permissions. Keep the entire `storage/` directory private and backed up with the application data it protects.
 
-The server workspace requires PHP `ext-zip`; `/health.php` reports the deployment as degraded until it is available. `bin/self-check.php` also treats `ext-zip` as a required V14 runtime component.
+The server workspace requires PHP `ext-zip`; `/health.php` reports the deployment as degraded until it is available. `bin/self-check.php` also treats `ext-zip` as a required SPKG runtime component.
 
 
 ### Runtime preflight
 
-The main V14 workspace requires PHP `ext-zip` because incoming ZIP archives and portable `.spkg14` releases are processed server-side. The application health endpoint and web UI report this as a required runtime component.
+The main SPKG workspace requires PHP `ext-zip` because incoming ZIP archives and portable `.spkg14` releases are processed server-side. The application health endpoint and web UI report this as a required runtime component.
+
+
+## Hosted versus local deployment
+
+The hosted web deployment performs package creation and restoration on the server. The server therefore processes source plaintext and the submitted credentials during those operations; this is not a zero-knowledge or server-blind architecture.
+
+For local use, run XAMPP and keep the browser, PHP runtime, and storage on the same machine. The local and hosted deployments share the same SPKG binary format and do not use separate extensions or grammars.

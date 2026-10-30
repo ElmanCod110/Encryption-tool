@@ -18,8 +18,10 @@ $checks = [
         strpos($decrypt, 'if (is_string($outputDir)) $this->removePath($outputDir);') !== false,
     'Restore output cleanup happens before the error response' =>
         strpos($decrypt, '$this->removePath($outputDir);') < strpos($decrypt, "Unable to open package."),
-    'Temporary package extraction cleanup remains in place' =>
-        strpos($decrypt, 'if ($temporaryPackageDir !== null) $this->removePath($temporaryPackageDir);') !== false,
+    'SPKG restore uses the active single-file reader without legacy extraction fallback' =>
+        strpos($decrypt, 'new StablePackageReader()') !== false
+        && strpos($decrypt, 'V14PackageReader') === false
+        && strpos($decrypt, '$temporaryPackageDir') === false,
 ];
 
 foreach ($checks as $description => $passed) {
