@@ -23,7 +23,10 @@ final class ConsoleSecretPrompt
         if (!is_resource($tty)) {
             throw new RuntimeException('No interactive terminal. Set ' . $environmentName . ' in the process environment.');
         }
-        $state = trim((string) @shell_exec('stty -g < /dev/tty 2>/dev/null'));
+        $stateLines = [];
+        $stateStatus = 0;
+        exec('stty -g < /dev/tty 2>/dev/null', $stateLines, $stateStatus);
+        $state = $stateStatus === 0 ? trim(implode("\n", $stateLines)) : '';
         if ($state === '') {
             fclose($tty);
             throw new RuntimeException('Unable to protect terminal input. Set ' . $environmentName . ' in the process environment.');
