@@ -133,6 +133,7 @@ function stableRemoveTree(string $path): void
 }
 
 Format::assertRuntime();
+stableAssert(Format::EXTENSION === '.spkg', 'Stable package extension convention changed.');
 
 // The immutable format accepts any nonempty, bounded UTF-8 credential byte string.
 // UI password-strength policy is applied when creating new packages, not when reading
