@@ -332,6 +332,33 @@ try {
         throw new RuntimeException('SPKG API round-trip changed the source files.');
     }
 
+    $recoveryRestored = $request(
+        'api.php?action=decrypt',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['package_id' => $builtPackageId, 'password' => '', 'pattern' => '', 'recovery_key' => $recoveryKey], JSON_THROW_ON_ERROR)
+    );
+    $expect(200, $recoveryRestored, 'Restore SPKG with recovery key');
+    $recoveryData = json_decode($recoveryRestored['body'], true, 32, JSON_THROW_ON_ERROR);
+    $recoveryPath = (string) ($recoveryData['restore_download'] ?? '');
+    if (!str_starts_with($recoveryPath, 'download-restored.php?token=')) {
+        throw new RuntimeException('SPKG recovery restore did not provide a restore download.');
+    }
+    $recoveryZipResponse = $request($recoveryPath);
+    $expect(200, $recoveryZipResponse, 'Download recovery-key restore');
+    $recoveryZipPath = $base . DIRECTORY_SEPARATOR . 'recovery-restored.zip';
+    if (file_put_contents($recoveryZipPath, $recoveryZipResponse['body']) !== strlen($recoveryZipResponse['body'])) {
+        throw new RuntimeException('Unable to save recovery-key restore fixture.');
+    }
+    $recoveryZip = new ZipArchive();
+    if ($recoveryZip->open($recoveryZipPath) !== true) throw new RuntimeException('Recovery-key output is not a ZIP archive.');
+    $recoveryHello = $recoveryZip->getFromName('hello.txt');
+    $recoveryNested = $recoveryZip->getFromName('nested/readme.txt');
+    $recoveryZip->close();
+    if ($recoveryHello !== "SPKG API integration fixture\n" || $recoveryNested !== "Nested SPKG fixture\n") {
+        throw new RuntimeException('SPKG recovery-key round-trip changed the source files.');
+    }
+
     $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';
     if (!is_file($accountFile) || file_put_contents($accountFile, '{broken-account-store') === false) {
         throw new RuntimeException('Unable to prepare internal-error response fixture.');
