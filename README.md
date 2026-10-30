@@ -95,6 +95,8 @@ The application treats cryptography, parsing, filesystem handling, authenticatio
 - [Support](SUPPORT.md)
 - [Deployment guide](docs/DEPLOYMENT.md)
 - [Format specification](docs/FORMAT.md)
+- [Package format compatibility matrix](docs/FORMAT-COMPATIBILITY.md)
+- [Stable binary format contract](docs/STABLE-PACKAGE-FORMAT.md)
 - [Threat model](docs/THREAT-MODEL.md)
 - [Migration notes](docs/MIGRATION.md)
 - [Release procedure](docs/RELEASE-PROCEDURE.md)
