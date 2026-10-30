@@ -11,6 +11,7 @@ $vault = (string) file_get_contents($root . '/public/client-vault.html');
 $main = (string) file_get_contents($root . '/public/index.php');
 $config = require $root . '/bootstrap.php';
 $config = require $root . '/config/config.php';
+$limits = $config['limits'];
 
 $checks = [
     'Active package creation uses the stable SPKG writer' =>
@@ -42,6 +43,16 @@ $checks = [
         !str_contains($main, 'client-vault.html'),
     'Application metadata identifies SPKG as the active format' =>
         ($config['app']['format'] ?? null) === 'SPKG',
+    'Configured archive and restore quotas stay within the SPKG grammar bounds' =>
+        $limits['max_archive_entries'] <= \SecurePackage\Project\StablePackageDescriptor::MAX_NODES
+        && $limits['max_manifest_nodes'] <= \SecurePackage\Project\StablePackageDescriptor::MAX_NODES
+        && $limits['max_package_entries'] <= \SecurePackage\Project\StablePackageDescriptor::MAX_NODES
+        && $limits['max_restore_files'] <= \SecurePackage\Project\StablePackageDescriptor::MAX_NODES
+        && $limits['max_single_file_bytes'] <= \SecurePackage\Project\StablePackageDescriptor::MAX_FILE_BYTES
+        && $limits['max_total_uncompressed_bytes'] <= \SecurePackage\Project\StablePackageDescriptor::MAX_TOTAL_PLAIN_BYTES
+        && $limits['max_package_size_bytes'] <= \SecurePackage\Project\StablePackageDescriptor::MAX_PACKAGE_BYTES
+        && $limits['max_upload_bytes'] <= 110 * 1024 * 1024 * 1024
+        && $limits['max_active_upload_bytes_per_owner'] <= $limits['max_upload_bytes'],
 ];
 
 foreach ($checks as $description => $passed) {
