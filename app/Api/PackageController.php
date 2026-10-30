@@ -11,6 +11,7 @@ use SecurePackage\Project\PackageArchive;
 use SecurePackage\Project\PackageDeletionTransaction;
 use SecurePackage\Project\PackageCatalog;
 use SecurePackage\Project\V14PackageReader;
+use SecurePackage\Project\V14Descriptor;
 use SecurePackage\Project\V14PackageService;
 use SecurePackage\Security\AccessContext;
 use SecurePackage\Security\ApplicationSecrets;
@@ -309,8 +310,8 @@ final class PackageController
             if ($recoveryKey === null || $recoveryKey === '') {
                 // Existing V14 packages keep their original KDF byte contract.
                 // Current account-creation strength policy applies only to new packages.
-                \\SecurePackage\\Project\\V14Descriptor::assertCredentialBytes($password);
-                \\SecurePackage\\Project\\V14Descriptor::assertCredentialBytes($pattern);
+                V14Descriptor::assertCredentialBytes($password);
+                V14Descriptor::assertCredentialBytes($pattern);
             }
             // Centralize revocation and expiry checks so decrypt uses the same boundary as downloads.
             $this->catalog->assertAvailable($packageId);
