@@ -5,6 +5,8 @@ $root = dirname(__DIR__);
 $controller = (string) file_get_contents($root . '/app/Api/PackageController.php');
 $download = (string) file_get_contents($root . '/public/download.php');
 $apiV13 = (string) file_get_contents($root . '/public/api-v13.php');
+$clientV13 = (string) file_get_contents($root . '/public/client-v13.php');
+$healthV13 = (string) file_get_contents($root . '/public/health-v13.php');
 $vault = (string) file_get_contents($root . '/public/client-vault.html');
 $main = (string) file_get_contents($root . '/public/index.php');
 $config = require $root . '/bootstrap.php';
@@ -27,6 +29,11 @@ $checks = [
         str_contains($apiV13, '], 410)')
         && !str_contains($apiV13, 'V13Descriptor')
         && !str_contains($apiV13, 'ResumableUploadV13'),
+    'Legacy descriptor and health endpoints are retired without loading the V13 descriptor' =>
+        str_contains($clientV13, 'http_response_code(410)')
+        && !str_contains($clientV13, 'V13Descriptor')
+        && str_contains($healthV13, 'http_response_code(410)')
+        && !str_contains($healthV13, 'V13Descriptor'),
     'Legacy browser page does not load the old parser or worker' =>
         !str_contains($vault, 'vault-v13.js')
         && !str_contains($vault, 'worker.js')

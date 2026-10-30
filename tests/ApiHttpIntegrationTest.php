@@ -105,6 +105,9 @@ try {
     }
 
     $expect(404, $request('api.php?action=unknown-action'), 'Unknown action');
+    $expect(410, $request('api-v13.php?action=descriptor'), 'Retired V13 upload API');
+    $expect(410, $request('client-v13.php'), 'Retired V13 descriptor endpoint');
+    $expect(410, $request('health-v13.php'), 'Retired V13 health endpoint');
     $expect(405, $request('api.php?action=login', 'GET'), 'GET login method');
     $expect(415, $request('api.php?action=login', 'POST', ['Content-Type: text/plain'], '{}'), 'Login media type');
 
