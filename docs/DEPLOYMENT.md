@@ -67,3 +67,7 @@ The SPKG workspace requires PHP `ext-zip` to accept source ZIP uploads and creat
 The hosted web deployment performs package creation and restoration on the server. The server therefore processes source plaintext and the submitted credentials during those operations; this is not a zero-knowledge or server-blind architecture.
 
 For local use, run XAMPP and keep the browser, PHP runtime, and storage on the same machine. The local and hosted deployments share the same SPKG binary format and do not use separate extensions or grammars.
+
+## Standalone local CLI
+
+The CLI tools create and restore SPKG files without Apache, XAMPP, or a running web server. They use the same format and PHP cryptographic implementation as the web app. Interactive credentials are hidden from terminal echo; environment variables are supported for automation and should be protected by the caller.

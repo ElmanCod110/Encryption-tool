@@ -45,6 +45,10 @@ The current writer profile uses Argon2id with 3 operations and 256 MiB; the pars
 
 Before the 1.0.0 release, benchmark wall-clock latency and peak process/container memory on the supported PHP versions and target Windows/XAMPP/shared-hosting environments. Test multiple concurrent failed unlocks against realistic memory limits. A profile that can exhaust the host is not acceptable merely because its parameters are cryptographically strong. Do not silently lower the KDF profile: any change must be reviewed against the binary contract, fixture, compatibility requirements and security goals.
 
+## Local implementation modes
+
+The same SPKG writer and reader are used by the hosted API, local XAMPP deployment, and standalone PHP CLI commands in `bin/create-package.php` and `bin/decrypt-package.php`. The CLI runs without a web server and does not define another package grammar.
+
 ## Implementation boundary
 
 The implementation is split across these format-specific classes:

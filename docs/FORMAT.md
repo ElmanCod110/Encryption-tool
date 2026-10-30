@@ -10,3 +10,13 @@ The active package format for the planned 1.0.0 release line is the stable binar
 The historical V14 format is not another encoding of SPKG. The planned 1.0.0 application does not parse, decrypt, create, or serve legacy V14 or Browser V13 packages. Release 0.14.1 is the last release intended to open those formats. See [MIGRATION.md](MIGRATION.md) before upgrading.
 
 Never retry a different parser after an SPKG authentication, credential, or integrity failure.
+
+## Standalone local CLI
+
+SPKG can also be created and restored without starting a web server:
+
+- Create: `php bin/create-package.php <source-directory> <destination.spkg>`
+- Restore: `php bin/decrypt-package.php <package.spkg> <output-directory>`
+- Restore with the independent recovery key: append `--recovery` to the restore command.
+
+Interactive credentials are entered without terminal echo. For automation, set `SPK_PASSWORD` and `SPK_PATTERN` in the process environment, or `SPK_RECOVERY_KEY` for recovery mode. Never pass secrets as command-line arguments. These tools use the same SPKG bytes and cryptographic implementation as the hosted and localhost paths.

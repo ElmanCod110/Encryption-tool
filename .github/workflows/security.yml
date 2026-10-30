@@ -75,6 +75,7 @@ jobs:
           php tests/ReleaseIntegrityTest.php
           php tests/ReleaseVerifierTrustRootTest.php
           php tests/StablePackageFormatTest.php
+          php tests/LocalCliSpkgTest.php
           php tests/ActiveSpkgRoutingTest.php
           php tests/StablePackageUnicodeFallbackTest.php
           php -n tests/StablePackageUnicodeFallbackTest.php

@@ -6,7 +6,7 @@ Secure Package is an open-source encrypted project-package engine focused on aut
 
 ## Unified SPKG package format
 
-The planned 1.0.0 release line uses one stable binary format: `.spkg`. The hosted web application and local XAMPP deployment use the same format, extension, PHP writer/reader, and cryptographic profile. There is no separate local format.
+The planned 1.0.0 release line uses one stable binary format: `.spkg`. The hosted web application, local XAMPP deployment, and standalone PHP CLI use the same format, extension, writer/reader, and cryptographic profile. There is no separate local format or parser.
 
 SPKG uses:
 
@@ -46,14 +46,17 @@ See [format compatibility](docs/FORMAT-COMPATIBILITY.md) and [migration notes](d
 
 Point Apache/XAMPP at the `public/` directory and open the application entry point. For a local-only setup, keep the runtime and storage on the local machine.
 
-The CLI helpers use the same SPKG format:
+The standalone CLI tools use hidden interactive credential prompts and refuse to overwrite existing package or restore destinations. See the standalone local CLI section below for exact commands.
 
-```bash
-php bin/encrypt-directory.php <source-dir> <output-file.spkg> <password> <pattern>
-php bin/decrypt-package.php <package.spkg> <output-dir> <password> <pattern> [recovery-key]
-```
+## Standalone local CLI
 
-The writer refuses to overwrite an existing package destination. The reader refuses to overwrite an existing restore destination. A recovery key, when enabled, is displayed only at creation time; store it offline.
+A web server is not required to create or restore a package locally:
+
+- Create: `php bin/create-package.php <source-directory> <destination.spkg>`
+- Restore: `php bin/decrypt-package.php <package.spkg> <output-directory>`
+- Restore with the independent recovery key: append `--recovery`.
+
+The CLI prompts for credentials without terminal echo. For automation, use the `SPK_PASSWORD` and `SPK_PATTERN` process environment variables, or `SPK_RECOVERY_KEY` in recovery mode. Do not pass secrets as command-line arguments. These tools use the same SPKG bytes and cryptographic implementation as the hosted and localhost paths.
 
 ## Production security baseline
 

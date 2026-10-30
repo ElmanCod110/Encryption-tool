@@ -8,8 +8,8 @@ use SecurePackage\Security\Validator;
 use Throwable;
 
 /**
- * Writes the frozen, single-file binary package format. The current V14 writer
- * remains untouched until this implementation and its adversarial tests pass.
+ * Writes the canonical SPKG single-file binary format used by the active web API
+ * and local CLI. Legacy V13/V14 writers are not used by active application paths.
  */
 final class StablePackageWriter
 {

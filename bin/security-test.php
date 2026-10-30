@@ -5,7 +5,7 @@ $root = dirname(__DIR__);
 $fast = in_array('--full', $argv, true) === false;
 $fastTests = [
     'CanonicalFuzzTest.php', 'CanonicalJsonTest.php', 'ReplayGuardTest.php', 'ReplayRaceTest.php',
-    'SecurityDiagnosticsTest.php', 'SourceSecurityAuditTest.php', 'StablePackageFormatTest.php', 'StablePackageUnicodeFallbackTest.php', 'ActiveSpkgRoutingTest.php', 'ReleaseVerifierTrustRootTest.php',
+    'SecurityDiagnosticsTest.php', 'SourceSecurityAuditTest.php', 'StablePackageFormatTest.php', 'LocalCliSpkgTest.php', 'StablePackageUnicodeFallbackTest.php', 'ActiveSpkgRoutingTest.php', 'ReleaseVerifierTrustRootTest.php',
     'ZipPolicyTest.php'
 ];
 $tests = $fast ? array_map(fn($n) => $root . '/tests/' . $n, $fastTests) : (glob($root . '/tests/*Test.php') ?: []);

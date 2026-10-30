@@ -6,9 +6,9 @@ This is the compatibility policy for the planned 1.0.0 release line.
 
 | Format | Extension | Writer/reader | 1.0.0 status |
 | --- | --- | --- | --- |
-| Unified stable binary package | `.spkg` | `StablePackageWriter` / `StablePackageReader` | Active for hosted and local XAMPP deployments |
+| Unified stable binary package | `.spkg` | `StablePackageWriter` / `StablePackageReader` | Active for hosted PHP, local XAMPP, and standalone PHP CLI |
 
-Both deployments use the same byte-level grammar, extension, cryptographic profile, and PHP writer/reader. Local XAMPP keeps processing on the local machine when PHP, browser, and storage are local. Hosted deployment performs package creation and restoration on the server.
+All three modes use the same byte-level grammar, extension, cryptographic profile, and PHP writer/reader. Local XAMPP keeps processing on the local machine when PHP, browser, and storage are local. The standalone CLI runs without a web server and never contacts a remote service. Hosted deployment performs package creation and restoration on the server.
 
 The extension is only a filename convention. The reader checks the fixed binary magic and validates the authenticated grammar; it never chooses a parser from the extension alone.
 
