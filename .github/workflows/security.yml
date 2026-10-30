@@ -74,18 +74,8 @@ jobs:
           php tests/SignedStateTest.php
           php tests/ReleaseIntegrityTest.php
           php tests/ReleaseVerifierTrustRootTest.php
-          php tests/V13DescriptorTest.php
-          php tests/V13UploadTest.php
-          php tests/V14DescriptorTest.php
-          php tests/V14HeaderBindingTest.php
-          php tests/V14PackageRoundTripTest.php
-          php tests/V14RecoveryTest.php
-          php tests/V14TamperHeaderTest.php
-          php tests/V14BlobTamperTest.php
-          php tests/V14RestoreSafetyTest.php
-          php tests/V14PackageArchiveTest.php
-          php tests/V14PackageArchiveStorageTest.php
           php tests/StablePackageFormatTest.php
+          php tests/ActiveSpkgRoutingTest.php
           php tests/StablePackageUnicodeFallbackTest.php
           php -n tests/StablePackageUnicodeFallbackTest.php
 
@@ -95,5 +85,5 @@ jobs:
       - name: Source security audit
         run: php bin/source-audit.php
 
-      - name: Legacy browser V13 round-trip
-        run: node tests/BrowserV13RoundTripTest.mjs
+      - name: Active SPKG routing boundary
+        run: php tests/ActiveSpkgRoutingTest.php
