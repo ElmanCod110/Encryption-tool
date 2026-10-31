@@ -19,6 +19,8 @@ jobs:
           node-version: '22'
       - name: Syntax checks
         run: |
-          find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Legacy browser V13 round-trip
-        run: node tests/BrowserV13RoundTripTest.mjs
+          find public/assets -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Active SPKG routing boundary
+        run: php tests/ActiveSpkgRoutingTest.php
+      - name: Verify retired browser format is not shipped
+        run: node tests/LegacyBrowserRetirementTest.mjs

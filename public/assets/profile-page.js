@@ -30,7 +30,9 @@ function isExpired(item) {
   return item.expires_at !== null && item.expires_at !== undefined && Number(item.expires_at) * 1000 <= Date.now();
 }
 function statusFor(item) {
-  if (item.storage_available === false) return { key: 'missing', label: 'Archive missing' };
+  if (item.format === 'UNSUPPORTED_LEGACY') return { key: 'legacy', label: 'Unsupported legacy format' };
+  if (item.format === 'MISSING') return { key: 'missing', label: 'Package file missing' };
+  if (item.storage_available === false) return { key: 'missing', label: 'Package file missing' };
   if (item.revoked) return { key: 'revoked', label: 'Revoked' };
   if (isExpired(item)) return { key: 'expired', label: 'Expired' };
   return { key: 'active', label: 'Active' };
@@ -87,17 +89,17 @@ function renderPackages() {
     const card = element('article', 'profile-package');
     const head = element('div', 'profile-package-head');
     const identity = element('div', 'profile-package-identity');
-    identity.append(element('span', 'profile-package-kicker', 'ENCRYPTED PACKAGE · SECURE-PKG-V14'));
+    identity.append(element('span', 'profile-package-kicker', 'ENCRYPTED PACKAGE · SPKG'));
     identity.append(element('h3', '', 'Package ' + String(item.package_id).slice(0, 12)));
     identity.append(element('code', 'profile-package-id', item.package_id));
     const badge = element('span', 'profile-package-status status-' + status.key, status.label);
     head.append(identity, badge);
     const details = element('dl', 'profile-package-details');
     const fields = [
-      ['Archive size', item.storage_available === false ? 'Archive unavailable' : formatBytes(item.size_bytes)],
+      ['Package size', item.storage_available === false ? 'Package unavailable' : formatBytes(item.size_bytes)],
       ['Stored on', formatDate(item.created_at)],
       ['Expiration', item.expires_at ? formatDate(item.expires_at) : 'No expiration set'],
-      ['Storage', item.storage_available === false ? 'Catalog record only' : 'Encrypted archive present'],
+      ['Storage', item.format === 'UNSUPPORTED_LEGACY' ? 'Unsupported legacy file' : item.storage_available === false ? 'Catalog record only' : 'Encrypted SPKG present'],
     ];
     for (const [label, value] of fields) {
       const wrapper = element('div');
@@ -105,7 +107,7 @@ function renderPackages() {
       details.append(wrapper);
     }
     const actions = element('div', 'profile-package-actions');
-    const canDownload = !item.revoked && !isExpired(item) && item.storage_available !== false;
+    const canDownload = item.format === 'SPKG' && !item.revoked && !isExpired(item) && item.storage_available !== false;
     actions.append(button('Download encrypted package', 'primary-button', async () => {
       try {
         setMessage('');
@@ -116,6 +118,7 @@ function renderPackages() {
     }, !canDownload));
     const expiry = element('select', 'text-input profile-expiry');
     expiry.setAttribute('aria-label', 'Expiration for package ' + String(item.package_id).slice(0, 12));
+    expiry.disabled = item.format !== 'SPKG';
     for (const [value, label] of [['', 'Change expiration…'], ['0', 'No expiration'], ['86400', 'Expire in 1 day'], ['604800', 'Expire in 7 days'], ['2592000', 'Expire in 30 days'], ['7776000', 'Expire in 90 days']]) {
       const option = element('option', '', label); option.value = value; expiry.append(option);
     }
@@ -134,7 +137,7 @@ function renderPackages() {
       if (!window.confirm('Revoke download access for this package? This cannot be undone.')) return;
       try { await api('revoke', { package_id: item.package_id }); setMessage('Package access revoked.', true); await loadPackages(false); }
       catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to revoke package.'); }
-    }, item.revoked || item.storage_available === false));
+    }, item.format !== 'SPKG' || item.revoked || item.storage_available === false));
     actions.append(button('Delete permanently', 'danger-button', async () => {
       if (!window.confirm('Permanently delete this encrypted package from server storage? This cannot be undone.')) return;
       try { await api('delete', { package_id: item.package_id }); setMessage('Encrypted package deleted from server storage.', true); await loadPackages(false); }

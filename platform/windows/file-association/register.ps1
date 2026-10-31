@@ -7,16 +7,21 @@ $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..'
 $iconPath = Join-Path $repositoryRoot 'logo\files.ico'
 
 if (-not (Test-Path -LiteralPath $iconPath -PathType Leaf)) {
-    throw "SPK13 icon is missing. Place the ICO file at '$iconPath' and run this script again."
+    throw "SPKG icon is missing. Place the ICO file at '$iconPath' and run this script again."
 }
 
 $iconPath = (Resolve-Path -LiteralPath $iconPath).Path
+
+$iconBytes = [System.IO.File]::ReadAllBytes($iconPath)
+if ($iconBytes.Length -lt 6 -or $iconBytes[0] -ne 0 -or $iconBytes[1] -ne 0 -or $iconBytes[2] -ne 1 -or $iconBytes[3] -ne 0) {
+    throw "SPKG icon is not a valid ICO container. Use a real .ico file; renaming a PNG is not sufficient."
+}
 $installedIconValue = '"' + $iconPath + '",0'
 
 # SystemFileAssociations supplies an extension icon without taking over the
 # user's default application or defining a double-click/open command.
-$iconKeyPath = 'HKCU:\Software\Classes\SystemFileAssociations\.spk13\DefaultIcon'
-$stateKeyPath = 'HKCU:\Software\EncryptionTool\FileAssociations\SPK13'
+$iconKeyPath = 'HKCU:\Software\Classes\SystemFileAssociations\.spkg\DefaultIcon'
+$stateKeyPath = 'HKCU:\Software\EncryptionTool\FileAssociations\SPKG'
 
 if (-not (Test-Path -LiteralPath $stateKeyPath)) {
     $targetKeyExisted = Test-Path -LiteralPath $iconKeyPath
@@ -43,6 +48,6 @@ New-ItemProperty -LiteralPath $stateKeyPath -Name 'InstalledDefaultIcon' -Value 
 
 & (Join-Path $PSScriptRoot 'refresh-icons.ps1')
 
-Write-Host 'SPK13 file icon registered for the current Windows user.'
+Write-Host 'SPKG file icon registered for the current Windows user.'
 Write-Host "Icon: $iconPath"
 Write-Host 'No default application or open command was changed.'

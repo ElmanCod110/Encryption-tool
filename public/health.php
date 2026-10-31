@@ -12,13 +12,14 @@ header('Content-Type: application/json; charset=utf-8');
 $config = require dirname(__DIR__) . '/config/config.php';
 $checks = [
     'php' => version_compare(PHP_VERSION, '8.2.0', '>='),
+    'php_64_bit' => PHP_INT_SIZE === 8,
     'sodium' => extension_loaded('sodium'),
     'zip' => extension_loaded('zip'),
     'pdo_mysql' => extension_loaded('pdo_mysql'),
     'random_bytes' => function_exists('random_bytes'),
     'storage' => is_dir($config['storage']['root']) || @mkdir($config['storage']['root'], 0700, true),
 ];
-$requiredOk = $checks['php'] && $checks['sodium'] && $checks['random_bytes'] && $checks['zip'] && $checks['storage'];
+$requiredOk = $checks['php'] && $checks['php_64_bit'] && $checks['sodium'] && $checks['random_bytes'] && $checks['zip'] && $checks['storage'];
 http_response_code($requiredOk ? 200 : 503);
 echo json_encode([
     'ok' => $requiredOk,

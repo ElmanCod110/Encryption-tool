@@ -3,45 +3,44 @@
 declare(strict_types=1);
 
 require dirname(__DIR__) . '/bootstrap.php';
+require __DIR__ . '/ConsoleSecretPrompt.php';
 
-use SecurePackage\Project\PackageArchive;
-use SecurePackage\Project\V14PackageReader;
-use SecurePackage\Security\Validator;
+use SecurePackage\Project\StablePackageReader;
 
-if ($argc < 4 || $argc > 5) {
-    fwrite(STDERR, "Usage: php decrypt-package.php <package-dir-or-spkg14> <output-dir> <password> [recovery-key]\n");
+$arguments = array_slice($argv, 1);
+$useRecovery = in_array('--recovery', $arguments, true);
+$arguments = array_values(array_filter($arguments, static fn(string $arg): bool => $arg !== '--recovery'));
+if (count($arguments) !== 2 || in_array('--help', $arguments, true)) {
+    fwrite(STDERR, "Usage: php bin/decrypt-package.php <package.spkg> <output-directory> [--recovery]\n");
+    fwrite(STDERR, "Credentials are prompted without echo. For automation, use SPK_PASSWORD/SPK_PATTERN or SPK_RECOVERY_KEY.\n");
     exit(1);
 }
 
-[, $package, $output, $password] = array_pad($argv, 4, '');
-$recoveryKey = $argv[4] ?? '';
-$pattern = getenv('SPK_PATTERN') ?: '';
-$temp = null;
+[$package, $output] = $arguments;
+$password = '';
+$pattern = '';
+$recoveryKey = '';
 try {
-    if ($recoveryKey !== '') {
-        $recoveryKey = strtoupper(trim($recoveryKey));
-        if (!preg_match('/^[0-9A-F]{64}$/', $recoveryKey)) throw new RuntimeException('Invalid recovery key.');
+    if (strtolower(pathinfo($package, PATHINFO_EXTENSION)) !== 'spkg' || is_link($package) || !is_file($package)) {
+        throw new RuntimeException('Only a regular SPKG binary package file is supported.');
+    }
+    if ($useRecovery) {
+        $recoveryKey = ConsoleSecretPrompt::read('Recovery key', 'SPK_RECOVERY_KEY');
     } else {
-        Validator::validatePassword($password);
-        Validator::validatePattern($pattern);
+        $password = ConsoleSecretPrompt::read('Package password', 'SPK_PASSWORD');
+        $pattern = ConsoleSecretPrompt::read('Pattern credential', 'SPK_PATTERN');
     }
-    if (is_file($package) && preg_match('/\.spkg14$/i', $package)) {
-        $temp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'secure-package-v14-' . bin2hex(random_bytes(12));
-        (new PackageArchive())->extract($package, $temp);
-        $package = $temp;
-    }
-    (new V14PackageReader())->restore($package, $output, $password, $pattern, $recoveryKey !== '' ? $recoveryKey : null);
-    echo "V14 package restored successfully.\n";
-} catch (Throwable) {
-    fwrite(STDERR, "Unable to open V14 package.\n");
+    $result = (new StablePackageReader())->restore(
+        $package, $output, $password, $pattern, $recoveryKey !== '' ? $recoveryKey : null
+    );
+    echo "SPKG package restored successfully.\n";
+    echo 'Files: ' . (int) ($result['files'] ?? 0) . "\n";
+    echo 'Directories: ' . (int) ($result['directories'] ?? 0) . "\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, 'Unable to open SPKG package: ' . $error->getMessage() . "\n");
     exit(2);
 } finally {
-    sodium_memzero($password);
-    sodium_memzero($pattern);
-    sodium_memzero($recoveryKey);
-    if ($temp !== null && is_dir($temp)) {
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($temp, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
-        foreach ($iterator as $item) $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
-        @rmdir($temp);
-    }
+    if ($password !== '') sodium_memzero($password);
+    if ($pattern !== '') sodium_memzero($pattern);
+    if ($recoveryKey !== '') sodium_memzero($recoveryKey);
 }

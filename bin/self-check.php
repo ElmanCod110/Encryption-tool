@@ -5,6 +5,7 @@ require dirname(__DIR__) . '/bootstrap.php';
 
 $required = [
     'PHP >= 8.2' => version_compare(PHP_VERSION, '8.2.0', '>='),
+    '64-bit PHP runtime' => PHP_INT_SIZE === 8,
     'Sodium extension' => extension_loaded('sodium'),
     'Randomness API' => function_exists('random_bytes'),
     'Argon2id support' => defined('SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13'),

@@ -1,23 +1,38 @@
 <?php
 declare(strict_types=1);
+
 require dirname(__DIR__) . '/bootstrap.php';
 
-use SecurePackage\Crypto\V14Stream;
+use SecurePackage\Project\StablePackageReader;
+use SecurePackage\Project\StablePackageWriter;
 
-$root = sys_get_temp_dir() . '/spk-v14-stream-' . bin2hex(random_bytes(6));
-@mkdir($root, 0700, true);
+$root = sys_get_temp_dir() . '/spkg-file-roundtrip-' . bin2hex(random_bytes(6));
+$source = $root . '/source';
+$package = $root . '/roundtrip.spkg';
+$restore = $root . '/restored';
+mkdir($source . '/nested', 0700, true);
+$payload = random_bytes(512 * 1024 + 19);
+file_put_contents($source . '/nested/data.bin', $payload);
+file_put_contents($source . '/readme.txt', "SPKG file round trip\n");
+$password = 'Strong!Password2026';
+$pattern = 'gG7!xY2_Ab9#Qp';
 try {
-    $source = $root . '/source.bin'; $encrypted = $root . '/encrypted.bin'; $restored = $root . '/restored.bin';
-    $data = random_bytes(1024 * 1024 + 123);
-    file_put_contents($source, $data);
-    $key = random_bytes(32);
-    V14Stream::encryptFile($source, $encrypted, $key, 'test-file-aad', strlen($data));
-    V14Stream::decryptFile($encrypted, $restored, $key, 'test-file-aad', strlen($data));
-    if (!hash_equals(hash('sha256', $data), hash_file('sha256', $restored))) throw new RuntimeException('V14 stream round-trip failed.');
-    sodium_memzero($key);
-    echo "V14 file stream tests passed.\n";
+    $created = (new StablePackageWriter())->build($source, $package, $password, $pattern, null, false);
+    $restored = (new StablePackageReader())->restore($package, $restore, $password, $pattern, null, $created['package_id']);
+    if (file_get_contents($restore . '/nested/data.bin') !== $payload
+        || file_get_contents($restore . '/readme.txt') !== "SPKG file round trip\n"
+        || ($restored['files'] ?? 0) !== 2) {
+        throw new RuntimeException('SPKG file round trip changed package content.');
+    }
+    echo "SPKG file round-trip tests passed.\n";
 } finally {
-    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
-    foreach ($it as $item) $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
-    @rmdir($root);
+    sodium_memzero($password);
+    sodium_memzero($pattern);
+    $remove = static function (string $path) use (&$remove): void {
+        if (is_link($path) || is_file($path)) { @unlink($path); return; }
+        if (!is_dir($path)) return;
+        foreach (new FilesystemIterator($path, FilesystemIterator::SKIP_DOTS) as $entry) $remove($entry->getPathname());
+        @rmdir($path);
+    };
+    $remove($root);
 }

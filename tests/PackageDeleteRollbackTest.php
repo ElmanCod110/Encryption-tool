@@ -33,9 +33,9 @@ $assert = static function (bool $condition, string $message): void {
 
 try {
     // A catalog failure after access revocation must restore every staged representation.
-    $portable = $root . DIRECTORY_SEPARATOR . 'rollback.spkg14';
+    $portable = $root . DIRECTORY_SEPARATOR . 'rollback.spkg';
     $packageDirectory = $root . DIRECTORY_SEPARATOR . 'rollback-package';
-    file_put_contents($portable, 'portable package bytes');
+    file_put_contents($portable, 'single-file package bytes');
     mkdir($packageDirectory, 0700);
     file_put_contents($packageDirectory . DIRECTORY_SEPARATOR . 'header.json', '{}');
     $revoked = false;
@@ -54,12 +54,12 @@ try {
     $assert($catalogFailureObserved, 'The injected catalog failure was not propagated.');
     $assert($revoked, 'Access-token revocation should occur after staging and before catalog deletion.');
     $assert(is_file($portable) && is_dir($packageDirectory), 'Catalog failure did not restore both package representations.');
-    $assert(file_get_contents($portable) === 'portable package bytes', 'Rollback changed the portable package bytes.');
+    $assert(file_get_contents($portable) === 'single-file package bytes', 'Rollback changed the portable package bytes.');
     $assert(file_get_contents($packageDirectory . DIRECTORY_SEPARATOR . 'header.json') === '{}', 'Rollback changed package-directory contents.');
 
     // A deterministic second-stage rename failure must roll back the first staged path
     // and must not revoke access or delete the catalog record.
-    $portable2 = $root . DIRECTORY_SEPARATOR . 'stage-failure.spkg14';
+    $portable2 = $root . DIRECTORY_SEPARATOR . 'stage-failure.spkg';
     $packageDirectory2 = $root . DIRECTORY_SEPARATOR . 'stage-failure-package';
     file_put_contents($portable2, 'second portable package');
     mkdir($packageDirectory2, 0700);
@@ -90,7 +90,7 @@ try {
     $assert(!$revocationAttempted && !$catalogDeleteAttempted, 'Access/catalog mutation ran before all representations were staged.');
 
     // Post-commit cleanup must fail closed if a staged artifact remains on disk.
-    $cleanupSource = $root . DIRECTORY_SEPARATOR . 'cleanup.spkg14';
+    $cleanupSource = $root . DIRECTORY_SEPARATOR . 'cleanup.spkg';
     file_put_contents($cleanupSource, 'cleanup fixture');
     $staged = (new PackageDeletionTransaction())->execute(
         [$cleanupSource],

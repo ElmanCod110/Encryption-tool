@@ -105,6 +105,9 @@ try {
     }
 
     $expect(404, $request('api.php?action=unknown-action'), 'Unknown action');
+    $expect(410, $request('api-v13.php?action=descriptor'), 'Retired V13 upload API');
+    $expect(410, $request('client-v13.php'), 'Retired V13 descriptor endpoint');
+    $expect(410, $request('health-v13.php'), 'Retired V13 health endpoint');
     $expect(405, $request('api.php?action=login', 'GET'), 'GET login method');
     $expect(415, $request('api.php?action=login', 'POST', ['Content-Type: text/plain'], '{}'), 'Login media type');
 
@@ -188,10 +191,172 @@ try {
     $listed = $inventoryData['packages'][0] ?? null;
     if (!is_array($listed)
         || ($listed['package_id'] ?? null) !== $packageId
-        || ($listed['storage_available'] ?? null) !== true
-        || ($listed['size_bytes'] ?? null) !== strlen($encryptedFixture)
+        || ($listed['storage_available'] ?? null) !== false
+        || ($listed['size_bytes'] ?? null) !== null
+        || ($listed['format'] ?? null) !== 'UNSUPPORTED_LEGACY'
         || ($listed['revoked'] ?? null) !== false) {
         throw new RuntimeException('Encrypted package inventory omitted or misreported safe package metadata.');
+    }
+
+    $legacyLink = $request(
+        'api.php?action=access-token',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['package_id' => $packageId], JSON_THROW_ON_ERROR)
+    );
+    $expect(404, $legacyLink, 'Legacy package download is retired');
+
+    // Exercise the real hosted SPKG path end to end: source ZIP upload, archive
+    // extraction, stable binary creation, authenticated download, restore, and ZIP export.
+    if (!class_exists(ZipArchive::class)) throw new RuntimeException('ZIP extension is required for SPKG API integration.');
+    $sourceZipPath = $base . DIRECTORY_SEPARATOR . 'source.zip';
+    $zip = new ZipArchive();
+    if ($zip->open($sourceZipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        throw new RuntimeException('Unable to create SPKG API source ZIP.');
+    }
+    $zip->addFromString('hello.txt', "SPKG API integration fixture\n");
+    $zip->addFromString('nested/readme.txt', "Nested SPKG fixture\n");
+    if (!$zip->close()) throw new RuntimeException('Unable to finalize SPKG API source ZIP.');
+    $zipBytes = file_get_contents($sourceZipPath);
+    if (!is_string($zipBytes) || $zipBytes === '') throw new RuntimeException('SPKG source ZIP is empty.');
+
+    $uploadInit = $request(
+        'api.php?action=upload-init',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['total_bytes' => strlen($zipBytes), 'sha256' => hash('sha256', $zipBytes)], JSON_THROW_ON_ERROR)
+    );
+    $expect(201, $uploadInit, 'Initialize SPKG source upload');
+    $uploadInitData = json_decode($uploadInit['body'], true, 16, JSON_THROW_ON_ERROR);
+    $uploadId = (string) ($uploadInitData['upload']['id'] ?? '');
+    if (!preg_match('/^[a-f0-9]{48}$/', $uploadId)) throw new RuntimeException('SPKG upload ID is invalid.');
+
+    $uploadChunk = $request(
+        'api.php?action=upload-chunk',
+        'POST',
+        [
+            'Content-Type: application/octet-stream',
+            'Cookie: ' . $cookie,
+            'X-CSRF-Token: ' . $csrf,
+            'X-Upload-ID: ' . $uploadId,
+            'X-Upload-Offset: 0',
+            'Content-Length: ' . strlen($zipBytes),
+        ],
+        $zipBytes
+    );
+    $expect(200, $uploadChunk, 'Upload SPKG source bytes');
+
+    $uploadComplete = $request(
+        'api.php?action=upload-complete',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['upload_id' => $uploadId], JSON_THROW_ON_ERROR)
+    );
+    $expect(200, $uploadComplete, 'Finalize SPKG source upload');
+    $uploadCompleteData = json_decode($uploadComplete['body'], true, 32, JSON_THROW_ON_ERROR);
+    $jobId = (string) ($uploadCompleteData['job_id'] ?? '');
+    $archiveId = (string) ($uploadCompleteData['state']['pending'][0]['id'] ?? '');
+    if ($jobId === '' || !preg_match('/^[a-f0-9]{32}$/', $archiveId)) {
+        throw new RuntimeException('SPKG archive job metadata is invalid.');
+    }
+
+    $archiveStep = $request(
+        'api.php?action=archive-step',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['job_id' => $jobId, 'archive_id' => $archiveId, 'password' => ''], JSON_THROW_ON_ERROR)
+    );
+    $expect(200, $archiveStep, 'Extract SPKG source archive');
+    $archiveStepData = json_decode($archiveStep['body'], true, 32, JSON_THROW_ON_ERROR);
+    if (($archiveStepData['state']['status'] ?? null) !== 'ready_to_build') {
+        throw new RuntimeException('SPKG source archive did not reach ready_to_build.');
+    }
+
+    $packagePassword = 'StableApi!Password2026';
+    $packagePattern = 'StableApi#Pattern2026';
+    $built = $request(
+        'api.php?action=build',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode([
+            'job_id' => $jobId,
+            'project_name' => 'stable-api-integration-project',
+            'password' => $packagePassword,
+            'pattern' => $packagePattern,
+            'create_recovery' => true,
+        ], JSON_THROW_ON_ERROR)
+    );
+    $expect(201, $built, 'Build stable SPKG package');
+    $builtData = json_decode($built['body'], true, 32, JSON_THROW_ON_ERROR);
+    $builtPackageId = (string) ($builtData['package_id'] ?? '');
+    $downloadPath = (string) ($builtData['download'] ?? '');
+    $recoveryKey = (string) ($builtData['recovery_key'] ?? '');
+    if (($builtData['format'] ?? null) !== 'SPKG'
+        || !preg_match('/^[a-f0-9]{48}$/', $builtPackageId)
+        || !str_starts_with($downloadPath, 'download.php?token=')
+        || $recoveryKey === '') {
+        throw new RuntimeException('SPKG build response violates the active format contract.');
+    }
+
+    $downloaded = $request($downloadPath);
+    $expect(200, $downloaded, 'Download encrypted SPKG package');
+    if (substr($downloaded['body'], 0, 8) !== "\xD3\x82\xA1\x4F\xC7\x5E\x90\x6B"
+        || !str_contains(implode("\n", $downloaded['headers']), $builtPackageId . '.spkg')) {
+        throw new RuntimeException('Downloaded package is not a binary SPKG artifact.');
+    }
+
+    $restored = $request(
+        'api.php?action=decrypt',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['package_id' => $builtPackageId, 'password' => $packagePassword, 'pattern' => $packagePattern], JSON_THROW_ON_ERROR)
+    );
+    $expect(200, $restored, 'Restore SPKG with primary credentials');
+    $restoredData = json_decode($restored['body'], true, 32, JSON_THROW_ON_ERROR);
+    $restorePath = (string) ($restoredData['restore_download'] ?? '');
+    if (!str_starts_with($restorePath, 'download-restored.php?token=')) {
+        throw new RuntimeException('SPKG restore response did not provide a restore download.');
+    }
+    $restoredZipResponse = $request($restorePath);
+    $expect(200, $restoredZipResponse, 'Download restored SPKG contents');
+    $restoredZipPath = $base . DIRECTORY_SEPARATOR . 'restored.zip';
+    if (file_put_contents($restoredZipPath, $restoredZipResponse['body']) !== strlen($restoredZipResponse['body'])) {
+        throw new RuntimeException('Unable to save restored SPKG ZIP fixture.');
+    }
+    $restoredZip = new ZipArchive();
+    if ($restoredZip->open($restoredZipPath) !== true) throw new RuntimeException('Restored SPKG output is not a ZIP archive.');
+    $hello = $restoredZip->getFromName('hello.txt');
+    $nested = $restoredZip->getFromName('nested/readme.txt');
+    $restoredZip->close();
+    if ($hello !== "SPKG API integration fixture\n" || $nested !== "Nested SPKG fixture\n") {
+        throw new RuntimeException('SPKG API round-trip changed the source files.');
+    }
+
+    $recoveryRestored = $request(
+        'api.php?action=decrypt',
+        'POST',
+        array_merge($common, ['X-CSRF-Token: ' . $csrf]),
+        json_encode(['package_id' => $builtPackageId, 'password' => '', 'pattern' => '', 'recovery_key' => $recoveryKey], JSON_THROW_ON_ERROR)
+    );
+    $expect(200, $recoveryRestored, 'Restore SPKG with recovery key');
+    $recoveryData = json_decode($recoveryRestored['body'], true, 32, JSON_THROW_ON_ERROR);
+    $recoveryPath = (string) ($recoveryData['restore_download'] ?? '');
+    if (!str_starts_with($recoveryPath, 'download-restored.php?token=')) {
+        throw new RuntimeException('SPKG recovery restore did not provide a restore download.');
+    }
+    $recoveryZipResponse = $request($recoveryPath);
+    $expect(200, $recoveryZipResponse, 'Download recovery-key restore');
+    $recoveryZipPath = $base . DIRECTORY_SEPARATOR . 'recovery-restored.zip';
+    if (file_put_contents($recoveryZipPath, $recoveryZipResponse['body']) !== strlen($recoveryZipResponse['body'])) {
+        throw new RuntimeException('Unable to save recovery-key restore fixture.');
+    }
+    $recoveryZip = new ZipArchive();
+    if ($recoveryZip->open($recoveryZipPath) !== true) throw new RuntimeException('Recovery-key output is not a ZIP archive.');
+    $recoveryHello = $recoveryZip->getFromName('hello.txt');
+    $recoveryNested = $recoveryZip->getFromName('nested/readme.txt');
+    $recoveryZip->close();
+    if ($recoveryHello !== "SPKG API integration fixture\n" || $recoveryNested !== "Nested SPKG fixture\n") {
+        throw new RuntimeException('SPKG recovery-key round-trip changed the source files.');
     }
 
     $accountFile = $fixture . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'accounts' . DIRECTORY_SEPARATOR . 'users.json';

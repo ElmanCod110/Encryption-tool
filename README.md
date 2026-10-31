@@ -2,62 +2,65 @@
 
 **Author:** ElmanCod110
 
-Secure Package is an open-source encrypted project package engine built around explicit cryptographic boundaries, authenticated metadata, fail-closed parsing, bounded resource consumption, and safe restore semantics.
+Secure Package is an open-source encrypted project-package engine focused on authenticated binary records, bounded parsing, safe restore, explicit deployment trust boundaries, and recovery.
 
-## V14 server package engine
+## Unified SPKG package format
 
-The active server package format is `SECURE-PKG-V14` (`.spkg14`). Its cryptographic format identifier is independent of the application release version. The server format uses:
+The planned 1.0.0 release line uses one stable binary format: `.spkg`. The hosted web application, local XAMPP deployment, and standalone PHP CLI use the same format, extension, writer/reader, and cryptographic profile. There is no separate local format or parser.
 
-- Argon2id13 for password and pattern credential derivation through libsodium
-- A random 256-bit package root key, wrapped independently from credentials
-- XChaCha20-Poly1305 for authenticated metadata and key slots
-- `secretstream_xchacha20poly1305` for authenticated file streaming
-- HKDF-SHA-256 for explicit key separation
-- Header binding authenticated into package operations
-- Encrypted filenames and authenticated directory relationships
-- SHA-256 ciphertext verification for every package blob
-- Merkle-root verification over the complete file inventory before restore
-- Fail-closed archive/package/path validation
-- No-overwrite restore with preflight conflict detection
-- Independent optional recovery-key slot
-- Atomic temporary-file writes and secret zeroization where applicable
+SPKG uses:
 
-The server format is designed so that the password and pattern do not directly serve as the long-lived file-encryption key. They derive a wrapping key which unlocks the random package root key; subkeys are then derived for manifests, filenames, and file streams.
+- Argon2id13 through PHP Sodium for password/pattern credential derivation.
+- A random 256-bit package root key, independently wrapped by primary credentials and optionally by a recovery key.
+- XChaCha20-Poly1305 for authenticated key wrapping.
+- `secretstream_xchacha20poly1305` for authenticated file streaming.
+- HKDF-SHA-256 for key separation.
+- An authenticated fixed binary header and encrypted manifest.
+- Strict record lengths, ordering, file-size limits, manifest graph/path validation, and trailing-byte rejection.
+- Private staging and no-overwrite restore behavior.
 
-## Browser compatibility boundary
+The password and pattern derive wrapping material; they are not used directly as the long-lived file-encryption key.
 
-The browser-first vault remains `SECURE-BROWSER-V13` (`.spk13`). It is intentionally kept as a separate compatibility boundary rather than silently reinterpreted as the server format.
+## Deployment and privacy boundary
 
-The browser implementation uses the standards-based Web Crypto API and PBKDF2-HMAC-SHA-256. The server package engine uses Argon2id through libsodium. These are separate designs with separate threat assumptions.
+- **Hosted deployment:** package creation and restoration are server-side operations. The server processes source plaintext and the supplied credentials while the request is running. This is not server-blind or end-to-end client encryption.
+- **Local XAMPP deployment:** processing stays on the local machine when Apache/PHP, browser, and storage are all local.
 
-## Repository layout
+Do not advertise hosted mode as zero-knowledge or client-side encryption.
 
-The repository root contains the active application source and security tooling. Superseded source bundles are intentionally excluded from the working tree; historical release and change explanations remain in Markdown documentation.
+## Legacy compatibility policy
+
+Release `0.14.1` is the last release intended to open the previous server V14 (`.spkg14`) and browser V13 (`.spk13`) formats. The planned 1.0.0 application does not open, decrypt, convert, or automatically migrate them. Before upgrading, use 0.14.1 to restore/export any legacy data you need, create a new SPKG package, and verify that it opens.
+
+See [format compatibility](docs/FORMAT-COMPATIBILITY.md) and [migration notes](docs/MIGRATION.md).
 
 ## Runtime requirements
 
-- PHP 8.2+
-- Sodium extension
-- Zip extension for ZIP package workflows
-- PDO MySQL is optional for installations that enable MySQL-backed integration
-- Modern browser for the separate V13 browser vault
+- PHP 8.2 or later, 64-bit runtime.
+- PHP Sodium extension.
+- PHP Zip extension for ZIP upload and restore workflows.
+- A modern browser.
+- PDO MySQL is optional unless a deployment enables MySQL-backed integration.
 
 ## Local run
 
-Point Apache/XAMPP at the `public/` directory and open the application entry point.
+Point Apache/XAMPP at the `public/` directory and open the application entry point. For a local-only setup, keep the runtime and storage on the local machine.
 
-The server package engine is exposed through the main application UI and CLI helpers:
+The standalone CLI tools use hidden interactive credential prompts and refuse to overwrite existing package or restore destinations. See the standalone local CLI section below for exact commands.
 
-```text
-php bin/encrypt-directory.php <source-dir> <package-dir> <password> <pattern>
-php bin/decrypt-package.php <package-dir> <destination-dir> <password> <pattern>
-```
+## Standalone local CLI
 
-A generated package may also expose a one-time recovery key. Keep that key outside the package and outside logs.
+A web server is not required to create or restore a package locally:
+
+- Create: `php bin/create-package.php <source-directory> <destination.spkg>`
+- Restore: `php bin/decrypt-package.php <package.spkg> <output-directory>`
+- Restore with the independent recovery key: append `--recovery`.
+
+The CLI prompts for credentials without terminal echo. For automation, use the `SPK_PASSWORD` and `SPK_PATTERN` process environment variables, or `SPK_RECOVERY_KEY` in recovery mode. Do not pass secrets as command-line arguments. These tools use the same SPKG bytes and cryptographic implementation as the hosted and localhost paths.
 
 ## Production security baseline
 
-Set:
+Set deployment-appropriate values:
 
 ```text
 SPK_REQUIRE_HTTPS=1
@@ -73,40 +76,28 @@ Keep `storage/`, configuration, environment secrets, and release signing keys ou
 php bin/self-check.php
 php bin/source-audit.php
 php bin/security-test.php --full
-find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+find public/assets -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+node tests/LegacyBrowserRetirementTest.mjs
 composer validate --strict --no-check-publish
 composer audit --no-interaction
 ```
 
-After a real root `composer.lock` has been generated with Composer and committed, install the locked dependency graph with `composer install --no-interaction --prefer-dist --no-progress`. Do not treat `composer install` without a lockfile as a reproducible dependency install; the release workflow intentionally fails while the lockfile is missing.
-
-Before a release, work through the [reproducible release QA matrix](docs/RELEASE-QA.md). It separates CI evidence from manual Windows/XAMPP and real-browser checks; manual scenarios must remain NOT RUN until tested.
+A real root `composer.lock` is required for reproducible dependency installation and the release gate intentionally blocks release while it is missing. Follow the [release QA matrix](docs/RELEASE-QA.md); manual Windows/XAMPP, shared-hosting, and browser checks must remain NOT RUN until actually performed.
 
 ## Security philosophy
 
-The application treats cryptography, parsing, filesystem handling, authentication, resource limits, and supply-chain integrity as one security boundary. A stronger cipher alone does not make the system secure; every step between untrusted input and plaintext restore must fail closed.
+Cryptography, parsing, filesystem handling, authentication, resource limits, and supply-chain integrity are one security boundary. Automated tests are not an independent cryptographic audit or proof of production readiness.
 
-
-## Project policy and further documentation
+## Documentation
 
 - [Versioning policy](VERSIONING.md)
-- [Security reporting](SECURITY.md)
-- [Contribution guide](CONTRIBUTING.md)
-- [Support](SUPPORT.md)
-- [Deployment guide](docs/DEPLOYMENT.md)
 - [Format specification](docs/FORMAT.md)
+- [Binary layout](docs/STABLE-PACKAGE-FORMAT-BINARY.md)
+- [Format compatibility](docs/FORMAT-COMPATIBILITY.md)
 - [Threat model](docs/THREAT-MODEL.md)
 - [Migration notes](docs/MIGRATION.md)
+- [Deployment guide](docs/DEPLOYMENT.md)
+- [Release QA](docs/RELEASE-QA.md)
 - [Release procedure](docs/RELEASE-PROCEDURE.md)
-- [Release notes](docs/RELEASE-NOTES.md)
-- [Reproducible release QA matrix](docs/RELEASE-QA.md)
-- [Validation record](docs/VALIDATION.md)
-- [Changelog](CHANGELOG.md)
-
----
-
-## Like this project?
-
-If Secure Package is useful to you, consider giving it a **star** on GitHub. ⭐ Your support helps more developers discover the project and encourages continued work on secure, reliable encryption tools.
-
-**Found it interesting? [Star the repository](https://github.com/ElmanCod110/Encryption-tool)** — it only takes a second, and it means a lot.
+- [Security reporting](SECURITY.md)
+- [Contribution guide](CONTRIBUTING.md)

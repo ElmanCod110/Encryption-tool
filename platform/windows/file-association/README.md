@@ -1,6 +1,6 @@
-# Windows SPK13 file icon
+# Windows SPKG file icon
 
-This optional integration registers the Encryption-tool icon for \`.spk13\` files in Windows Explorer. It does not modify encrypted files, package headers, cryptographic code, or the default application used to open files.
+This optional integration registers the Encryption-tool icon for \`.spkg\` files in Windows Explorer. It does not modify encrypted files, package headers, cryptographic code, or the default application used to open files.
 
 ## Required asset
 
@@ -10,7 +10,7 @@ Place the project's Windows icon at:
 logo/files.ico
 \`\`\`
 
-The registration script resolves this path from the repository root. It intentionally fails with a clear message if the ICO file is missing.
+The registration script resolves this path from the repository root. It intentionally fails with a clear message if the ICO file is missing. A PNG renamed to `.ico` is not a valid Windows icon container.
 
 ## Register the icon
 
@@ -34,7 +34,7 @@ The uninstaller restores the previous icon value when one was recorded. If anoth
 
 ## Important behavior
 
-- Only the \`.spk13\` file icon is configured.
+- Only the \`.spkg\` file icon is configured.
 - No file-open command or default application is registered.
 - No encrypted file contents are changed.
 - The icon path is stored as an absolute path. Keep the repository at that location while the registration is active; otherwise unregister the icon and register it again from the new location.

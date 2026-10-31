@@ -1,65 +1,22 @@
-# SECURE-PKG-V14 Format
+# Package Format
 
-## Overview
+The active package format for the planned 1.0.0 release line is the stable binary `.spkg` format.
 
-V14 is a directory-backed encrypted package format designed to be transported as a `.spkg14` ZIP archive.
+- Normative byte-level grammar: [STABLE-PACKAGE-FORMAT-BINARY.md](STABLE-PACKAGE-FORMAT-BINARY.md)
+- Cryptographic contract and implementation constraints: [STABLE-PACKAGE-FORMAT.md](STABLE-PACKAGE-FORMAT.md)
+- Compatibility and upgrade policy: [FORMAT-COMPATIBILITY.md](FORMAT-COMPATIBILITY.md)
+- Deployment trust boundary: [THREAT-MODEL.md](THREAT-MODEL.md)
 
-Package root:
+The historical V14 format is not another encoding of SPKG. The planned 1.0.0 application does not parse, decrypt, create, or serve legacy V14 or Browser V13 packages. Release 0.14.1 is the last release intended to open those formats. See [MIGRATION.md](MIGRATION.md) before upgrading.
 
-```text
-header.json
-manifest.enc
-complete.json
-blobs/
-  <48-hex>.bin
-```
+Never retry a different parser after an SPKG authentication, credential, or integrity failure.
 
-## Header
+## Standalone local CLI
 
-`header.json` contains:
+SPKG can also be created and restored without starting a web server:
 
-- format/version/schema
-- random package identifier
-- creation timestamp
-- 32-byte salt
-- explicit cryptographic profile
-- SHA-256 header binding
-- primary credential key slot
-- optional recovery key slot
+- Create: `php bin/create-package.php <source-directory> <destination.spkg>`
+- Restore: `php bin/decrypt-package.php <package.spkg> <output-directory>`
+- Restore with the independent recovery key: append `--recovery` to the restore command.
 
-The binding is computed over the canonical header core and is included as associated data for wrapped keys and authenticated package records.
-
-## Credential wrapping
-
-The password and pattern each use Argon2id13 with a distinct purpose-derived salt. Their derived 256-bit values are combined through HKDF-SHA-256 into the credential wrapping key.
-
-The wrapping key opens the primary slot, which contains the random package root key.
-
-A recovery slot can independently wrap the same package root key using a random 256-bit recovery key.
-
-## Subkeys
-
-HKDF derives separate subkeys for:
-
-- manifest encryption
-- encrypted filenames
-- the file-key root
-- individual file keys
-
-This prevents unrelated uses from sharing the same raw encryption key.
-
-## Manifest
-
-The authenticated plaintext manifest records a parent/child path graph. Filenames are encrypted. File nodes record the file identifier, blob name, plaintext size, ciphertext SHA-256 hash, and the package Merkle root.
-
-## File stream
-
-Each file is encrypted through libsodium secretstream. The package stores a small stream magic/header followed by length-delimited authenticated ciphertext records. Associated data binds each chunk to the package, header binding, file identifier, chunk index, and expected file size.
-
-## Restore ordering
-
-The reader performs all package, manifest, blob, hash, Merkle, and path preflight checks before writing. Directories are created in depth order, followed by file restoration into temporary files. Existing destination directories and existing child paths are rejected.
-
-## Limits
-
-The V14 descriptor defines maximum header size, manifest size, node count, file size, package plaintext size, blob count, and path depth. The outer `.spkg14` ZIP transport allows the V14 plaintext ceiling plus bounded authentication/format overhead. These are parser and resource-safety boundaries, not encryption parameters.
+Interactive credentials are entered without terminal echo. For automation, set `SPK_PASSWORD` and `SPK_PATTERN` in the process environment, or `SPK_RECOVERY_KEY` for recovery mode. Never pass secrets as command-line arguments. These tools use the same SPKG bytes and cryptographic implementation as the hosted and localhost paths.

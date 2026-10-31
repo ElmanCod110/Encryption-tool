@@ -2,34 +2,34 @@
 
 ## One source of truth
 
-The root `VERSION` file is the sole source of truth for the application release version. It must contain exactly one semantic version in `MAJOR.MINOR.PATCH` form. The PHP bootstrap validates this value; application UI and status output must consume the derived configuration/constants rather than hard-coding a release number in templates or scripts.
+The root `VERSION` file is the sole source of truth for the application release version. It must contain exactly one semantic version in `MAJOR.MINOR.PATCH` form. The PHP bootstrap validates this value; application UI and status output must consume the derived configuration/constants rather than hard-coding a release number.
 
-For an existing published release, `VERSION` must match the release tag without its leading `v` (for example, tag `v0.14.1` corresponds to `VERSION` value `0.14.1`). Change the version only as part of a deliberate release commit; do not change it merely to make a build look newer. Keep the changelog and release notes consistent with verified changes.
+For an existing published release, `VERSION` must match its tag without the leading `v` (for example, `v0.14.1` corresponds to `0.14.1`). Change the version only as part of a deliberate release commit. Do not change it merely to make a build look newer, and do not create the maintainer's v1.0.0 tag automatically.
 
-## Application version versus package-format version
+## Application release versus package format
 
-These identifiers are intentionally different:
+These identifiers are distinct:
 
-- **Application release version:** the semantic version in `VERSION`.
-- **Server package format:** the current legacy server format, `SECURE-PKG-V14` / `.spkg14`.
-- **Browser compatibility format:** the separate legacy browser format, `SECURE-BROWSER-V13` / `.spk13`.
-- **Git tags:** immutable repository references created by the maintainer for a release; changing `VERSION` does not create a tag.
+- **Application release:** semantic version in `VERSION`.
+- **Active package format for the planned 1.0.0 line:** stable binary `SPKG`, recommended extension `.spkg`.
+- **Retired compatibility formats:** server V14 (`.spkg14`) and browser V13 (`.spk13`), last supported by release `0.14.1`.
+- **Git tags:** immutable references created by the maintainer; changing `VERSION` does not create a tag.
 
-The planned stable package format for v1.0.0 is a separate release-blocking design. Its serialized data must not contain an application release version, a V14-style generation label, or a schema-version field. Do not claim this contract is implemented until the stable writer/reader and the full compatibility and adversarial test matrix pass. Keep legacy readers isolated and tested.
+The SPKG byte grammar intentionally contains no application version, generation label, or schema-version field. The `.spkg` extension is a filename convention, not a parser selector. Hosted and local XAMPP deployments use the same grammar and PHP writer/reader.
 
-Package-format identifiers, magic values, extensions, fixtures, and compatibility checks must not be renamed or silently upgraded as part of routine application versioning. A package-format change requires a separate design, migration plan, and compatibility tests.
+The 1.0.0 application does not open, decrypt, convert, or automatically migrate legacy V13/V14 packages. Users must export and re-encrypt any data they need before upgrading. Never retry a legacy parser after an SPKG credential, authentication, or integrity failure.
 
 ## Legacy development generations
 
-The old V1–V14 development labels are historical identifiers, not a sequence of official semantic releases. Keep historical change explanations in Markdown and do not rewrite old commits or create an MVP-completion tag during cleanup. The maintainer will create the v1.0.0 tag manually when ready.
+The old V1–V14 labels in repository history are not a sequence of official semantic releases. Preserve useful historical explanations in Markdown, do not rewrite old commits, and do not create an MVP-completion tag during cleanup. The maintainer will create the v1.0.0 tag manually when ready.
 
-Superseded source snapshots and bundled copies should not remain in the active repository tree. Preserve relevant Markdown change reports and migration notes; do not retain obsolete source bundles solely for archival purposes.
+Superseded source snapshots and bundled copies should not remain in the active application tree. Historical compatibility code must not be reachable from active 1.0.0 routes.
 
 ## Semantic Versioning
 
-When the maintainer declares the first official release ready:
+When the maintainer declares a release ready:
 
-- **MAJOR:** incompatible application/API behavior or an intentionally incompatible package-format change.
+- **MAJOR:** incompatible application/API behavior or an intentionally incompatible package-format contract.
 - **MINOR:** backwards-compatible functionality.
 - **PATCH:** backwards-compatible bug fixes and security fixes that do not change the compatibility contract.
 
@@ -37,13 +37,13 @@ A version bump must never imply an independent security audit or certification t
 
 ## Release checklist
 
-1. Update `VERSION` to match the intended release tag (without the leading `v`).
+1. Update `VERSION` to match the intended release tag (without leading `v`) in a deliberate release commit.
 2. Update `CHANGELOG.md` and release notes with verified changes.
-3. Ensure `composer.lock` was generated by Composer in a supported development environment, if required by the deployment/dependency policy.
-4. Run CI, dependency audit, self-check, source audit, and full security tests.
-5. Verify stable-format package round-trips, recovery-key restoration, tamper rejection, and no-overwrite restore behavior.
-6. Verify legacy server and browser compatibility formats independently.
+3. Ensure `composer.lock` is generated by Composer and committed if required by the release policy.
+4. Run CI, dependency audit, self-check, source audit, and full active SPKG security tests.
+5. Verify SPKG round trips, recovery-key restore, tamper rejection, strict parser boundaries, and no-overwrite restore behavior.
+6. Verify that active API, download, CLI, and UI paths accept SPKG only and do not fall back to V13/V14.
 7. Build and verify the release artifact and checksum; verify its signature against an independently distributed trust root.
 8. Confirm no secrets, generated storage, temporary data, or obsolete source bundles are included.
-9. Complete the required Windows/XAMPP and real-browser QA, marking any unrun scenario as NOT RUN.
+9. Complete Windows/XAMPP, hosted deployment, and real-browser QA. Keep unrun scenarios marked NOT RUN.
 10. Publish only after required checks pass and limitations are stated accurately.

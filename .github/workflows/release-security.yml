@@ -1,4 +1,4 @@
-name: V14 Release Security Gate
+name: SPKG Release Security Gate
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
         uses: shivammathur/setup-php@2.37.2
         with:
           php-version: '8.3'
-          extensions: sodium,zip,pdo_mysql
+          extensions: sodium,zip,pdo_mysql,mbstring,intl
           coverage: none
 
       - name: Validate Composer manifest
@@ -42,15 +42,28 @@ jobs:
 
       - name: PHP syntax
         run: find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify retired browser format is not shipped
+        run: node tests/LegacyBrowserRetirementTest.mjs
 
-      - name: JavaScript syntax
-        run: find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Self check
         run: php bin/self-check.php
 
       - name: Security suite
         run: php bin/security-test.php --full
+
+      - name: Stable binary package regression
+        run: php tests/StablePackageFormatTest.php
+
+      - name: Active SPKG routing boundary
+        run: php tests/ActiveSpkgRoutingTest.php
+
+      - name: Unicode fail-closed fallback without optional extensions
+        run: php -n tests/StablePackageUnicodeFallbackTest.php
 
       - name: Source audit
         run: php bin/source-audit.php

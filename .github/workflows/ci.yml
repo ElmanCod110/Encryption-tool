@@ -20,19 +20,24 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: sodium,zip,pdo_mysql
+          extensions: sodium,zip,pdo_mysql,mbstring,intl
           coverage: none
       - name: Syntax check
         run: find app bin public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: JavaScript syntax
-        run: find public/client -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+        run: find public/assets -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Self check
         run: php bin/self-check.php
       - name: Core tests
         shell: bash
         run: |
           set -e
-          for test in tests/*.php; do php "$test"; done
+          for test in tests/*.php; do
+            name="$(basename "$test")"
+            php "$test"
+          done
+      - name: Unicode fail-closed fallback without optional extensions
+        run: php -n tests/StablePackageUnicodeFallbackTest.php
 
 
   windows-file-icon:
@@ -44,7 +49,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: sodium,zip,pdo_mysql
+          extensions: sodium,zip,pdo_mysql,mbstring,intl
           coverage: none
       - name: Parse PowerShell scripts
         shell: pwsh
@@ -60,5 +65,12 @@ jobs:
               exit 1
             }
           }
-      - name: Validate SPK13 icon integration safeguards
+      - name: Validate SPKG icon integration safeguards
         run: php tests/WindowsSpk13IconIntegrationTest.php
+
+      - name: Verify retired browser format is not shipped
+        run: node tests/LegacyBrowserRetirementTest.mjs
+      - name: Stable binary package format regression
+        run: php tests/StablePackageFormatTest.php
+      - name: Unicode fail-closed fallback without optional extensions
+        run: php -n tests/StablePackageUnicodeFallbackTest.php

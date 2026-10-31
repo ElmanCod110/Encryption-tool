@@ -10,13 +10,13 @@ $docs = (string) file_get_contents($root . '/platform/windows/file-association/R
 $checks = [
     'The ICO asset path is rooted at logo/files.ico' =>
         str_contains($register, "'logo\\files.ico'") && str_contains($docs, 'logo/files.ico'),
-    'The association is per-user and scoped to SPK13' =>
-        str_contains($register, 'HKCU:\Software\Classes\SystemFileAssociations\.spk13\DefaultIcon')
+    'The association is per-user and scoped to SPKG' =>
+        str_contains($register, 'HKCU:\Software\Classes\SystemFileAssociations\.spkg\DefaultIcon')
         && !str_contains($register, 'HKLM:\\'),
     'The feature does not replace the default application association' =>
         str_contains($register, 'without taking over')
         && !str_contains($register, 'shell\open\command')
-        && !str_contains($register, "New-ItemProperty -LiteralPath 'HKCU:\Software\Classes\.spk13'"),
+        && !str_contains($register, "New-ItemProperty -LiteralPath 'HKCU:\Software\Classes\.spkg'"),
     'A pre-existing icon value is recorded before installation' =>
         str_contains($register, 'PreviousDefaultIcon')
         && str_contains($register, 'PreviousValueExists')
@@ -25,9 +25,13 @@ $checks = [
         str_contains($unregister, '$currentValue -eq $installedValue')
         && str_contains($unregister, 'SetValue')
         && str_contains($unregister, 'DeleteValue'),
+    'ICO container header is validated before registry changes' =>
+        str_contains($register, '[System.IO.File]::ReadAllBytes($iconPath)')
+        && str_contains($register, 'SPKG icon is not a valid ICO container')
+        && strpos($register, 'SPKG icon is not a valid ICO container') < strpos($register, 'New-Item -Path $stateKeyPath'),
     'Missing ICO asset fails clearly before registry changes' =>
         strpos($register, 'if (-not (Test-Path -LiteralPath $iconPath -PathType Leaf))') !== false
-        && strpos($register, "throw \"SPK13 icon is missing.") < strpos($register, 'New-Item -Path $iconKeyPath'),
+        && strpos($register, "throw \"SPKG icon is missing.") < strpos($register, 'New-Item -Path $iconKeyPath'),
     'Explorer receives the association-change notification' =>
         str_contains($refresh, 'SHChangeNotify')
         && str_contains($refresh, '0x08000000'),
@@ -35,8 +39,8 @@ $checks = [
 
 foreach ($checks as $description => $passed) {
     if (!$passed) {
-        throw new RuntimeException('Windows SPK13 icon integration test failed: ' . $description);
+        throw new RuntimeException('Windows SPKG icon integration test failed: ' . $description);
     }
 }
 
-echo "Windows SPK13 icon integration tests passed.\n";
+echo "Windows SPKG icon integration tests passed.\n";

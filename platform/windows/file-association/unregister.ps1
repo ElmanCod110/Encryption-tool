@@ -3,12 +3,12 @@ param()
 
 $ErrorActionPreference = 'Stop'
 
-$iconKeyPath = 'HKCU:\Software\Classes\SystemFileAssociations\.spk13\DefaultIcon'
-$stateKeyPath = 'HKCU:\Software\EncryptionTool\FileAssociations\SPK13'
-$registrySubKey = 'Software\Classes\SystemFileAssociations\.spk13\DefaultIcon'
+$iconKeyPath = 'HKCU:\Software\Classes\SystemFileAssociations\.spkg\DefaultIcon'
+$stateKeyPath = 'HKCU:\Software\EncryptionTool\FileAssociations\SPKG'
+$registrySubKey = 'Software\Classes\SystemFileAssociations\.spkg\DefaultIcon'
 
 if (-not (Test-Path -LiteralPath $stateKeyPath)) {
-    Write-Host 'No Encryption-tool SPK13 icon registration was found for the current user.'
+    Write-Host 'No Encryption-tool SPKG icon registration was found for the current user.'
     exit 0
 }
 
@@ -25,7 +25,7 @@ if ($targetExists) {
     if ($currentValueExists -and $currentValue -eq $installedValue) {
         $writableKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registrySubKey, $true)
         if ($null -eq $writableKey) {
-            throw 'Unable to open the SPK13 icon registry key for restoration.'
+            throw 'Unable to open the SPKG icon registry key for restoration.'
         }
 
         try {
@@ -44,7 +44,7 @@ if ($targetExists) {
         if ($null -ne $targetKey -and $targetKey.GetValueNames().Count -eq 0 -and $targetKey.SubKeyCount -eq 0) {
             Remove-Item -LiteralPath $iconKeyPath -Force
         }
-        $parentPath = 'HKCU:\Software\Classes\SystemFileAssociations\.spk13'
+        $parentPath = 'HKCU:\Software\Classes\SystemFileAssociations\.spkg'
         $parent = Get-Item -LiteralPath $parentPath -ErrorAction SilentlyContinue
         if ($null -ne $parent -and $parent.GetValueNames().Count -eq 0 -and $parent.SubKeyCount -eq 0) {
             Remove-Item -LiteralPath $parentPath -Force
@@ -54,4 +54,4 @@ if ($targetExists) {
 
 Remove-Item -LiteralPath $stateKeyPath -Recurse -Force
 & (Join-Path $PSScriptRoot 'refresh-icons.ps1')
-Write-Host 'Encryption-tool SPK13 icon registration has been removed.'
+Write-Host 'Encryption-tool SPKG icon registration has been removed.'
