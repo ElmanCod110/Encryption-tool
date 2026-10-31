@@ -2,6 +2,8 @@
 
 This checklist separates automated checks from manual deployment and browser checks. A checkbox is not evidence of a pass: record the run URL, environment, date, and outcome when the test is actually performed.
 
+This matrix is not a claim that the listed manual scenarios have passed. Manual scenarios remain NOT RUN until their results are supported by recorded evidence.
+
 ## Result vocabulary
 
 - **PASS** — the documented procedure ran and the expected result was observed.
